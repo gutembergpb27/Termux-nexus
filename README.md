@@ -36,3 +36,24 @@ Para validar o mecanismo de recuperação automática pós-crash e ver o contado
 * **Aba 1 (Dashboard Principal):** Inicializa o monitoramento e a telemetria do ecossistema.
   ```bash
   python3 dashboard.py
+
+
+### 🖥️ Exemplo de Saída no Terminal (Engine de Caos em Ação)
+
+Quando você executa o script `chaos_test.py` em uma aba paralela, a saída do terminal demonstra o monitoramento ativo e a injeção do sinal de desligamento forçado:
+
+```text
+============================================================
+🌋 INICIANDO ENGINE DE ENGENHARIA DO CAOS - NEXUS V500 🌋
+============================================================
+[INFO] Monitorando integridade da infraestrutura na borda...
+
+[💥 CAOS INJETADO] Disparando SIGKILL (kill -9) no PID: 12453
+[SUCESSO] Processo derrubado abruptamente de forma forçada.
+[AGUARDANDO] Testando resiliência do SQLite WAL e validação de hashes...
+[INFO] Sistema reinicializado. Verifique o contador 'Events Recovered' no dashboard!
+
+[💥 CAOS INJETADO] Disparando SIGKILL (kill -9) no PID: 12510
+[SUCESSO] Processo derrubado abruptamente de forma forçada.
+[AGUARDANDO] Testando resiliência do SQLite WAL e validação de hashes...
+[INFO] Sistema reinicializado. Verifique o contador 'Events Recovered' no dashboard!
