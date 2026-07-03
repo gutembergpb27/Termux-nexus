@@ -1,6 +1,9 @@
 # Nexus Runtime v500
 
-![Nexus Runtime V500 Dashboard](assets/nexus_mockup.png)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/gutembergpb27/Termux-nexus/main/assets/nexus_mockup.png" alt="Nexus Runtime v500" width="100%">
+</p>
+
 
 Infraestrutura soberana para Edge AI.
 
@@ -8,8 +11,8 @@ Infraestrutura soberana para Edge AI.
 
 Execute o comando abaixo diretamente no terminal do seu ambiente embarcado ou Termux (Android) para clonar, estruturar as dependências e inicializar a suíte de observabilidade automaticamente:
 
-```bash
 git clone [https://github.com/gutembergpb27/Termux-nexus.git](https://github.com/gutembergpb27/Termux-nexus.git) && cd Termux-nexus && python3 -m pip install -r requirements.txt && python3 dashboard.py
+
 
 🏗️ Arquitetura do Sistema e Fluxo de Dados
 ​O ecossistema do Nexus Runtime v500 opera em um pipeline isolado na borda (Edge), garantindo persistência atômica mesmo sob falhas críticas simuladas (Engine de Caos):
