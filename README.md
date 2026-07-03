@@ -1,8 +1,9 @@
 # Nexus Runtime v500
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/gutembergpb27/Termux-nexus/main/assets/dashboard.gif" alt="Nexus Runtime v500 Demo" width="100%">
+  <img src="assets/dashboard.gif" alt="Nexus Runtime v500 Demo" width="100%">
 </p>
+
 
 
 
