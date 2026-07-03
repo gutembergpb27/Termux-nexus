@@ -28,3 +28,11 @@ git clone [https://github.com/gutembergpb27/Termux-nexus-nexus.git](https://gith
             ▼
   [ Painel de Telemetria ] ──► Terminal Local (Termux / Android Edge)
                                (Exibição de métricas P95/P99 em tempo real)
+
+## 🌋 Testando a Resiliência (Engenharia do Caos)
+
+Para validar o mecanismo de recuperação automática pós-crash e ver o contador de resiliência subir no painel, execute os scripts em paralelo utilizando duas sessões/abas no seu terminal:
+
+* **Aba 1 (Dashboard Principal):** Inicializa o monitoramento e a telemetria do ecossistema.
+  ```bash
+  python3 dashboard.py
