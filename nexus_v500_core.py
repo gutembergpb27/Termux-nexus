@@ -6,6 +6,7 @@ from persistence import NexusPersistence
 from network_mesh import NexusMeshNode
 from heartbeat import HeartbeatMonitor
 from web_panel import start_web_server
+from rate_limiter import TokenBucketLimiter
 
 class NexusSupervisor:
     def __init__(self, target_function, worker_count=2, mesh_port=8080, web_port=9090, remote_nodes=None):
@@ -14,24 +15,33 @@ class NexusSupervisor:
         self.workers = {}
         self.remote_nodes = remote_nodes or []
         
-        # 1. Inicializa a Engine de Persistência Imutável v700
+        # 1. Engine de Persistência Imutável v700
         self.persistence = NexusPersistence()
         print("⚡ [Nexus Core] Motor de persistência SHA-256 acoplado.")
         self.recovered_state = self.persistence.recover_state()
         
-        # 2. Inicializa o Monitor Distribuído de Heartbeats v900
+        # 2. Monitor Distribuído de Heartbeats v900
         self.heartbeat = HeartbeatMonitor(timeout_threshold=3.0)
         self.heartbeat.start_validation_loop(on_missing_callback=self._handle_node_timeout)
         
-        # 3. Inicializa o Nó de Rede Mesh v800
+        # 3. Escudo Adaptativo de Carga v1100 (Token Bucket)
+        # Permite surtos de até 5 pacotes, regenerando 2 por segundo
+        self.limiter = TokenBucketLimiter(capacity=5, leak_rate=2.0)
+        
+        # 4. Nó de Rede Mesh v800
         self.mesh = NexusMeshNode(port=mesh_port)
         self.mesh.start_server(self._handle_mesh_message)
         
-        # 4. Inicializa o Servidor de Telemetria HTTP Web v1000
+        # 5. Servidor de Telemetria HTTP Web v1000
         start_web_server(self, port=web_port)
 
     def _handle_mesh_message(self, message, addr):
-        """Processa mensagens e sinalizações de vida (PING) vindas da rede."""
+        """Processa mensagens da rede aplicando Rate Limiting e Backpressure."""
+        # Avalia se a requisição passa pelo filtro de inundação
+        if not self.limiter.consume(tokens_requested=1):
+            print(f"⚠️ [Backpressure] Inundação detectada de {addr[0]}:{addr[1]}! Pacote descartado por segurança.")
+            return
+
         event = message.get("event")
         data = message.get("data", {})
         node_id = data.get("node_id", f"{addr[0]}:{addr[1]}")
@@ -70,7 +80,7 @@ class NexusSupervisor:
         print(f"🟩 [Spawn] Worker '{worker_id}' ativo e registrado (PID: {p.pid}).")
 
     def start(self):
-        print(f"🚀 [Core] Inicializando Árvore de Supervisão Ativa SRE Production...")
+        print(f"🚀 [Core] Inicializando Árvore de Supervisão Ativa com Escudo Antiflood...")
         for i in range(self.worker_count):
             worker_id = f"Worker-{i}"
             self._spawn_worker(worker_id)
