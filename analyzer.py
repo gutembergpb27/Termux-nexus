@@ -1,66 +1,54 @@
+import csv
 import os
-import hashlib
-import json
+import math
 
-def run_forensic_analysis():
-    print("\n" + "="*57)
-    print("      NEXUS RUNTIME - AUDITORIA MULTI-ARQUIVO (RESILIENTE)  ")
-    print("="*57)
+CSV_FILE = "benchmarks_edge.csv"
 
-    base_path = "outputs/nexus_store.db"
-    backup_path = f"{base_path}.1"
-    
-    arquivos_para_auditar = []
-    if os.path.exists(backup_path):
-        arquivos_para_auditar.append(backup_path)
-    if os.path.exists(base_path):
-        arquivos_para_auditar.append(base_path)
+def load_latencies():
+    latencies = []
+    if not os.path.exists(CSV_FILE):
+        print(f"❌ Erro: Arquivo '{CSV_FILE}' não encontrado. Execute 'collect_benchmarks.py' primeiro.")
+        return latencies
 
-    expected_prev_hash = None  # Inicializa sem exigir zeros fixos por arquivo
-    total_blocks = 0
-    global_integrity = True
-
-    for filepath in arquivos_para_auditar:
-        print(f"📁 Auditando fluxo físico: {os.path.basename(filepath)}...")
-        
-        with open(filepath, "r", encoding="utf-8") as f:
-            for idx, line in enumerate(f):
-                line = line.strip()
-                if not line:
-                    continue
+    with open(CSV_FILE, mode='r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            if row["event_type"] == "RECOVERY_EVENT":
                 try:
-                    block = json.loads(line)
-                    
-                    # Define o hash inicial baseado no primeiríssimo bloco do histórico completo
-                    if expected_prev_hash is None:
-                        expected_prev_hash = block["prev_hash"]
-                    
-                    # 1. Checagem de integridade do encadeamento
-                    if block["prev_hash"] != expected_prev_hash:
-                        print(f"   🚨 Quebra no arquivo {os.path.basename(filepath)} | Bloco interno #{idx}")
-                        global_integrity = False
-                    
-                    # 2. Recálculo do hash local
-                    block_string = f"{block['timestamp']}{block['payload']}{block['prev_hash']}".encode('utf-8')
-                    recalculated_hash = hashlib.sha256(block_string).hexdigest()
-                    
-                    if block["hash"] != recalculated_hash:
-                        print(f"   🚨 Corrupção de dados no arquivo {os.path.basename(filepath)} | Bloco interno #{idx}")
-                        global_integrity = False
-                        
-                    expected_prev_hash = block["hash"]
-                    total_blocks += 1
-                except Exception:
-                    global_integrity = False
+                    latencies.append(float(row["recovery_latency_ms"]))
+                except ValueError:
+                    continue
+    return latencies
 
-    print("-"*57)
-    print("                     NEXUS RUNTIME REPORT                  ")
-    print("-"*57)
-    print(f"Total de eventos recuperados (Soma): {total_blocks}")
-    print(f"Integridade fim-a-fim da cadeia    : {'✅ OK' if global_integrity and total_blocks > 0 else '❌ CORROMPIDA'}")
-    print(f"Status da rotação de logs          : {'📦 OPERACIONAL' if os.path.exists(backup_path) else 'ℹ️ LIMITE NÃO ATINGIDO'}")
-    print("="*57 + "\n")
+def calculate_statistics():
+    latencies = load_latencies()
+    if not latencies:
+        print("⚠️ Sem amostras de mitigação suficientes no CSV para calcular estatísticas.")
+        return
+
+    latencies.sort()
+    n = len(latencies)
+    
+    avg_latency = sum(latencies) / n
+    min_latency = latencies[0]
+    max_latency = latencies[-1]
+    
+    variance = sum((x - avg_latency) ** 2 for x in latencies) / n
+    std_dev = math.sqrt(variance)
+    
+    p95 = latencies[max(0, min(n - 1, int(math.ceil(n * 0.95)) - 1))]
+    p99 = latencies[max(0, min(n - 1, int(math.ceil(n * 0.99)) - 1))]
+
+    print("\n" + "="*50)
+    print("🔬 ANÁLISE ESTATÍSTICA DE RESILIÊNCIA - NEXUS v600")
+    print("="*50)
+    print(f"Amostras de Falhas Analisadas : {n}")
+    print(f"Latência Mínima de Resposta  : {min_latency:.2f} ms")
+    print(f"Latência Média (MFTR)         : {avg_latency:.2f} ms")
+    print(f"Desvio Padrão (Jitter)        : {std_dev:.2f} ms")
+    print(f"Latência de Cauda p95         : {p95:.2f} ms")
+    print(f"Latência de Cauda p99 (Worst) : {p99:.2f} ms")
+    print("="*50 + "\n")
 
 if __name__ == "__main__":
-    run_forensic_analysis()
-
+    calculate_statistics()
