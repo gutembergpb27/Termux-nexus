@@ -106,3 +106,13 @@ Para manter a transparência arquitetural, é importante delimitar o escopo oper
 * **Dependência Quarentenária:** A resiliência geral da persistência a longo prazo depende diretamente da integridade física e lógica do armazenamento persistente utilizado pelo dispositivo de borda.
 * **Variabilidade de Benchmarks:** As métricas de desempenho e resiliência apresentadas foram obtidas no ambiente específico de testes documentado neste repositório, estando sujeitas a variações conforme o hardware e a carga de trabalho aplicada.
 
+## 🗺️ Roadmap de Evolução Técnica
+
+O desenvolvimento do Nexus Runtime é incremental e focado em engenharia de confiabilidade empírica. Abaixo está o mapeamento dos marcos atingidos e os próximos objetivos de arquitetura:
+
+* **v400 (Concurrência Inicial):** Motor baseado em threads paralelas compartilhando o mesmo processo. (Descontinuado devido à vulnerabilidade ao GIL e acoplamento de falhas).
+* **v500 (Estado Atual - Isolamento & Resiliência):** Migração para arquitetura multi-processos (`multiprocessing`), persistência via SQLite WAL em memória volátil, instrumentação de métricas SRE em tempo real e suite nativa de injeção de caos (`multiprocess_test.py`).
+* **v600 (Próximo Patamar - Validação & Comunidade):**
+    * [ ] **Esteira de CI/CD (GitHub Actions):** Automatizar a execução da suíte de testes de caos e validação de build a cada commit/pull request.
+    * [ ] **Matriz de Benchmarks Expandida:** Publicação de relatórios comparativos de consumo de CPU/RAM em diferentes hardwares ARM (SBCs, Raspberry Pi, diferentes gerações de chipsets mobile).
+    * [ ] **Kit de Contribuição (`CONTRIBUTING.md`):** Estruturação de guias para que desenvolvedores independentes possam reportar métricas em seus próprios dispositivos de borda.
