@@ -1,41 +1,82 @@
 import os
+import sys
 import time
-import hashlib
+import multiprocessing
+from persistence import NexusPersistence
 
-class NexusRuntime:
-    def __init__(self):
-        self.db_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'db')
-        self.checklist_path = os.path.join(self.db_dir, 'checklist.txt')
-        self.estado_memoria = {}
-        self.total_eventos = 0
-        self.latencias = []
+class NexusSupervisor:
+    def __init__(self, target_function, worker_count=2):
+        self.target_function = target_function
+        self.worker_count = worker_count
+        self.workers = {}
         
-        if not os.path.exists(self.db_dir):
-            os.makedirs(self.db_dir)
+        # Inicializa a Engine de Persistência Imutável v700
+        self.persistence = NexusPersistence()
+        print("⚡ [Nexus Core] Motor de persistência SHA-256 acoplado.")
+        
+        # Recupera o estado lógico anterior se houver queda catastrófica
+        self.recovered_state = self.persistence.recover_state()
 
-    def processar_evento(self, evento_id, dados):
-        inicio = time.perf_counter()
+    def _spawn_worker(self, worker_id):
+        """Instancia um novo Worker isolado em memória e registra no WAL."""
+        p = multiprocessing.Process(
+            target=self.target_function, 
+            args=(worker_id,), 
+            name=worker_id
+        )
+        p.daemon = True
+        p.start()
         
-        # Simulação da Máquina de Estados e validação forense (Hash)
-        payload = f"{evento_id}-{dados}".encode('utf-8')
-        hash_verificacao = hashlib.sha256(payload).hexdigest()
+        self.workers[worker_id] = p
         
-        # Atualização transacional In-Memory
-        self.estado_memoria[evento_id] = {
-            "dados": dados,
-            "hash": hash_verificacao,
-            "timestamp": time.time()
+        # Ancoragem Atômica: Registra o nascimento do processo na cadeia imutável
+        payload_spawn = {
+            "event": "WORKER_SPAWN",
+            "data": {"worker_id": worker_id, "pid": p.pid}
         }
-        
-        # Escrita leve no checklist de integridade (Persistência tolerante a falhas)
-        with open(self.checklist_path, 'a') as f:
-            f.write(f"{evento_id}:{hash_verificacao}\n")
+        self.persistence.append_transaction(payload_spawn)
+        print(f"🟩 [Spawn] Worker '{worker_id}' inicializado com sucesso (PID: {p.pid}).")
+
+    def start(self):
+        print(f"🚀 [Core] Inicializando Árvore de Supervisão Ativa (Workers solicitados: {self.worker_count})...")
+        for i in range(self.worker_count):
+            worker_id = f"Worker-{i}"
+            self._spawn_worker(worker_id)
             
-        self.total_eventos += 1
-        fim = time.perf_counter()
-        
-        # Latência interna calculada em milissegundos (ms)
-        self.latencias.append((fim - inicio) * 1000)
+        self._monitor_loop()
+
+    def _monitor_loop(self):
+        """Loop de monitoramento não bloqueante de alta frequência."""
+        print("🔍 [Monitor] Supervisor ativo em segundo plano.")
+        try:
+            while True:
+                time.sleep(1.0) # Frequência de amostragem padrão do Nexus
+                for worker_id, process in list(self.workers.items()):
+                    # Verifica a integridade física do processo
+                    if not process.is_alive():
+                        print(f"🚨 [CRASH] Falha detectada no componente: {worker_id}")
+                        
+                        # Ancoragem Atômica: Registra a morte do processo no WAL antes da mitigação
+                        payload_crash = {
+                            "event": "WORKER_CRASH",
+                            "data": {"worker_id": worker_id, "timestamp": time.time()}
+                        }
+                        self.persistence.append_transaction(payload_crash)
+                        
+                        # Protocolo de Mitigação Imediata (One-For-One Recovery)
+                        print(f"🔄 [Mitigação] Restaurando ciclo de execução para '{worker_id}'...")
+                        self._spawn_worker(worker_id)
+                        
+        except KeyboardInterrupt:
+            print("\n🛑 [Core] Encerramento controlado ativado pelo operador SRE.")
+
+# Função Dummy apenas para garantir compatibilidade caso o arquivo seja executado diretamente
+def dummy_worker_task(name):
+    print(f"⚙️ [{name}] Rodando loop de telemetria local...")
+    while True:
+        time.sleep(5)
 
 if __name__ == "__main__":
-    print("Nexus Runtime iniciado nominalmente em background.")
+    supervisor = NexusSupervisor(target_function=dummy_worker_task, worker_count=2)
+    supervisor.start()
+
