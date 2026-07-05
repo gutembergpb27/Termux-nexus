@@ -15,3 +15,22 @@ A computação na borda descentralizou o processamento de dados, movendo pipelin
 A perda inesperada desses processos resulta em corrupção de memória volatizada, interrupção de fluxos de telemetria e degradação da confiabilidade de sistemas embarcados. As soluções tradicionais de mercado, como orquestradores de containers robustos (ex: Kubernetes/K3s), impõem um *overhead* proibitivo de CPU e RAM para hardwares restritos.
 
 O **Nexus Runtime** surge como uma alternativa minimalista e ultraveloz, implementando o padrão de supervisão baseada em atores (*Erlang-style supervision trees*) de forma nativa em Python, garantindo resiliência em tempo real com consumo desprezível de hardware.
+
+## 2. Arquitetura do Sistema e Modelo de Atores
+O Nexus Runtime rejeita o modelo tradicional de concorrência baseado em threads compartilhadas devido ao bloqueio global do interpretador (GIL - *Global Interpreter Lock*), que pode introduzir latências imprevisíveis em loops de monitoramento de alta frequência. Em vez disso, o framework adota uma arquitetura inspirada em sistemas Erlang, operando via isolamento estrito de memória através do módulo `multiprocessing`.
+
+O ecossistema é dividido em duas entidades principais:
+
+1. **Watcher Master (Supervisor):** Um processo de ciclo de vida persistente que atua como a raiz da árvore de decisão. Ele mantém um dicionário em memória associando identificadores lógicos de tarefas aos seus respectivos PIDs (*Process Identifiers*) ativos. O Supervisor opera em um loop de polling não bloqueante, avaliando a integridade dos nós filhos por meio de chamadas de sistema operacionais de baixo nível (`os.kill(pid, 0)`).
+2. **Workers (Atores de Execução):** Subprocessos independentes com espaço de endereçamento de memória isolado. Eles comunicam falhas de forma passiva ou são monitorados ativamente pelo Supervisor.
+
+Quando o Kernel do sistema operacional dispara um sinal de terminação forçada (`SIGKILL` ou `SIGSEGV`) contra um Worker, o espaço de memória daquele processo é desalocado. O Supervisor intercepta a ausência do processo no ciclo de polling subsequente, avalia a política de tolerância a falhas configurada (ex: *One-For-One*) e instancia imediatamente um novo Worker clone, atualizando a tabela de roteamento interno sem interromper os demais componentes da malha.
+
+
+
+## 3. Metodologia Experimental
+Para validar empiricamente a resiliência do Nexus Runtime sob estresse severo em hardware restrito, foi desenvolvido um injetor de falhas programático (`collect_benchmarks.py`). O protocolo experimental consiste em:
+
+1. Inicializar o ecossistema Nexus com workers ativos simulando pipelines de processamento contínuo na borda.
+2. Disparar injeções assíncronas de caos, enviando sinais estritos de terminação em intervalos randômicos.
+3. Capturar o delta de tempo ($\Delta t$) entre a interceptação da falha pelo Supervisor e o restabelecimento completo do ciclo de execução do Worker clone, registrando as latências de mitigação diretamente em um arquivo de telemetria estruturado (`benchmarks_edge.csv`).
