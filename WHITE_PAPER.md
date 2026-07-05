@@ -25,6 +25,15 @@ O ecossistema é dividido em duas entidades principais:
 2. **Workers (Atores de Execução):** Subprocessos independentes com espaço de endereçamento de memória isolado. Eles comunicam falhas de forma passiva ou são monitorados ativamente pelo Supervisor.
 
 Quando o Kernel do sistema operacional dispara um sinal de terminação forçada (`SIGKILL` ou `SIGSEGV`) contra um Worker, o espaço de memória daquele processo é desalocado. O Supervisor intercepta a ausência do processo no ciclo de polling subsequente, avalia a política de tolerância a falhas configurada (ex: *One-For-One*) e instancia imediatamente um novo Worker clone, atualizando a tabela de roteamento interno sem interromper os demais componentes da malha.
+### 2.1. Persistência Imutável com Encadeamento Criptográfico (v700)
+Para mitigar a perda de estado decorrente de crashes totais do nó de execução (ex: interrupção de energia ou ação do *Low Memory Killer* do Kernel), o Nexus integra uma engine de *Write-Ahead Logging* (WAL) com provas de integridade baseadas em hashing SHA-256. 
+
+Cada transação de ciclo de vida (`WORKER_SPAWN`, `WORKER_CRASH`) gera um bloco serializado contendo o hash do bloco imediatamente anterior (`prev_hash`). A escrita é realizada em modo *append-only* e sincronizada fisicamente no armazenamento através da chamada de sistema `os.fsync()`. Em cenários de recuperação pós-catástrofe, o parser reconstrói a árvore de processos garantindo que modificações maliciosas ou corrupções no histórico invalidem a cadeia, fornecendo propriedades de auditoria forense ao runtime.
+
+### 2.2. Orquestração em Malha e Consenso Baseado em Presença (v800 / v900)
+A topologia evolui de um modelo monolítico para uma arquitetura de rede em malha (*Distributed Mesh*). Os nós comunicam-se de forma assíncrona utilizando sockets TCP/IP e threads dedicadas não bloqueantes. 
+
+Para contornar falsos positivos induzidos por oscilações na camada de transporte (flutuações de Wi-Fi ou perda de pacotes), o Nexus implementa um protocolo adaptativo de *Heartbeats*. Os nós secundários transmitem sinais periódicos de presença (`HEARTBEAT_PING`). O nó supervisor avalia a vivacidade das entidades através de uma janela de timeout estrita de $3.0\text{ s}$. O failover ou a re-instanciação de componentes distribuídos só é disparada após a exaustão sequencial desta janela, garantindo consenso descentralizado sobre o estado de saúde da infraestrutura.
 
 
 
