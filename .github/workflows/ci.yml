@@ -1,0 +1,35 @@
+name: Nexus Runtime CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Run setup environment verification
+      run: |
+        chmod +x setup.sh
+        ./setup.sh
+
+    - name: Validate code formatting and syntax
+      run: |
+        python -m compileall .
+
+    - name: Execute sanity check on test modules
+      run: |
+        chmod +x multiprocess_test.py
+        # Roda um teste de sintaxe rápida no motor de testes para garantir integridade
+        python -c "import multiprocess_test; print('Módulos integrados com sucesso.')"
