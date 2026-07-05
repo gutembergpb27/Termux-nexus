@@ -5,8 +5,9 @@ import multiprocessing
 from persistence import NexusPersistence
 from network_mesh import NexusMeshNode
 from heartbeat import HeartbeatMonitor
-from web_panel import start_web_server
 from rate_limiter import TokenBucketLimiter
+from web_panel import start_web_server
+from cluster_state import ClusterRoleManager
 
 class NexusSupervisor:
     def __init__(self, target_function, worker_count=2, mesh_port=8080, web_port=9090, remote_nodes=None):
@@ -25,21 +26,22 @@ class NexusSupervisor:
         self.heartbeat.start_validation_loop(on_missing_callback=self._handle_node_timeout)
         
         # 3. Escudo Adaptativo de Carga v1100 (Token Bucket)
-        # Permite surtos de até 5 pacotes, regenerando 2 por segundo
         self.limiter = TokenBucketLimiter(capacity=5, leak_rate=2.0)
         
-        # 4. Nó de Rede Mesh v800
+        # 4. Gerenciador de Papéis do Cluster v1200 (Failover Ativo-Passivo)
+        self.cluster = ClusterRoleManager(node_name=f"Nó-Local:{mesh_port}")
+        
+        # 5. Nó de Rede Mesh v800
         self.mesh = NexusMeshNode(port=mesh_port)
         self.mesh.start_server(self._handle_mesh_message)
         
-        # 5. Servidor de Telemetria HTTP Web v1000
+        # 6. Servidor de Telemetria HTTP Web v1000
         start_web_server(self, port=web_port)
 
     def _handle_mesh_message(self, message, addr):
-        """Processa mensagens da rede aplicando Rate Limiting e Backpressure."""
-        # Avalia se a requisição passa pelo filtro de inundação
+        """Processa mensagens da rede aplicando Rate Limiting e Failover de Cluster."""
         if not self.limiter.consume(tokens_requested=1):
-            print(f"⚠️ [Backpressure] Inundação detectada de {addr[0]}:{addr[1]}! Pacote descartado por segurança.")
+            print(f"⚠️ [Backpressure] Inundação detectada de {addr[0]}:{addr[1]}! Pacote descartado.")
             return
 
         event = message.get("event")
@@ -47,6 +49,9 @@ class NexusSupervisor:
         node_id = data.get("node_id", f"{addr[0]}:{addr[1]}")
         
         if event == "HEARTBEAT_PING":
+            # Se receber o PING do mestre local ou remoto, atualiza o timestamp de presença do cluster
+            if node_id == "Local_Master":
+                self.cluster.update_leader_presence()
             self.heartbeat.register_ping(node_id)
         elif event == "REMOTE_CRASH_ALERT":
             print(f"\n🚨 [Mesh Inbound] Alerta Global: O componente remoto '{data.get('worker_id')}' falhou!")
@@ -80,7 +85,7 @@ class NexusSupervisor:
         print(f"🟩 [Spawn] Worker '{worker_id}' ativo e registrado (PID: {p.pid}).")
 
     def start(self):
-        print(f"🚀 [Core] Inicializando Árvore de Supervisão Ativa com Escudo Antiflood...")
+        print(f"🚀 [Core] Inicializando Árvore de Supervisão Ativa com Cluster SRE HA...")
         for i in range(self.worker_count):
             worker_id = f"Worker-{i}"
             self._spawn_worker(worker_id)
@@ -92,8 +97,14 @@ class NexusSupervisor:
         try:
             while True:
                 time.sleep(1.0)
+                
+                # Se for o nó principal, envia batimentos para manter os seguidores em modo FOLLOWER
                 self._broadcast_mesh_event({"event": "HEARTBEAT_PING", "data": {"node_id": "Local_Master"}})
                 
+                # Validação de Failover v1200: Se o Líder sumir da rede, assume a liderança!
+                if self.cluster.check_liveness(timeout=4.0):
+                    print("👑 [Failover] Nó promovido a LÍDER. Assumindo controle total da zona local.")
+
                 for worker_id, process in list(self.workers.items()):
                     if not process.is_alive():
                         print(f"🚨 [CRASH] Falha física local detectada em: {worker_id}")
