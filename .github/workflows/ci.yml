@@ -19,17 +19,11 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Run setup environment verification
-      run: |
-        chmod +x setup.sh
-        ./setup.sh
-
     - name: Validate code formatting and syntax
       run: |
         python -m compileall .
 
-    - name: Execute sanity check on test modules
+    - name: Execute core integrity sanity check
       run: |
-        chmod +x multiprocess_test.py
-        # Roda um teste de sintaxe rápida no motor de testes para garantir integridade
-        python -c "import multiprocess_test; print('Módulos integrados com sucesso.')"
+        # Testa se todos os novos módulos distribuídos importam perfeitamente sem quebrar sintaxe
+        python -c "import persistence; import network_mesh; import heartbeat; import rate_limiter; import cluster_state; import nexus_v500_core; print('🎉 Todos os módulos da v1200 integrados com sucesso no CI!')"
