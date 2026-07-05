@@ -76,3 +76,39 @@ class NexusPersistence:
         self.last_hash = current_hash
         return current_hash
 
+    def recover_state(self):
+        """Lê os blocos criptográficos e reconstrói o estado lógico do Nexus v700."""
+        state = {"active_workers": {}, "completed_jobs": [], "pending_jobs": []}
+        if not os.path.exists(self.filepath):
+            return state
+
+        print("🔄 Validando cadeia e reconstruindo árvore de estado...")
+        with open(self.filepath, "r", encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    block = json.loads(line.strip())
+                    payload = block.get("payload")
+                    
+                    # Ignora âncoras de rotação interna
+                    if payload == "ROTATION_ANCHOR":
+                        continue
+                        
+                    event = payload.get("event") if isinstance(payload, dict) else None
+                    data = payload.get("data") if isinstance(payload, dict) else None
+
+                    if event == "WORKER_SPAWN":
+                        state["active_workers"][data["worker_id"]] = data["pid"]
+                    elif event == "WORKER_CRASH":
+                        if data["worker_id"] in state["active_workers"]:
+                            del state["active_workers"][data["worker_id"]]
+                    elif event == "JOB_SUBMIT":
+                        state["pending_jobs"].append(data["job_id"])
+                    elif event == "JOB_COMMIT":
+                        if data["job_id"] in state["pending_jobs"]:
+                            state["pending_jobs"].remove(data["job_id"])
+                        state["completed_jobs"].append(data["job_id"])
+                except Exception as e:
+                    print(f"⚠️ Bloco ignorado na varredura: {e}")
+        return state
