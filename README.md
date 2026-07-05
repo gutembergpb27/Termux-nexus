@@ -4,6 +4,9 @@
   <img src="assets/dashboard.gif" alt="Nexus Runtime v500 Demo" width="100%">
 </p>
 
+## ❓ Por que este projeto existe?
+
+O Nexus Runtime nasceu para investigar técnicas de persistência resiliente, observabilidade e auto-recuperação em dispositivos Edge submetidos a interrupções abruptas. O objetivo é fornecer um ecossistema experimental para avaliar estratégias de isolamento de processos, auditoria de integridade e engenharia de caos em plataformas de hardware com recursos limitados (como o ecossistema Android via Termux e Single Board Computers).
 
 
 
@@ -113,6 +116,16 @@ O desenvolvimento do Nexus Runtime é incremental e focado em engenharia de conf
 * **v400 (Concurrência Inicial):** Motor baseado em threads paralelas compartilhando o mesmo processo. (Descontinuado devido à vulnerabilidade ao GIL e acoplamento de falhas).
 * **v500 (Estado Atual - Isolamento & Resiliência):** Migração para arquitetura multi-processos (`multiprocessing`), persistência via SQLite WAL em memória volátil, instrumentação de métricas SRE em tempo real e suite nativa de injeção de caos (`multiprocess_test.py`).
 * **v600 (Próximo Patamar - Validação & Comunidade):**
-    * [ ] **Esteira de CI/CD (GitHub Actions):** Automatizar a execução da suíte de testes de caos e validação de build a cada commit/pull request.
-    * [ ] **Matriz de Benchmarks Expandida:** Publicação de relatórios comparativos de consumo de CPU/RAM em diferentes hardwares ARM (SBCs, Raspberry Pi, diferentes gerações de chipsets mobile).
-    * [ ] **Kit de Contribuição (`CONTRIBUTING.md`):** Estruturação de guias para que desenvolvedores independentes possam reportar métricas em seus próprios dispositivos de borda.
+    * [ ] **Esteira de CI/CD (GitHub Actions):** Automação de testes de caos e validação de builds a cada commit.
+    * [ ] **Matriz de Benchmarks Expandida:** Relatórios de consumo CPU/RAM em múltiplos hardwares ARM.
+    * [ ] **Kit de Contribuição (`CONTRIBUTING.md`):** Padronização para reporte de métricas por terceiros.
+* **v700 (Observabilidade Distribuída):**
+    * [ ] Integração nativa com coletores e exportadores **OpenTelemetry**.
+    * [ ] Criação de endpoints de scraping para **Prometheus** e instrumentação de dashboards avançados no **Grafana**.
+* **v800 (Advanced Fault Injection Framework):**
+    * [ ] Ampliação do injetor de caos local para simulação de **OOM Killer** (Out Of Memory), **Falhas e Corrupções de Disco**, **CPU Throttling** e latência artificial de I/O em banco de dados.
+* **v900 (Edge Cluster Execution):**
+    * [ ] Sincronização, mesh e coordenação descentralizada local entre múltiplos nós embarcados (Android-to-Android / Android-to-RaspberryPi).
+* **v1000 (White Paper Científico):**
+    * [ ] Publicação de documento técnico-científico formal, consolidando arquitetura, metodologia experimental, benchmarks comparativos e ameaças à validade do ecossistema de borda.
+
