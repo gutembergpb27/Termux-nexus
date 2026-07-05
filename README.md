@@ -81,3 +81,19 @@ Diferente dos modelos tradicionais de infraestrutura que caem completamente dura
 $$A = \frac{T_{total} - T_{mitigacao}}{T_{total}} \times 100$$
 
 Como o tempo de mitigação e re-instanciação de um PID substituto pelo Watcher Master ocorre na escala de **~3ms a ~7ms**, a disponibilidade efetiva do ecossistema de borda mantém-se na casa dos **99.98%**, mesmo sob estresse severo de injeção de caos.
+
+
+## 🎯 Casos de Uso Alvo (Edge Boundaries)
+
+O Nexus Runtime v500 foi intencionalmente projetado para cenários onde a computação em nuvem convencional é inviável devido a restrições severas de latência, oscilação de rede ou limitação energética:
+* **Gateways IoT Industriais (IIoT):** Coleta de dados sensoriais em ambientes hostis com flutuação de energia.
+* **Sistemas Embarcados & Drones:** Telemetria de missão crítica onde a falha de uma thread de I/O não pode derrubar o sistema de navegação.
+* **Sovereign Edge Telemetry:** Coleta resiliente de dados locais antes do processamento ou descarregamento em barramentos de mensageria (Kafka/MQTT).
+
+## ⚖️ Matriz de Decisões de Engenharia & Trade-Offs
+
+| Arquitetura v400 (Threads Concorrentes) | Arquitetura v500 (Subprocessos Isolados) | Impacto Técnico do Trade-Off |
+| :--- | :--- | :--- |
+| **Baixo consumo de memória RAM** (Compartilhamento do mesmo processo). | **Maior overhead de RAM** (Múltiplas instâncias isoladas do interpretador Python). | Aceitamos o consumo marginal de memória para garantir que um crash em um worker não derrube a UI ou o pipeline de dados. |
+| **Menor latência IPC** (Troca de referências direta na memória). | **Custo de serialização** (Dados trafegam via pipes e filas estruturadas de multiprocessamento). | Mitigado pelo uso de buffers de alta velocidade alocados estritamente na memória volátil antes do commit em lote. |
+| **Vulnerabilidade ao GIL** (Global Interpreter Lock bloqueando execução paralela real). | **Paralelismo real a nível de Kernel** (Cada PID escala nativamente nos cores de CPU). | Performance bruta de amostragem de dados otimizada para processadores ARM de múltiplos núcleos. |
