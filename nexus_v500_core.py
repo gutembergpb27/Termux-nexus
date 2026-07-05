@@ -5,9 +5,10 @@ import multiprocessing
 from persistence import NexusPersistence
 from network_mesh import NexusMeshNode
 from heartbeat import HeartbeatMonitor
+from web_panel import start_web_server
 
 class NexusSupervisor:
-    def __init__(self, target_function, worker_count=2, mesh_port=8080, remote_nodes=None):
+    def __init__(self, target_function, worker_count=2, mesh_port=8080, web_port=9090, remote_nodes=None):
         self.target_function = target_function
         self.worker_count = worker_count
         self.workers = {}
@@ -25,6 +26,9 @@ class NexusSupervisor:
         # 3. Inicializa o Nó de Rede Mesh v800
         self.mesh = NexusMeshNode(port=mesh_port)
         self.mesh.start_server(self._handle_mesh_message)
+        
+        # 4. Inicializa o Servidor de Telemetria HTTP Web v1000
+        start_web_server(self, port=web_port)
 
     def _handle_mesh_message(self, message, addr):
         """Processa mensagens e sinalizações de vida (PING) vindas da rede."""
@@ -33,7 +37,6 @@ class NexusSupervisor:
         node_id = data.get("node_id", f"{addr[0]}:{addr[1]}")
         
         if event == "HEARTBEAT_PING":
-            # Registra a presença ativa do nó remoto
             self.heartbeat.register_ping(node_id)
         elif event == "REMOTE_CRASH_ALERT":
             print(f"\n🚨 [Mesh Inbound] Alerta Global: O componente remoto '{data.get('worker_id')}' falhou!")
@@ -41,12 +44,9 @@ class NexusSupervisor:
             print(f"\n🔗 [Mesh Inbound] Sincronizando novo bloco de transação recebido...")
 
     def _handle_node_timeout(self, entity_id):
-        """Callback acionado se um nó remoto parar de responder (Heartbeat Timeout)."""
         print(f"\n💀 [Consenso] Nó remoto {entity_id} foi declarado morto por ausência de batimentos cardíacos!")
-        # Aqui o Nexus pode iniciar o failover distribuído elegendo um novo nó líder
 
     def _broadcast_mesh_event(self, payload):
-        """Propaga dados para todos os membros ativos cadastrados na malha."""
         for host, port in self.remote_nodes:
             self.mesh.send_transaction(host, port, payload)
 
@@ -70,7 +70,7 @@ class NexusSupervisor:
         print(f"🟩 [Spawn] Worker '{worker_id}' ativo e registrado (PID: {p.pid}).")
 
     def start(self):
-        print(f"🚀 [Core] Inicializando Árvore de Supervisão Ativa Baseada em Consenso...")
+        print(f"🚀 [Core] Inicializando Árvore de Supervisão Ativa SRE Production...")
         for i in range(self.worker_count):
             worker_id = f"Worker-{i}"
             self._spawn_worker(worker_id)
@@ -82,7 +82,6 @@ class NexusSupervisor:
         try:
             while True:
                 time.sleep(1.0)
-                # Simula o envio periódico do próprio batimento cardíaco para a malha
                 self._broadcast_mesh_event({"event": "HEARTBEAT_PING", "data": {"node_id": "Local_Master"}})
                 
                 for worker_id, process in list(self.workers.items()):
@@ -111,6 +110,7 @@ if __name__ == "__main__":
         target_function=dummy_worker_task, 
         worker_count=2, 
         mesh_port=8080,
+        web_port=9090,
         remote_nodes=[]
     )
     supervisor.start()
