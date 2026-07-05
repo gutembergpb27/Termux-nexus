@@ -85,15 +85,24 @@ Como o tempo de mitigação e re-instanciação de um PID substituto pelo Watche
 
 ## 🎯 Casos de Uso Alvo (Edge Boundaries)
 
-O Nexus Runtime v500 foi intencionalmente projetado para cenários onde a computação em nuvem convencional é inviável devido a restrições severas de latência, oscilação de rede ou limitação energética:
-* **Gateways IoT Industriais (IIoT):** Coleta de dados sensoriais em ambientes hostis com flutuação de energia.
-* **Sistemas Embarcados & Drones:** Telemetria de missão crítica onde a falha de uma thread de I/O não pode derrubar o sistema de navegação.
-* **Sovereign Edge Telemetry:** Coleta resiliente de dados locais antes do processamento ou descarregamento em barramentos de mensageria (Kafka/MQTT).
+O Nexus Runtime v500 foi projetado para cenários onde a computação em nuvem convencional apresenta restrições de latência, oscilação de conectividade ou limitações de consumo energético:
+* **Gateways IoT Industriais (IIoT):** Coleta e agregação local de dados sensoriais em ambientes hostis.
+* **Sistemas Embarcados & Drones:** Telemetria resiliente projetada para isolar falhas de componentes de I/O, reduzindo o risco de propagação para os demais módulos da aplicação.
+* **Sovereign Edge Telemetry:** Subsistema local de monitoramento antes do processamento ou descarregamento em barramentos de mensageria de longa distância.
 
 ## ⚖️ Matriz de Decisões de Engenharia & Trade-Offs
 
 | Arquitetura v400 (Threads Concorrentes) | Arquitetura v500 (Subprocessos Isolados) | Impacto Técnico do Trade-Off |
 | :--- | :--- | :--- |
-| **Baixo consumo de memória RAM** (Compartilhamento do mesmo processo). | **Maior overhead de RAM** (Múltiplas instâncias isoladas do interpretador Python). | Aceitamos o consumo marginal de memória para garantir que um crash em um worker não derrube a UI ou o pipeline de dados. |
+| **Baixo consumo de memória RAM** (Compartilhamento do mesmo processo). | **Maior overhead de RAM** (Múltiplas instâncias isoladas do interpretador Python). | Aceitamos o consumo marginal de memória para garantir que um crash em um worker não comprometa a UI ou o pipeline principal de dados. |
 | **Menor latência IPC** (Troca de referências direta na memória). | **Custo de serialização** (Dados trafegam via pipes e filas estruturadas de multiprocessamento). | Mitigado pelo uso de buffers de alta velocidade alocados estritamente na memória volátil antes do commit em lote. |
-| **Vulnerabilidade ao GIL** (Global Interpreter Lock bloqueando execução paralela real). | **Paralelismo real a nível de Kernel** (Cada PID escala nativamente nos cores de CPU). | Performance bruta de amostragem de dados otimizada para processadores ARM de múltiplos núcleos. |
+| **Vulnerabilidade ao GIL** (Global Interpreter Lock bloqueando execução paralela real). | **Paralelismo real a nível de Kernel** (Cada PID escala nativamente nos cores de CPU). | A arquitetura elimina as limitações impostas pelo GIL durante o processamento paralelo, permitindo melhor aproveitamento de CPUs multicore. O ganho efetivo depende da carga de trabalho e do hardware utilizado. |
+| **Recuperação limitada após falha de processo.** | **Recuperação orientada por isolamento e reinicialização de subprocessos.** | Aumenta a disponibilidade geral do sistema ao custo de maior complexidade operacional de gerenciamento de PIDs. |
+
+## 📐 Limitações Conhecidas & Escopo
+
+Para manter a transparência arquitetural, é importante delimitar o escopo operacional do projeto:
+* **Escopo Local:** O Nexus Runtime v500 não substitui corretores de mensagens distribuídos de larga escala (como Apache Kafka, RabbitMQ ou NATS). Seu foco principal é a execução e orquestração local (Linux/Termux).
+* **Dependência Quarentenária:** A resiliência geral da persistência a longo prazo depende diretamente da integridade física e lógica do armazenamento persistente utilizado pelo dispositivo de borda.
+* **Variabilidade de Benchmarks:** As métricas de desempenho e resiliência apresentadas foram obtidas no ambiente específico de testes documentado neste repositório, estando sujeitas a variações conforme o hardware e a carga de trabalho aplicada.
+
