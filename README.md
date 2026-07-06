@@ -129,3 +129,13 @@ O desenvolvimento do Nexus Runtime é incremental e focado em engenharia de conf
 * **v1000 (White Paper Científico):**
     * [ ] Publicação de documento técnico-científico formal, consolidando arquitetura, metodologia experimental, benchmarks comparativos e ameaças à validade do ecossistema de borda.
 
+# Nexus Cluster Orchestrator (v1400)
+
+## 🌐 Escopo do Módulo
+O `cluster_orchestrator.py` é um motor de simulação projetado para instanciar, monitorar e encerrar redes mesh locais de múltiplos nós em background dentro de um único ambiente de execução (Single-Device Multiprocess Mesh).
+
+### 🎯 Propósito do Experimento
+* **Validação de Escopo:** Permitir o desenvolvimento e teste lógico do algoritmo de eleição de líder (`ClusterRoleManager`) e das regras de *Backpressure* simulando concorrência multiprocesso real via portas TCP distintas (`8080`, `8081`, `8082`).
+* **Isolamento de Variáveis:** O ecossistema roda em interface de loopback (`127.0.0.1`) para isolar erros de lógica interna de oscilações físicas de infraestrutura de rede externa.
+
+⚠️ *Nota de Limitação:* Este módulo atua estritamente como um ambiente de emulação e desenvolvimento local. A validação do Nexus Runtime em múltiplos hardwares físicos interdependentes e distribuídos geograficamente (ex: múltiplos nós Raspberry Pi conectados via WLAN) está mapeada como a próxima fase do roadmap de pesquisa do ecossistema.
