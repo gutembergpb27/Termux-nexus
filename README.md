@@ -45,3 +45,29 @@ O desenvolvimento e evolução do Nexus Runtime prioriza os seguintes pilares fu
 | **Documentação & White Paper** | ✅ | Especificação técnica homologada com assinatura digital ICP-Brasil via Gov.br. |
 | **Cluster Físico Distribuído** | 🔄 | *Futuro:* Validação e portabilidade para múltiplos hardwares dedicados (Raspberry Pi). |
 | **Consenso Distribuído Formal** | 🔄 | *Pesquisa:* Estudo de viabilidade de algoritmos de consenso leves para Edge Computing. |
+
+## 🗺️ Visão de Futuro, Maturidade & Arquitetura Evolutiva
+
+O **Nexus Runtime** deixou de ser apenas um runtime embarcado e local para se consolidar como uma **plataforma experimental de Edge AI distribuída**. A evolução incremental das nossas Milestones reflete uma trajetória de engenharia focada em resolver problemas reais de sistemas distribuídos sob restrições severas de hardware e conectividade:
+
+* **v500:** Isolamento de processos, Write-Ahead Logging (WAL), resiliência de persistência e observabilidade local.
+* **v1000–v1300:** Métricas assíncronas, limitação de taxa (Rate Limiting), automação de CI/CD e desacoplamento de componentes.
+* **v1400:** Malha Virtual (*Virtual Mesh*) com suporte a orquestração e topologias multi-nós.
+* **v1800:** Execução de benchmarks distribuídos com consenso entre nós e medição de throughput real.
+* **v1950:** Descoberta dinâmica de nós em topologia WAN híbrida via Rendezvous Hub e mitigação de NAT Loopback.
+* **v2000:** Camada de segurança criptográfica (HMAC-SHA256), passaportes efêmeros com TTL e mitigação de ataques de Replay.
+* **v2100:** Protocolo *Catch-Up* integrado à thread de polling assíncrono para sincronização e recuperação de nós defasados sem reinicialização física.
+
+### 📊 Avaliação do Ativo & Direcionamento de Mercado
+Sob a ótica de engenharia de software e arquitetura conceitual, o Nexus divide-se em duas frentes de valor estruturadas:
+1.  **Valor do Ativo Tecnológico (IP, Código e Documentação):** Estimado conceitualmente entre **US$ 500 mil e US$ 2 milhões**, fundamentado na densidade dos padrões de projeto adotados (SRE, Criptografia WAN, CFT e persistência concorrente leve estável em ~24.47 MB de RAM).
+2.  **Valuation de Ecossistema (Startup Pré-Receita):** Potencial de **US$ 2 milhões a US$ 10 milhões**, condicionado a uma estratégia de comercialização consistente e validação de tração de mercado.
+
+### ⚠️ Estado Atual do Projeto e Escopo Coletivo
+O cluster distribuído implementado no Nexus é uma **infraestrutura experimental de alta fidelidade**, destinada à validação de arquitetura e engenharia de confiabilidade de software (SRE). Ele não substitui soluções comerciais maduras e consolidadas de orquestração ou consenso distribuído em ambientes de produção industrial, mas atua como uma base científica maleável para experimentação, injeção de falhas (Chaos Engineering) e benchmarking reproduzível.
+
+### 🚀 Próximos Passos de Validação (Hardware Real)
+Para mover o ecossistema rumo ao topo da sua maturidade técnica e romper as barreiras da simulação em software, as metas imediatas do roadmap envolvem:
+* **Deploy em Hardware de Borda Real:** Migração e validação dos nós em arquiteturas ARM físicas (Raspberry Pi, Orange Pi ou similares).
+* **Benchmarks Independentes:** Publicação de logs e relatórios reproduzíveis por terceiros sob cenários de queda real de conexões físicas.
+* **Pilotos de Conectividade:** Demonstração prática de isolamento de nós em redes fisicamente distintas sob internet pública.
