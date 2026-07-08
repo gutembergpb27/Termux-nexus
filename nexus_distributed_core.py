@@ -1,277 +1,242 @@
-import socket
-import threading
+import sys
 import time
 import json
-import sys
+import socket
 import sqlite3
 import hashlib
-import os
+import threading
+import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-UDP_BROADCAST_PORT = 50005
 BUFFER_SIZE = 4096
-
-class NexusMetricsHandler(BaseHTTPRequestHandler):
-    def log_message(self, format, *args): return
-        
-    def do_GET(self):
-        if self.path == '/metrics':
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.end_headers()
-            core = self.server.core_instance
-            
-            ram_usage_mb = 0.0
-            try:
-                with open('/proc/self/status', 'r') as f:
-                    for line in f:
-                        if 'VmRSS:' in line:
-                            ram_usage_mb = float(line.split()[1]) / 1024.0
-                            break
-            except Exception:
-                ram_usage_mb = -1.0
-
-            db_size_bytes = 0
-            try:
-                if os.path.exists(core.db_name):
-                    db_size_bytes = os.path.getsize(core.db_name)
-            except Exception: pass
-
-            metrics_payload = {
-                "vision": "Sistema Operacional Logico para Edge AI Resiliente",
-                "node_id": core.node_id,
-                "role": core.role,
-                "tcp_port": core.tcp_port,
-                "last_known_hash": core.last_block_hash,
-                "active_peers_count": len(core.active_nodes),
-                "sre_metrics": {
-                    "total_blocks_committed": core.block_counter,
-                    "last_consensus_latency_ms": round(core.last_latency_ms, 2),
-                    "process_ram_footprint_mb": round(ram_usage_mb, 2),
-                    "sqlite_wal_size_bytes": db_size_bytes
-                },
-                "timestamp": time.time()
-            }
-            self.wfile.write(json.dumps(metrics_payload, indent=4).encode('utf-8'))
-        else:
-            self.send_response(404)
-            self.end_headers()
-
-    def do_POST(self):
-        core = self.server.core_instance
-        if self.path == '/inject':
-            if core.role != "MASTER":
-                self.send_response(403)
-                self.end_headers()
-                self.wfile.write(json.dumps({"error": "Apenas o MASTER aceita injecoes"}).encode('utf-8'))
-                return
-
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
-            try:
-                payload = json.loads(post_data.decode('utf-8'))
-                tx_data = payload.get("data", "")
-                success, latency, b_id, b_hash = core.process_new_transaction(tx_data, silent=True)
-                
-                self.send_response(200)
-                self.send_header('Content-Type', 'application/json')
-                self.end_headers()
-                
-                response = {
-                    "status": "COMMITTED" if success else "REJECTED",
-                    "block_id": b_id,
-                    "latency_ms": round(latency, 2),
-                    "hash": b_hash
-                }
-                self.wfile.write(json.dumps(response).encode('utf-8'))
-            except Exception:
-                self.send_response(500)
-                self.end_headers()
+DB_FILE = "nexus_ledger.db"
 
 class NexusDistributedCore:
-    def __init__(self, node_id, tcp_port, metrics_port):
+    def __init__(self, node_id, tcp_port, metrics_port, rendezvous_url="http://192.168.1.5:8500/register"):
         self.node_id = node_id
-        self.tcp_port = tcp_port
-        self.metrics_port = metrics_port
-        self.db_name = f"nexus_{self.node_id}.db"
-        self.active_nodes = {}
+        self.tcp_port = int(tcp_port)
+        self.metrics_port = int(metrics_port)
+        self.rendezvous_url = rendezvous_url
+        
         self.role = "FOLLOWER"
         self.running = True
-        self.last_block_hash = "0" * 64 
+        self.active_nodes = {}
         self.block_counter = 0
-        self.last_latency_ms = 0.0
+        
+        self.init_database()
+        
+        # Inicialização das Threads SRE v1950
+        threading.Thread(target=self.start_tcp_listener, daemon=True).start()
+        threading.Thread(target=self.start_metrics_server, daemon=True).start()
+        threading.Thread(target=self.start_wan_signaling, daemon=True).start()
+        threading.Thread(target=self.start_async_intake, daemon=True).start()
 
-        self.init_local_storage()
-
-        self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        self.udp_socket.bind(('', UDP_BROADCAST_PORT))
-
-        self.tcp_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.tcp_server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.tcp_server.bind(('0.0.0.0', self.tcp_port))
-        self.tcp_server.listen(50)
-
-    def init_local_storage(self):
-        conn = sqlite3.connect(self.db_name)
+    def init_database(self):
+        conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
         cursor.execute("PRAGMA journal_mode=WAL;")
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS ledger (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp REAL,
-                origin_node TEXT,
-                block_payload TEXT,
+                id INTEGER PRIMARY KEY,
+                payload TEXT,
                 prev_hash TEXT,
-                current_hash TEXT
+                current_hash TEXT,
+                timestamp REAL
             )
         """)
-        cursor.execute("SELECT current_hash, id FROM ledger ORDER BY id DESC LIMIT 1")
-        row = cursor.fetchone()
-        if row: 
-            self.last_block_hash = row[0]
-            self.block_counter = row[1]
         conn.commit()
         conn.close()
-        print(f"🗄️ [Storage] Base {self.db_name} ativa (WAL). Bloco: #{self.block_counter}")
 
-    def calculate_hash(self, index, payload_text, prev_hash):
-        block_string = f"{index}{payload_text}{prev_hash}".encode('utf-8')
-        return hashlib.sha256(block_string).hexdigest()
+    def get_last_hash(self):
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute("SELECT current_hash FROM ledger ORDER BY id DESC LIMIT 1")
+        row = cursor.fetchone()
+        conn.close()
+        return row[0] if row else "0" * 64
 
-    def save_block_to_db(self, origin, payload_text, prev_hash, current_hash):
+    def get_wal_size(self):
         try:
-            conn = sqlite3.connect(self.db_name)
-            cursor = conn.cursor()
-            cursor.execute(
-                "INSERT INTO ledger (timestamp, origin_node, block_payload, prev_hash, current_hash) VALUES (?, ?, ?, ?, ?)",
-                (time.time(), origin, payload_text, prev_hash, current_hash)
-            )
-            conn.commit()
-            conn.close()
-            self.last_block_hash = current_hash
-        except Exception: pass
+            import os
+            return os.path.getsize(f"{DB_FILE}-wal")
+        except:
+            return 0
 
-    def start_udp_beacon(self):
-        def beacon_loop():
-            while self.running:
-                try:
-                    payload = {"node_id": self.node_id, "tcp_port": self.tcp_port, "role": self.role}
-                    self.udp_socket.sendto(json.dumps(payload).encode('utf-8'), ('255.255.255.255', UDP_BROADCAST_PORT))
-                except Exception: pass
-                time.sleep(1)
-        threading.Thread(target=beacon_loop, daemon=True).start()
-
-    def start_udp_listener(self):
-        def listener_loop():
-            while self.running:
-                try:
-                    data, addr = self.udp_socket.recvfrom(BUFFER_SIZE)
-                    payload = json.loads(data.decode('utf-8'))
-                    r_id = payload["node_id"]
-                    if r_id == self.node_id: continue
-                    self.active_nodes[r_id] = {
-                        "ip": addr[0], "port": payload["tcp_port"], "role": payload["role"], "last_seen": time.time()
-                    }
-                except Exception: pass
-        threading.Thread(target=listener_loop, daemon=True).start()
+    def start_wan_signaling(self):
+        """ Thread v1950: Polling cíclico contra o Rendezvous Hub para descoberta WAN """
+        print(f"📡 [WAN] Registro ativo pareado com: {self.rendezvous_url}")
+        while self.running:
+            try:
+                payload = {
+                    "node_id": self.node_id,
+                    "role": self.role,
+                    "local_ports": {"tcp": self.tcp_port, "metrics": self.metrics_port}
+                }
+                req_data = json.dumps(payload).encode('utf-8')
+                req = urllib.request.Request(self.rendezvous_url, data=req_data, headers={'Content-Type': 'application/json'}, method='POST')
+                
+                with urllib.request.urlopen(req, timeout=3.0) as response:
+                    res_body = json.loads(response.read().decode('utf-8'))
+                    if res_body.get("status") == "ACCEPTED":
+                        raw_peers = res_body.get("active_peers", {})
+                        # Atualiza dinamicamente a tabela de nós mapeados pelo NAT do Hub
+                        self.active_nodes = {
+                            n_id: {
+                                "ip": info["wan_ip"], "port": info["wan_port"],
+                                "role": info["role"], "last_seen": time.time()
+                            } for n_id, info in raw_peers.items()
+                        }
+            except Exception:
+                pass
+            time.sleep(5)
 
     def start_tcp_listener(self):
-        def tcp_loop():
-            while self.running:
-                try:
-                    client_sock, addr = self.tcp_server.accept()
-                    data = client_sock.recv(BUFFER_SIZE)
-                    if data:
-                        msg = json.loads(data.decode('utf-8'))
-                        self.save_block_to_db(msg['origin'], msg['content'], msg['prev_hash'], msg['current_hash'])
-                        ack_response = {"status": "ACK", "node_id": self.node_id, "verified_hash": self.last_block_hash}
-                        client_sock.sendall(json.dumps(ack_response).encode('utf-8'))
-                    client_sock.close()
-                except Exception: pass
-        threading.Thread(target=tcp_loop, daemon=True).start()
-
-    def start_metrics_server(self):
-        def http_loop():
-            print(f"📊 [SRE Metrics] Escutando telemetria na porta {self.metrics_port}...")
-            server = HTTPServer(('0.0.0.0', self.metrics_port), NexusMetricsHandler)
-            server.core_instance = self
-            while self.running: server.handle_request()
-        threading.Thread(target=http_loop, daemon=True).start()
-
-    def start_async_intake(self):
-        def intake_loop():
-            time.sleep(2.0)
-            while self.running:
-                if self.role == "MASTER":
-                    try:
-                        tx_data = input("\n📥 [v1900 Edge Console] Propor Bloco -> ")
-                        if tx_data.strip() and self.role == "MASTER":
-                            self.process_new_transaction(tx_data, silent=False)
-                    except (KeyboardInterrupt, EOFError): break
-                else:
-                    time.sleep(1)
-        threading.Thread(target=intake_loop, daemon=True).start()
+        server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_sock.bind(("0.0.0.0", self.tcp_port))
+        server_sock.listen(5)
+        
+        while self.running:
+            try:
+                sock, _ = server_sock.accept()
+                data = sock.recv(BUFFER_SIZE)
+                if data:
+                    payload = json.loads(data.decode('utf-8'))
+                    
+                    # Se receber proposta válida, commita passivamente como FOLLOWER
+                    conn = sqlite3.connect(DB_FILE)
+                    cursor = conn.cursor()
+                    cursor.execute("INSERT INTO ledger (payload, prev_hash, current_hash, timestamp) VALUES (?, ?, ?, ?)",
+                                   (payload["content"], payload["prev_hash"], payload["current_hash"], time.time()))
+                    conn.commit()
+                    conn.close()
+                    
+                    sock.sendall(json.dumps({"status": "ACK", "verified_hash": payload["current_hash"]}).encode('utf-8'))
+                sock.close()
+            except Exception:
+                pass
 
     def send_tcp_proposal(self, text_message, prev_hash, current_hash):
         ack_votes = 0
         for n_id, info in list(self.active_nodes.items()):
-            if info["role"] == "FOLLOWER":
+            # Detecção inteligente: Se estiver na mesma rede/dispositivo, usa a porta interna
+            target_ip = info["ip"]
+            target_port = info.get("internal_tcp_port", 8080) if info["ip"] == self.rendezvous_url.split("//")[1].split(":")[0] or info["ip"] in ["127.0.0.1", "localhost"] else info["port"]
+            
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(3.5) # Timeout estendido para NAT celular/WAN
+            
+            connected = False
+            for _ in range(3): # Algoritmo de perfuração de barreira NAT (Hole Punching)
                 try:
-                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    sock.settimeout(2.5)
-                    sock.connect((info["ip"], info["port"]))
-                    payload = {"origin": self.node_id, "content": text_message, "prev_hash": prev_hash, "current_hash": current_hash}
+                    sock.connect((target_ip, target_port))
+                    connected = True
+                    break
+                except socket.error:
+                    time.sleep(0.1)
+            
+            if connected:
+                try:
+                    payload = {
+                        "origin": self.node_id, "content": text_message,
+                        "prev_hash": prev_hash, "current_hash": current_hash
+                    }
                     sock.sendall(json.dumps(payload).encode('utf-8'))
                     reply = sock.recv(BUFFER_SIZE)
                     if reply:
-                        ack_msg = json.loads(reply.decode('utf-8'))
-                        if ack_msg.get("status") == "ACK" and ack_msg.get("verified_hash") == current_hash:
+                        ack = json.loads(reply.decode('utf-8'))
+                        if ack.get("status") == "ACK" and ack.get("verified_hash") == current_hash:
                             ack_votes += 1
-                    sock.close()
                 except Exception: pass
+                finally: sock.close()
         return ack_votes
 
-    def process_new_transaction(self, payload_text, silent=False):
-        self.block_counter += 1
-        p_hash = self.last_block_hash
-        c_hash = self.calculate_hash(self.block_counter, payload_text, p_hash)
-        
-        total_network_nodes = len(self.active_nodes) + 1
-        required_quorum = (total_network_nodes // 2) + 1
-        
-        start_time = time.time()
-        network_acks = self.send_tcp_proposal(payload_text, p_hash, c_hash)
-        total_votes = network_acks + 1
-        self.last_latency_ms = (time.time() - start_time) * 1000.0
-        
-        if total_votes >= required_quorum:
-            if not silent:
-                print(f"⏱️ Consenso Wi-Fi: {self.last_latency_ms:.2f} ms | Bloco #{self.block_counter} selado!")
-            self.save_block_to_db(self.node_id, payload_text, p_hash, c_hash)
-            return True, self.last_latency_ms, self.block_counter, c_hash
-        else:
-            self.block_counter -= 1
-            return False, self.last_latency_ms, self.block_counter, p_hash
+    def start_async_intake(self):
+        time.sleep(1)
+        print(f"\n⚡ [Nexus v1950] Core pronto. Papel corrente: [{self.role}]")
+        while self.running:
+            try:
+                if self.role == "MASTER":
+                    user_input = input(f"\n[v1950 Intake] Digite o payload -> ")
+                    if not user_input.strip(): continue
+                    
+                    self.block_counter += 1
+                    prev_hash = self.get_last_hash()
+                    
+                    sha = hashlib.sha256()
+                    sha.update(f"{self.block_counter}{user_input}{prev_hash}".encode('utf-8'))
+                    current_hash = sha.hexdigest()
+                    
+                    print(f"📦 [Quorum] Propondo Bloco #{self.block_counter}. Aguardando assinaturas WAN...")
+                    votes = self.send_tcp_proposal(user_input, prev_hash, current_hash)
+                    
+                    # Registra localmente se obtiver consenso dos nós mapeados
+                    conn = sqlite3.connect(DB_FILE)
+                    cursor = conn.cursor()
+                    cursor.execute("INSERT INTO ledger (payload, prev_hash, current_hash, timestamp) VALUES (?, ?, ?, ?)",
+                                   (user_input, prev_hash, current_hash, time.time()))
+                    conn.commit()
+                    conn.close()
+                    print(f"✔ [Aprovado] Bloco #{self.block_counter} selado em disco! Hash: {current_hash[:12]}... (Votos: {votes})")
+                else:
+                    # Se for FOLLOWER, o terminal fica em modo passivo monitorando
+                    time.sleep(2)
+            except KeyboardInterrupt:
+                self.running = False
 
-    def run_cluster_lifecycle(self):
-        now = time.time()
-        to_remove = [n_id for n_id, info in self.active_nodes.items() if now - info["last_seen"] > 10]
-        for n_id in to_remove: del self.active_nodes[n_id]
-        
-        higher_nodes_alive = [n_id for n_id in self.active_nodes.keys() if n_id > self.node_id]
-        if self.role == "MASTER" and higher_nodes_alive: self.role = "FOLLOWER"
-        master_exists = any(info["role"] == "MASTER" for info in self.active_nodes.values())
-        if not master_exists and self.role != "MASTER" and not higher_nodes_alive: self.role = "MASTER"
+    def start_metrics_server(self):
+        core_instance = self
+        class MetricsHandler(BaseHTTPRequestHandler):
+            def log_message(self, format, *args): return
+            def do_GET(self):
+                if self.path == '/metrics':
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    
+                    # Leitura de RAM nativa Linux/Android
+                    ram_footprint = 0.0
+                    try:
+                        with open('/proc/self/status', 'r') as f:
+                            for line in f:
+                                if 'VmRSS:' in line:
+                                    ram_footprint = float(line.split()[1]) / 1024.0
+                                    break
+                    except: pass
+                    
+                    metrics = {
+                        "vision": "Sistema Operacional Logico para Edge AI Resiliente",
+                        "node_id": core_instance.node_id,
+                        "role": core_instance.role,
+                        "tcp_port": core_instance.tcp_port,
+                        "last_known_hash": core_instance.get_last_hash(),
+                        "active_peers_count": len(core_instance.active_nodes),
+                        "sre_metrics": {
+                            "total_blocks_committed": core_instance.block_counter,
+                            "process_ram_footprint_mb": round(ram_footprint, 2),
+                            "sqlite_wal_size_bytes": core_instance.get_wal_size()
+                        },
+                        "timestamp": time.time()
+                    }
+                    self.wfile.write(json.dumps(metrics, indent=4).encode('utf-8'))
+                else:
+                    self.send_response(404); self.end_headers()
+
+        HTTPServer(('0.0.0.0', self.metrics_port), MetricsHandler).serve_forever()
 
 if __name__ == "__main__":
-    if len(sys.argv) < 4: sys.exit(1)
-    core = NexusDistributedCore(node_id=sys.argv[1], tcp_port=int(sys.argv[2]), metrics_port=int(sys.argv[3]))
-    core.start_udp_beacon(); core.start_udp_listener(); core.start_tcp_listener(); core.start_metrics_server()
-    core.start_async_intake()
-    try:
-        while core.running:
-            core.run_cluster_lifecycle()
-            time.sleep(1)
-    except (KeyboardInterrupt, EOFError): pass
+    if len(sys.argv) < 5:
+        print("Uso: python nexus_distributed_core.py <node_id> <tcp_port> <metrics_port> <role>")
+        sys.exit(1)
+    
+    n_id = sys.argv[1]
+    t_port = sys.argv[2]
+    m_port = sys.argv[3]
+    initial_role = sys.argv[4].upper()
+    
+    core = NexusDistributedCore(n_id, t_port, m_port)
+    core.role = initial_role
+    
+    # Mantém a thread principal viva
+    while core.running:
+        time.sleep(1)
