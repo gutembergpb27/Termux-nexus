@@ -22,6 +22,9 @@ class NexusDistributedCore:
         self.running = True
         self.active_nodes = {}
         self.block_counter = 0
+        self.passport = None
+        self.passport_ts = 0.0
+        self.hub_signature = None
         
         self.init_database()
         
@@ -77,7 +80,10 @@ class NexusDistributedCore:
                 
                 with urllib.request.urlopen(req, timeout=3.0) as response:
                     res_body = json.loads(response.read().decode('utf-8'))
-                    if res_body.get("status") == "ACCEPTED":
+                    if "ACCEPTED" in res_body.get("status", ""):
+                        self.passport = res_body.get("your_passport")
+                        self.passport_ts = res_body.get("passport_ts", 0.0)
+                        self.hub_signature = res_body.get("hub_signature")
                         raw_peers = res_body.get("active_peers", {})
                         # Atualiza dinamicamente a tabela de nós mapeados pelo NAT do Hub
                         self.active_nodes = {
@@ -139,7 +145,9 @@ class NexusDistributedCore:
                 try:
                     payload = {
                         "origin": self.node_id, "content": text_message,
-                        "prev_hash": prev_hash, "current_hash": current_hash
+                        "prev_hash": prev_hash, "current_hash": current_hash,
+                        "auth_passport": self.passport,
+                        "auth_ts": self.passport_ts
                     }
                     sock.sendall(json.dumps(payload).encode('utf-8'))
                     reply = sock.recv(BUFFER_SIZE)
