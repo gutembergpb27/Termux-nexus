@@ -346,3 +346,34 @@ def test_recover_state_rejects_replayed_valid_block(tmp_path):
 
     with pytest.raises(ValueError):
         persistence_after_replay.recover_state()
+
+@pytest.mark.xfail(reason="Rollback para cadeia antiga válida exige checkpoint externo de altura/hash.")
+def test_recover_state_does_not_yet_reject_valid_old_snapshot_rollback(tmp_path):
+    db_path = tmp_path / "nexus_store.db"
+    snapshot_path = tmp_path / "snapshot_old.db"
+
+    persistence = NexusPersistence(filepath=str(db_path))
+
+    persistence.append_transaction({
+        "event": "WORKER_SPAWN",
+        "data": {"worker_id": "W1", "pid": 123}
+    })
+
+    persistence.append_transaction({
+        "event": "JOB_SUBMIT",
+        "data": {"job_id": "J1"}
+    })
+
+    snapshot_path.write_bytes(db_path.read_bytes())
+
+    persistence.append_transaction({
+        "event": "JOB_COMMIT",
+        "data": {"job_id": "J1"}
+    })
+
+    db_path.write_bytes(snapshot_path.read_bytes())
+
+    persistence_after_rollback = NexusPersistence(filepath=str(db_path))
+
+    with pytest.raises(ValueError):
+        persistence_after_rollback.recover_state()
