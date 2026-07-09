@@ -74,3 +74,51 @@ def test_recover_state_accepts_intact_chain(tmp_path):
     assert state["active_workers"] == {"W1": 123}
     assert state["pending_jobs"] == []
     assert state["completed_jobs"] == ["J1"]
+
+
+def test_recover_state_accepts_rotation_anchor_chain(tmp_path):
+    db_path = tmp_path / "nexus_store.db"
+    persistence = NexusPersistence(filepath=str(db_path), max_bytes=1)
+
+    persistence.append_transaction({
+        "event": "WORKER_SPAWN",
+        "data": {"worker_id": "W1", "pid": 123}
+    })
+    persistence.append_transaction({
+        "event": "JOB_SUBMIT",
+        "data": {"job_id": "J1"}
+    })
+
+    persistence_after_rotation = NexusPersistence(filepath=str(db_path))
+    state = persistence_after_rotation.recover_state()
+
+    assert db_path.exists()
+    assert Path(str(db_path) + ".1").exists()
+    assert state["pending_jobs"] == ["J1"]
+
+
+def test_recover_state_rejects_tampered_rotation_anchor(tmp_path):
+    db_path = tmp_path / "nexus_store.db"
+    persistence = NexusPersistence(filepath=str(db_path), max_bytes=1)
+
+    persistence.append_transaction({
+        "event": "WORKER_SPAWN",
+        "data": {"worker_id": "W1", "pid": 123}
+    })
+    persistence.append_transaction({
+        "event": "JOB_SUBMIT",
+        "data": {"job_id": "J1"}
+    })
+
+    lines = db_path.read_text(encoding="utf-8").splitlines()
+    anchor = json.loads(lines[0])
+    assert anchor["payload"] == "ROTATION_ANCHOR"
+
+    anchor["prev_hash"] = "f" * 64
+    lines[0] = json.dumps(anchor)
+    db_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    persistence_after_tamper = NexusPersistence(filepath=str(db_path))
+
+    with pytest.raises(ValueError):
+        persistence_after_tamper.recover_state()
