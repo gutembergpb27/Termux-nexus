@@ -407,3 +407,26 @@ def test_recover_state_rejects_tampered_checkpoint_tip_hash(tmp_path):
 
     with pytest.raises(ValueError):
         NexusPersistence(filepath=str(db_path)).recover_state()
+
+@pytest.mark.xfail(reason="Rollback coordenado de log + checkpoint exige âncora externa/autenticação fora do conjunto restaurável.")
+def test_recover_state_does_not_yet_reject_coordinated_log_and_checkpoint_rollback(tmp_path):
+    db_path = tmp_path / "nexus_store.db"
+    checkpoint_path = Path(str(db_path) + ".checkpoint.json")
+    snapshot_db_path = tmp_path / "snapshot_old.db"
+    snapshot_checkpoint_path = tmp_path / "snapshot_old.checkpoint.json"
+
+    persistence = NexusPersistence(filepath=str(db_path))
+
+    persistence.append_transaction({"event": "WORKER_SPAWN", "data": {"worker_id": "W1", "pid": 123}})
+    persistence.append_transaction({"event": "JOB_SUBMIT", "data": {"job_id": "J1"}})
+
+    snapshot_db_path.write_bytes(db_path.read_bytes())
+    snapshot_checkpoint_path.write_bytes(checkpoint_path.read_bytes())
+
+    persistence.append_transaction({"event": "JOB_COMMIT", "data": {"job_id": "J1"}})
+
+    db_path.write_bytes(snapshot_db_path.read_bytes())
+    checkpoint_path.write_bytes(snapshot_checkpoint_path.read_bytes())
+
+    with pytest.raises(ValueError):
+        NexusPersistence(filepath=str(db_path)).recover_state()
