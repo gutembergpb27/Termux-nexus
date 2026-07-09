@@ -309,3 +309,40 @@ def test_recover_state_rejects_forged_inserted_block(tmp_path):
 
     with pytest.raises(ValueError):
         persistence_after_insertion.recover_state()
+
+def test_recover_state_rejects_replayed_valid_block(tmp_path):
+    db_path = tmp_path / "nexus_store.db"
+    persistence = NexusPersistence(filepath=str(db_path))
+
+    persistence.append_transaction({
+        "event": "WORKER_SPAWN",
+        "data": {"worker_id": "W1", "pid": 123}
+    })
+
+    persistence.append_transaction({
+        "event": "JOB_SUBMIT",
+        "data": {"job_id": "J1"}
+    })
+
+    persistence.append_transaction({
+        "event": "JOB_COMMIT",
+        "data": {"job_id": "J1"}
+    })
+
+    lines = db_path.read_text(
+        encoding="utf-8"
+    ).splitlines(keepends=True)
+
+    lines.insert(2, lines[1])
+
+    db_path.write_text(
+        "".join(lines),
+        encoding="utf-8"
+    )
+
+    persistence_after_replay = NexusPersistence(
+        filepath=str(db_path)
+    )
+
+    with pytest.raises(ValueError):
+        persistence_after_replay.recover_state()
