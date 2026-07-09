@@ -175,7 +175,10 @@ class NexusPersistence:
         if checkpoint.get("tip_hash") != self.last_hash:
             raise ValueError("Checkpoint tip hash mismatch")
 
-        if self.anchor_path and os.path.exists(self.anchor_path):
+        if self.anchor_path:
+            if not os.path.exists(self.anchor_path):
+                raise ValueError("Anchor file missing")
+
             with open(self.anchor_path, "r", encoding="utf-8") as f:
                 anchor = json.load(f)
 
