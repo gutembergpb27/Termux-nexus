@@ -2,6 +2,19 @@
 
 ## 🌐 Escopo do Módulo
 O `cluster_orchestrator.py` é um motor de simulação projetado para instanciar, monitorar e encerrar redes mesh locais de múltiplos nós em background dentro de um único ambiente de execução (Single-Device Multiprocess Mesh).
+## 🛡️ Camada de Segurança (v2000)
+
+O Nexus integra agora uma camada de segurança baseada em **HMAC-SHA256**, garantindo a integridade dos dados e autenticidade das mensagens trocadas entre os nós do cluster.
+
+### Arquitetura de Segurança
+* **Autenticação:** Cada payload enviado pelo motor é assinado digitalmente usando uma chave secreta privada (`NEXUS_SECRET_KEY`).
+* **Verificação:** O `NexusSecurityProvider` valida cada pacote recebido; pacotes sem a assinatura correta ou com payloads adulterados são descartados automaticamente pelo `nexus_distributed_core.py`.
+* **Configuração Segura:** A chave secreta é carregada via `.env` e nunca é exposta no código-fonte ou no sistema de controlo de versões (Git).
+
+### Como verificar a integridade
+O sistema inclui um script de teste de estresse que valida a robustez da camada criptográfica:
+```bash
+python test_security.py
 
 ⚠️ **Escopo e Limitações (v1400)**
 O Nexus Cluster Orchestrator é um ambiente de simulação de arquitetura distribuída executado em um único host. Seu objetivo é validar componentes de infraestrutura, observabilidade e resiliência antes da implantação em ambientes físicos distribuídos.
