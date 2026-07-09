@@ -347,8 +347,7 @@ def test_recover_state_rejects_replayed_valid_block(tmp_path):
     with pytest.raises(ValueError):
         persistence_after_replay.recover_state()
 
-@pytest.mark.xfail(reason="Rollback para cadeia antiga válida exige checkpoint externo de altura/hash.")
-def test_recover_state_does_not_yet_reject_valid_old_snapshot_rollback(tmp_path):
+def test_recover_state_rejects_valid_old_snapshot_rollback(tmp_path):
     db_path = tmp_path / "nexus_store.db"
     snapshot_path = tmp_path / "snapshot_old.db"
 

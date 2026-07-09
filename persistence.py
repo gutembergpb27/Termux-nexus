@@ -2,10 +2,12 @@ import os
 import hashlib
 import time
 import json
+from datetime import datetime, timezone
 
 class NexusPersistence:
     def __init__(self, filepath="outputs/nexus_store.db", max_bytes=10240):
         self.filepath = filepath
+        self.checkpoint_path = f"{filepath}.checkpoint.json"
         self.max_bytes = max_bytes
         os.makedirs(os.path.dirname(self.filepath), exist_ok=True)
         self.last_hash = self._recover_last_hash()
@@ -74,6 +76,7 @@ class NexusPersistence:
             os.fsync(f.fileno())
 
         self.last_hash = current_hash
+        self._write_checkpoint()
         return current_hash
 
     def _validate_file_chain(self, filepath, initial_previous_hash=None):
@@ -124,6 +127,47 @@ class NexusPersistence:
 
         return previous_stored_hash
 
+    def _current_height(self):
+        height = 0
+        for candidate in (f"{self.filepath}.1", self.filepath):
+            if not os.path.exists(candidate):
+                continue
+            with open(candidate, "r", encoding="utf-8") as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    block = json.loads(line)
+                    if block.get("payload") != "ROTATION_ANCHOR":
+                        height += 1
+        return height
+
+    def _write_checkpoint(self):
+        checkpoint = {
+            "height": self._current_height(),
+            "tip_hash": self.last_hash,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        with open(self.checkpoint_path, "w", encoding="utf-8") as f:
+            json.dump(checkpoint, f, sort_keys=True)
+            f.write("\n")
+            f.flush()
+            os.fsync(f.fileno())
+
+    def _validate_checkpoint(self):
+        if not os.path.exists(self.checkpoint_path):
+            return True
+
+        with open(self.checkpoint_path, "r", encoding="utf-8") as f:
+            checkpoint = json.load(f)
+
+        if checkpoint.get("height") != self._current_height():
+            raise ValueError("Checkpoint height mismatch")
+
+        if checkpoint.get("tip_hash") != self.last_hash:
+            raise ValueError("Checkpoint tip hash mismatch")
+
+        return True
+
     def validate_chain(self):
         """Valida cadeia ativa e, se existir, o arquivo rotacionado anterior."""
         backup_filepath = f"{self.filepath}.1"
@@ -132,10 +176,13 @@ class NexusPersistence:
         if os.path.exists(backup_filepath):
             previous_hash = self._validate_file_chain(backup_filepath)
 
-        self._validate_file_chain(
+        final_hash = self._validate_file_chain(
             self.filepath,
             initial_previous_hash=previous_hash
         )
+
+        self.last_hash = final_hash or "0" * 64
+        self._validate_checkpoint()
 
         return True
 
