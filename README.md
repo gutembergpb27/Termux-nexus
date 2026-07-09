@@ -1,5 +1,21 @@
 # Nexus Cluster Orchestrator (v1400)
 
+## 🔐 Canonical Integrity Baseline C20
+
+The persistence integrity path has a reproducible canonical baseline:
+
+- **Branch:** `canonical-evidence`
+- **Baseline commit:** `680b03c`
+- **Tag:** `integrity-baseline-c20`
+- **Integrity suite:** `23 passed, 1 xfailed`
+
+Full evidence report:
+
+**[`INTEGRITY_BASELINE_C20.md`](INTEGRITY_BASELINE_C20.md)**
+
+---
+
+
 ## 🌐 Escopo do Módulo
 O `cluster_orchestrator.py` é um motor de simulação projetado para instanciar, monitorar e encerrar redes mesh locais de múltiplos nós em background dentro de um único ambiente de execução (Single-Device Multiprocess Mesh).
 ## 🛡️ Camada de Segurança (v2000)
