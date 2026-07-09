@@ -1,0 +1,4 @@
+node_id: "Node02"
+web_port: 5050
+tcp_port: 9091
+role: "SLAVE"
