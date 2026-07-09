@@ -490,3 +490,63 @@ def test_recover_state_rejects_missing_external_anchor(tmp_path):
             filepath=str(db_path),
             anchor_path=str(anchor_path)
         ).recover_state()
+
+def test_recover_state_rejects_tampered_external_anchor_height(tmp_path):
+    db_dir = tmp_path / "db"
+    anchor_dir = tmp_path / "anchor"
+    db_dir.mkdir()
+    anchor_dir.mkdir()
+
+    db_path = db_dir / "nexus_store.db"
+    anchor_path = anchor_dir / "nexus.anchor.json"
+
+    persistence = NexusPersistence(filepath=str(db_path), anchor_path=str(anchor_path))
+    persistence.append_transaction({"event": "WORKER_SPAWN", "data": {"worker_id": "W1", "pid": 123}})
+    persistence.append_transaction({"event": "JOB_SUBMIT", "data": {"job_id": "J1"}})
+
+    anchor = json.loads(anchor_path.read_text(encoding="utf-8"))
+    anchor["height"] = 999
+    anchor_path.write_text(json.dumps(anchor) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        NexusPersistence(filepath=str(db_path), anchor_path=str(anchor_path)).recover_state()
+
+
+def test_recover_state_rejects_tampered_external_anchor_tip_hash(tmp_path):
+    db_dir = tmp_path / "db"
+    anchor_dir = tmp_path / "anchor"
+    db_dir.mkdir()
+    anchor_dir.mkdir()
+
+    db_path = db_dir / "nexus_store.db"
+    anchor_path = anchor_dir / "nexus.anchor.json"
+
+    persistence = NexusPersistence(filepath=str(db_path), anchor_path=str(anchor_path))
+    persistence.append_transaction({"event": "WORKER_SPAWN", "data": {"worker_id": "W1", "pid": 123}})
+    persistence.append_transaction({"event": "JOB_SUBMIT", "data": {"job_id": "J1"}})
+
+    anchor = json.loads(anchor_path.read_text(encoding="utf-8"))
+    anchor["tip_hash"] = "f" * 64
+    anchor_path.write_text(json.dumps(anchor) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        NexusPersistence(filepath=str(db_path), anchor_path=str(anchor_path)).recover_state()
+
+
+def test_recover_state_rejects_corrupted_external_anchor_json(tmp_path):
+    db_dir = tmp_path / "db"
+    anchor_dir = tmp_path / "anchor"
+    db_dir.mkdir()
+    anchor_dir.mkdir()
+
+    db_path = db_dir / "nexus_store.db"
+    anchor_path = anchor_dir / "nexus.anchor.json"
+
+    persistence = NexusPersistence(filepath=str(db_path), anchor_path=str(anchor_path))
+    persistence.append_transaction({"event": "WORKER_SPAWN", "data": {"worker_id": "W1", "pid": 123}})
+    persistence.append_transaction({"event": "JOB_SUBMIT", "data": {"job_id": "J1"}})
+
+    anchor_path.write_text('{"height":', encoding="utf-8")
+
+    with pytest.raises(Exception):
+        NexusPersistence(filepath=str(db_path), anchor_path=str(anchor_path)).recover_state()
