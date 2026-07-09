@@ -259,3 +259,53 @@ def test_recover_state_rejects_deleted_intermediate_block(tmp_path):
 
     with pytest.raises(ValueError):
         persistence_after_deletion.recover_state()
+
+def test_recover_state_rejects_forged_inserted_block(tmp_path):
+    db_path = tmp_path / "nexus_store.db"
+    persistence = NexusPersistence(filepath=str(db_path))
+
+    persistence.append_transaction({
+        "event": "WORKER_SPAWN",
+        "data": {"worker_id": "W1", "pid": 123}
+    })
+
+    persistence.append_transaction({
+        "event": "JOB_SUBMIT",
+        "data": {"job_id": "J1"}
+    })
+
+    persistence.append_transaction({
+        "event": "JOB_COMMIT",
+        "data": {"job_id": "J1"}
+    })
+
+    lines = db_path.read_text(
+        encoding="utf-8"
+    ).splitlines(keepends=True)
+
+    forged_block = {
+        "timestamp": 123,
+        "payload": {
+            "event": "FORGED_EVENT",
+            "data": {"source": "C9"}
+        },
+        "prev_hash": "0" * 64,
+        "hash": "f" * 64
+    }
+
+    lines.insert(
+        1,
+        json.dumps(forged_block) + "\n"
+    )
+
+    db_path.write_text(
+        "".join(lines),
+        encoding="utf-8"
+    )
+
+    persistence_after_insertion = NexusPersistence(
+        filepath=str(db_path)
+    )
+
+    with pytest.raises(ValueError):
+        persistence_after_insertion.recover_state()
