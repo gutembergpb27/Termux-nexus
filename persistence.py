@@ -5,9 +5,10 @@ import json
 from datetime import datetime, timezone
 
 class NexusPersistence:
-    def __init__(self, filepath="outputs/nexus_store.db", max_bytes=10240):
+    def __init__(self, filepath="outputs/nexus_store.db", max_bytes=10240, anchor_path=None):
         self.filepath = filepath
         self.checkpoint_path = f"{filepath}.checkpoint.json"
+        self.anchor_path = anchor_path
         self.max_bytes = max_bytes
         os.makedirs(os.path.dirname(self.filepath), exist_ok=True)
         self.last_hash = self._recover_last_hash()
@@ -153,6 +154,14 @@ class NexusPersistence:
             f.flush()
             os.fsync(f.fileno())
 
+        if self.anchor_path:
+            os.makedirs(os.path.dirname(self.anchor_path), exist_ok=True)
+            with open(self.anchor_path, "w", encoding="utf-8") as f:
+                json.dump(checkpoint, f, sort_keys=True)
+                f.write("\n")
+                f.flush()
+                os.fsync(f.fileno())
+
     def _validate_checkpoint(self):
         if not os.path.exists(self.checkpoint_path):
             return True
@@ -165,6 +174,16 @@ class NexusPersistence:
 
         if checkpoint.get("tip_hash") != self.last_hash:
             raise ValueError("Checkpoint tip hash mismatch")
+
+        if self.anchor_path and os.path.exists(self.anchor_path):
+            with open(self.anchor_path, "r", encoding="utf-8") as f:
+                anchor = json.load(f)
+
+            if anchor.get("height") != self._current_height():
+                raise ValueError("Anchor height mismatch")
+
+            if anchor.get("tip_hash") != self.last_hash:
+                raise ValueError("Anchor tip hash mismatch")
 
         return True
 

@@ -430,3 +430,38 @@ def test_recover_state_does_not_yet_reject_coordinated_log_and_checkpoint_rollba
 
     with pytest.raises(ValueError):
         NexusPersistence(filepath=str(db_path)).recover_state()
+
+def test_recover_state_rejects_coordinated_rollback_when_external_anchor_is_preserved(tmp_path):
+    db_dir = tmp_path / "db"
+    anchor_dir = tmp_path / "anchor"
+    db_dir.mkdir()
+    anchor_dir.mkdir()
+
+    db_path = db_dir / "nexus_store.db"
+    anchor_path = anchor_dir / "nexus.anchor.json"
+    checkpoint_path = Path(str(db_path) + ".checkpoint.json")
+
+    snapshot_db_path = tmp_path / "snapshot_old.db"
+    snapshot_checkpoint_path = tmp_path / "snapshot_old.checkpoint.json"
+
+    persistence = NexusPersistence(
+        filepath=str(db_path),
+        anchor_path=str(anchor_path)
+    )
+
+    persistence.append_transaction({"event": "WORKER_SPAWN", "data": {"worker_id": "W1", "pid": 123}})
+    persistence.append_transaction({"event": "JOB_SUBMIT", "data": {"job_id": "J1"}})
+
+    snapshot_db_path.write_bytes(db_path.read_bytes())
+    snapshot_checkpoint_path.write_bytes(checkpoint_path.read_bytes())
+
+    persistence.append_transaction({"event": "JOB_COMMIT", "data": {"job_id": "J1"}})
+
+    db_path.write_bytes(snapshot_db_path.read_bytes())
+    checkpoint_path.write_bytes(snapshot_checkpoint_path.read_bytes())
+
+    with pytest.raises(ValueError):
+        NexusPersistence(
+            filepath=str(db_path),
+            anchor_path=str(anchor_path)
+        ).recover_state()
