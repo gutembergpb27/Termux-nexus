@@ -76,8 +76,57 @@ class NexusPersistence:
         self.last_hash = current_hash
         return current_hash
 
+    def validate_chain(self):
+        """Valida hashes e continuidade criptografica antes da recuperacao."""
+        if not os.path.exists(self.filepath):
+            return True
+
+        previous_stored_hash = None
+
+        with open(self.filepath, "r", encoding="utf-8") as f:
+            for line_number, line in enumerate(f, start=1):
+                if not line.strip():
+                    continue
+
+                try:
+                    block = json.loads(line)
+                    timestamp = block["timestamp"]
+                    payload = block["payload"]
+                    prev_hash = block["prev_hash"]
+                    stored_hash = block["hash"]
+                except (json.JSONDecodeError, KeyError, TypeError) as exc:
+                    raise ValueError(
+                        f"Bloco invalido na linha {line_number}: {exc}"
+                    ) from exc
+
+                expected_hash = self._compute_hash(
+                    timestamp,
+                    payload,
+                    prev_hash
+                )
+
+                if stored_hash != expected_hash:
+                    raise ValueError(
+                        f"Hash invalido na linha {line_number}"
+                    )
+
+                if previous_stored_hash is None:
+                    if payload != "ROTATION_ANCHOR" and prev_hash != "0" * 64:
+                        raise ValueError(
+                            f"Hash genesis invalido na linha {line_number}"
+                        )
+                elif prev_hash != previous_stored_hash:
+                    raise ValueError(
+                        f"Quebra de cadeia na linha {line_number}"
+                    )
+
+                previous_stored_hash = stored_hash
+
+        return True
+
     def recover_state(self):
         """Lê os blocos criptográficos e reconstrói o estado lógico do Nexus v700."""
+        self.validate_chain()
         state = {"active_workers": {}, "completed_jobs": [], "pending_jobs": []}
         if not os.path.exists(self.filepath):
             return state
