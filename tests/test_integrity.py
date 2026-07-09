@@ -161,3 +161,27 @@ def test_recover_state_rejects_tampered_rotated_history(tmp_path):
 
     with pytest.raises(ValueError):
         persistence_after_tamper.recover_state()
+
+def test_recover_state_rejects_truncated_tail(tmp_path):
+    db_path = tmp_path / "nexus_store.db"
+    persistence = NexusPersistence(filepath=str(db_path))
+
+    persistence.append_transaction({
+        "event": "WORKER_SPAWN",
+        "data": {"worker_id": "W1", "pid": 123}
+    })
+
+    persistence.append_transaction({
+        "event": "JOB_SUBMIT",
+        "data": {"job_id": "J1"}
+    })
+
+    with open(db_path, "ab") as f:
+        f.write(b'{"timestamp":123,"payload":')
+
+    persistence_after_truncation = NexusPersistence(
+        filepath=str(db_path)
+    )
+
+    with pytest.raises(ValueError):
+        persistence_after_truncation.recover_state()
