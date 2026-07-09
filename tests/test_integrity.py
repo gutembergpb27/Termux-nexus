@@ -376,3 +376,34 @@ def test_recover_state_rejects_valid_old_snapshot_rollback(tmp_path):
 
     with pytest.raises(ValueError):
         persistence_after_rollback.recover_state()
+
+def test_recover_state_rejects_tampered_checkpoint_height(tmp_path):
+    db_path = tmp_path / "nexus_store.db"
+    checkpoint_path = Path(str(db_path) + ".checkpoint.json")
+    persistence = NexusPersistence(filepath=str(db_path))
+
+    persistence.append_transaction({"event": "WORKER_SPAWN", "data": {"worker_id": "W1", "pid": 123}})
+    persistence.append_transaction({"event": "JOB_SUBMIT", "data": {"job_id": "J1"}})
+
+    checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    checkpoint["height"] = 999
+    checkpoint_path.write_text(json.dumps(checkpoint) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        NexusPersistence(filepath=str(db_path)).recover_state()
+
+
+def test_recover_state_rejects_tampered_checkpoint_tip_hash(tmp_path):
+    db_path = tmp_path / "nexus_store.db"
+    checkpoint_path = Path(str(db_path) + ".checkpoint.json")
+    persistence = NexusPersistence(filepath=str(db_path))
+
+    persistence.append_transaction({"event": "WORKER_SPAWN", "data": {"worker_id": "W1", "pid": 123}})
+    persistence.append_transaction({"event": "JOB_SUBMIT", "data": {"job_id": "J1"}})
+
+    checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    checkpoint["tip_hash"] = "f" * 64
+    checkpoint_path.write_text(json.dumps(checkpoint) + "\n", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        NexusPersistence(filepath=str(db_path)).recover_state()
