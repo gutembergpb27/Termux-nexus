@@ -550,3 +550,37 @@ def test_recover_state_rejects_corrupted_external_anchor_json(tmp_path):
 
     with pytest.raises(Exception):
         NexusPersistence(filepath=str(db_path), anchor_path=str(anchor_path)).recover_state()
+
+def test_recover_state_rejects_log_ahead_of_checkpoint_and_anchor(tmp_path):
+    db_dir = tmp_path / "db"
+    anchor_dir = tmp_path / "anchor"
+    db_dir.mkdir()
+    anchor_dir.mkdir()
+
+    db_path = db_dir / "nexus_store.db"
+    anchor_path = anchor_dir / "nexus.anchor.json"
+    checkpoint_path = Path(str(db_path) + ".checkpoint.json")
+
+    snapshot_checkpoint_path = tmp_path / "checkpoint_before.json"
+    snapshot_anchor_path = tmp_path / "anchor_before.json"
+
+    persistence = NexusPersistence(
+        filepath=str(db_path),
+        anchor_path=str(anchor_path)
+    )
+
+    persistence.append_transaction({"event": "WORKER_SPAWN", "data": {"worker_id": "W1", "pid": 123}})
+
+    snapshot_checkpoint_path.write_bytes(checkpoint_path.read_bytes())
+    snapshot_anchor_path.write_bytes(anchor_path.read_bytes())
+
+    persistence.append_transaction({"event": "JOB_SUBMIT", "data": {"job_id": "J1"}})
+
+    checkpoint_path.write_bytes(snapshot_checkpoint_path.read_bytes())
+    anchor_path.write_bytes(snapshot_anchor_path.read_bytes())
+
+    with pytest.raises(ValueError):
+        NexusPersistence(
+            filepath=str(db_path),
+            anchor_path=str(anchor_path)
+        ).recover_state()
