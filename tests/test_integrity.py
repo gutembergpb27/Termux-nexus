@@ -642,3 +642,33 @@ def test_recover_state_rejects_partially_written_checkpoint(tmp_path):
             filepath=str(db_path),
             anchor_path=str(anchor_path)
         ).recover_state()
+
+def test_recover_state_recovers_consistent_state_after_restart(tmp_path):
+    db_dir = tmp_path / "db"
+    anchor_dir = tmp_path / "anchor"
+    db_dir.mkdir()
+    anchor_dir.mkdir()
+
+    db_path = db_dir / "nexus_store.db"
+    anchor_path = anchor_dir / "nexus.anchor.json"
+
+    persistence = NexusPersistence(
+        filepath=str(db_path),
+        anchor_path=str(anchor_path)
+    )
+
+    persistence.append_transaction({"event": "WORKER_SPAWN", "data": {"worker_id": "W1", "pid": 123}})
+    persistence.append_transaction({"event": "JOB_SUBMIT", "data": {"job_id": "J1"}})
+    persistence.append_transaction({"event": "JOB_COMMIT", "data": {"job_id": "J1"}})
+    persistence.append_transaction({"event": "WORKER_CRASH", "data": {"worker_id": "W1"}})
+
+    state = NexusPersistence(
+        filepath=str(db_path),
+        anchor_path=str(anchor_path)
+    ).recover_state()
+
+    assert state == {
+        "active_workers": {},
+        "completed_jobs": ["J1"],
+        "pending_jobs": []
+    }
