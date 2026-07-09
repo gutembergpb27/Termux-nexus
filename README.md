@@ -1,5 +1,49 @@
 # Nexus Cluster Orchestrator (v1400)
+python - <<'PY'
+from pathlib import Path
 
+p = Path("README.md")
+text = p.read_text(encoding="utf-8")
+
+marker = "# Nexus Cluster Orchestrator (v1400)\n"
+
+section = """
+
+## 🔐 Canonical Integrity Baseline C20
+
+The persistence integrity path has a reproducible canonical baseline:
+
+- **Branch:** `canonical-evidence`
+- **Baseline commit:** `680b03c`
+- **Tag:** `integrity-baseline-c20`
+- **Integrity suite:** `23 passed, 1 xfailed`
+
+The baseline covers hash-chain tampering, rotation history, truncation, reordering, deletion, forged insertion, replay, rollback detection, checkpoint validation, external anchoring, partial-update inconsistency and consistent recovery after restart.
+
+The single `xfail` is deliberate and documents a known trust-boundary limitation: coordinated rollback of a valid log and matching local checkpoint may remain internally coherent when no preserved external anchor is available.
+
+Full evidence report:
+
+**[`INTEGRITY_BASELINE_C20.md`](INTEGRITY_BASELINE_C20.md)**
+
+---
+"""
+
+if "## 🔐 Canonical Integrity Baseline C20" in text:
+    raise SystemExit("ERRO: secao C20 ja existe")
+
+if marker not in text:
+    raise SystemExit("ERRO: titulo principal nao encontrado")
+
+text = text.replace(marker, marker + section, 1)
+p.write_text(text, encoding="utf-8")
+
+print("OK: secao C20 inserida no README")
+PY
+
+git diff --check
+git diff --stat
+git diff -- README.md | sed -n '1,100p'
 ## 🌐 Escopo do Módulo
 O `cluster_orchestrator.py` é um motor de simulação projetado para instanciar, monitorar e encerrar redes mesh locais de múltiplos nós em background dentro de um único ambiente de execução (Single-Device Multiprocess Mesh).
 ## 🛡️ Camada de Segurança (v2000)
