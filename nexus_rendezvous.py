@@ -1,45 +1,63 @@
 import json
 import time
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
 
-NODE_REGISTRY = {}
-SESSION_TIMEOUT_SEC = 30
+PEERS = {}
+PEER_TIMEOUT = 30
 
 class NexusRendezvousHandler(BaseHTTPRequestHandler):
-    def log_message(self, format, *args): return
-    def do_GET(self):
-        if self.path == "/status":
+    def log_message(self, format, *args):
+        pass
+
+    def do_POST(self):
+        if self.path == "/register":
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            payload = json.loads(post_data.decode('utf-8'))
+            
+            node_id = payload.get("node_id")
+            
+            # NAT Traversal: captura o IP real de quem bateu no socket
+            client_ip = self.headers.get("X-Forwarded-For")
+            if client_ip:
+                public_ip = client_ip.split(',')[0].strip()
+            else:
+                public_ip = self.client_address[0]
+            
+            payload["ip"] = public_ip
+            payload["last_seen"] = time.time()
+            
+            PEERS[node_id] = payload
+            
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            now = time.time()
-            expired = [n for n, i in NODE_REGISTRY.items() if now - i["last_seen"] > SESSION_TIMEOUT_SEC]
-            for n in expired: del NODE_REGISTRY[n]
-            self.wfile.write(json.dumps({"infrastructure": "Nexus WAN Signaling Hub", "version": "v1950-spec", "active_nodes_count": len(NODE_REGISTRY), "registry": NODE_REGISTRY, "timestamp": now}, indent=4).encode("utf-8"))
-        else:
-            self.send_response(404)
-            self.end_headers()
-    def do_POST(self):
-        if self.path == "/register":
-            try:
-                content_length = int(self.headers["Content-Length"])
-                payload = json.loads(self.rfile.read(content_length).decode("utf-8"))
-                node_id = payload.get("node_id")
-                if not node_id:
-                    self.send_response(400); self.end_headers(); return
-                NODE_REGISTRY[node_id] = {
-                    "wan_ip": self.client_address[0], "wan_port": self.client_address[1],
-                    "internal_tcp_port": payload.get("local_ports", {}).get("tcp", 8080),
-                    "internal_metrics_port": payload.get("local_ports", {}).get("metrics", 9090),
-                    "role": payload.get("role", "FOLLOWER"), "last_seen": time.time()
-                }
-                print(f"📡 [Rendezvous] No {node_id} registrado via {self.client_address[0]}")
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"status": "ACCEPTED", "active_peers": {n: i for n, i in NODE_REGISTRY.items() if n != node_id}}).encode("utf-8"))
-            except:
-                self.send_response(500); self.end_headers()
+            self.wfile.write(json.dumps({"status": "registered", "detected_ip": public_ip}).encode('utf-8'))
 
-print("🚀 [Nexus Rendezvous Hub] Online na porta 8500...")
-HTTPServer(("0.0.0.0", 8500), NexusRendezvousHandler).serve_forever()
+    def do_GET(self):
+        if self.path == "/peers":
+            current_time = time.time()
+            active_peers = {k: v for k, v in PEERS.items() if current_time - v.get("last_seen", 0) < PEER_TIMEOUT}
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(active_peers).encode('utf-8'))
+
+def auto_reap_expired_nodes():
+    while True:
+        time.sleep(5)
+        current_time = time.time()
+        expired = [k for k, v in PEERS.items() if current_time - v.get("last_seen", 0) >= PEER_TIMEOUT]
+        for node in expired:
+            del PEERS[node]
+
+if __name__ == "__main__":
+    threading.Thread(target=auto_reap_expired_nodes, daemon=True).start()
+    server_address = ("0.0.0.0", 8500)
+    httpd = HTTPServer(server_address, NexusRendezvousHandler)
+    print("🚀 [Nexus Hub v2200] Online na porta 8500 com mapeamento dinâmico de NAT.")
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        print("\n🛑 Hub encerrado.")
