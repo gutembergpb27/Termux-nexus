@@ -613,3 +613,32 @@ def test_recover_state_rejects_checkpoint_ahead_of_external_anchor(tmp_path):
             filepath=str(db_path),
             anchor_path=str(anchor_path)
         ).recover_state()
+
+def test_recover_state_rejects_partially_written_checkpoint(tmp_path):
+    db_dir = tmp_path / "db"
+    anchor_dir = tmp_path / "anchor"
+    db_dir.mkdir()
+    anchor_dir.mkdir()
+
+    db_path = db_dir / "nexus_store.db"
+    anchor_path = anchor_dir / "nexus.anchor.json"
+    checkpoint_path = Path(str(db_path) + ".checkpoint.json")
+
+    persistence = NexusPersistence(
+        filepath=str(db_path),
+        anchor_path=str(anchor_path)
+    )
+
+    persistence.append_transaction({"event": "WORKER_SPAWN", "data": {"worker_id": "W1", "pid": 123}})
+    persistence.append_transaction({"event": "JOB_SUBMIT", "data": {"job_id": "J1"}})
+
+    checkpoint_path.write_text(
+        '{"height": 2, "tip_hash":',
+        encoding="utf-8"
+    )
+
+    with pytest.raises(Exception):
+        NexusPersistence(
+            filepath=str(db_path),
+            anchor_path=str(anchor_path)
+        ).recover_state()
