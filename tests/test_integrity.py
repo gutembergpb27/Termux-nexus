@@ -122,3 +122,42 @@ def test_recover_state_rejects_tampered_rotation_anchor(tmp_path):
 
     with pytest.raises(ValueError):
         persistence_after_tamper.recover_state()
+
+
+def test_recover_state_rejects_tampered_rotated_history(tmp_path):
+    db_path = tmp_path / "nexus_store.db"
+    persistence = NexusPersistence(
+        filepath=str(db_path),
+        max_bytes=1
+    )
+
+    persistence.append_transaction({
+        "event": "WORKER_SPAWN",
+        "data": {"worker_id": "W1", "pid": 123}
+    })
+
+    persistence.append_transaction({
+        "event": "JOB_SUBMIT",
+        "data": {"job_id": "J1"}
+    })
+
+    rotated_path = Path(str(db_path) + ".1")
+    lines = rotated_path.read_text(
+        encoding="utf-8"
+    ).splitlines()
+
+    block = json.loads(lines[-1])
+    block["payload"]["data"]["worker_id"] = "TAMPERED-C5"
+    lines[-1] = json.dumps(block)
+
+    rotated_path.write_text(
+        "\n".join(lines) + "\n",
+        encoding="utf-8"
+    )
+
+    persistence_after_tamper = NexusPersistence(
+        filepath=str(db_path)
+    )
+
+    with pytest.raises(ValueError):
+        persistence_after_tamper.recover_state()

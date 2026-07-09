@@ -76,14 +76,14 @@ class NexusPersistence:
         self.last_hash = current_hash
         return current_hash
 
-    def validate_chain(self):
-        """Valida hashes e continuidade criptografica antes da recuperacao."""
-        if not os.path.exists(self.filepath):
-            return True
+    def _validate_file_chain(self, filepath, initial_previous_hash=None):
+        """Valida um arquivo de blocos e retorna o ultimo hash armazenado."""
+        if not os.path.exists(filepath):
+            return initial_previous_hash
 
-        previous_stored_hash = None
+        previous_stored_hash = initial_previous_hash
 
-        with open(self.filepath, "r", encoding="utf-8") as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             for line_number, line in enumerate(f, start=1):
                 if not line.strip():
                     continue
@@ -121,6 +121,21 @@ class NexusPersistence:
                     )
 
                 previous_stored_hash = stored_hash
+
+        return previous_stored_hash
+
+    def validate_chain(self):
+        """Valida cadeia ativa e, se existir, o arquivo rotacionado anterior."""
+        backup_filepath = f"{self.filepath}.1"
+
+        previous_hash = None
+        if os.path.exists(backup_filepath):
+            previous_hash = self._validate_file_chain(backup_filepath)
+
+        self._validate_file_chain(
+            self.filepath,
+            initial_previous_hash=previous_hash
+        )
 
         return True
 
