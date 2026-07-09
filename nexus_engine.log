@@ -1,0 +1,1 @@
+Uso: python nexus_distributed_core.py <node_id> <web_port> <tcp_port> <role>
