@@ -185,3 +185,40 @@ def test_recover_state_rejects_truncated_tail(tmp_path):
 
     with pytest.raises(ValueError):
         persistence_after_truncation.recover_state()
+
+def test_recover_state_rejects_reordered_blocks(tmp_path):
+    db_path = tmp_path / "nexus_store.db"
+    persistence = NexusPersistence(filepath=str(db_path))
+
+    persistence.append_transaction({
+        "event": "WORKER_SPAWN",
+        "data": {"worker_id": "W1", "pid": 123}
+    })
+
+    persistence.append_transaction({
+        "event": "JOB_SUBMIT",
+        "data": {"job_id": "J1"}
+    })
+
+    persistence.append_transaction({
+        "event": "JOB_COMMIT",
+        "data": {"job_id": "J1"}
+    })
+
+    lines = db_path.read_text(
+        encoding="utf-8"
+    ).splitlines(keepends=True)
+
+    lines[1], lines[2] = lines[2], lines[1]
+
+    db_path.write_text(
+        "".join(lines),
+        encoding="utf-8"
+    )
+
+    persistence_after_reorder = NexusPersistence(
+        filepath=str(db_path)
+    )
+
+    with pytest.raises(ValueError):
+        persistence_after_reorder.recover_state()
