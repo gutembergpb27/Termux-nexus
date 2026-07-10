@@ -16,22 +16,48 @@ class ProtocolError(ValueError):
 @dataclass
 class ReplayCache:
     _messages: dict[str, float] = field(default_factory=dict)
+    _nonces: dict[tuple[str, str], float] = field(default_factory=dict)
 
     def purge(self, now: float, ttl: float) -> None:
-        expired = [
+        expired_messages = [
             message_id
             for message_id, timestamp in self._messages.items()
             if now - timestamp > ttl
         ]
-        for message_id in expired:
+        for message_id in expired_messages:
             del self._messages[message_id]
 
-    def contains(self, message_id: str, now: float, ttl: float) -> bool:
+        expired_nonces = [
+            nonce_key
+            for nonce_key, timestamp in self._nonces.items()
+            if now - timestamp > ttl
+        ]
+        for nonce_key in expired_nonces:
+            del self._nonces[nonce_key]
+
+    def contains_message(self, message_id: str, now: float, ttl: float) -> bool:
         self.purge(now, ttl)
         return message_id in self._messages
 
-    def add(self, message_id: str, timestamp: float) -> None:
+    def contains_nonce(
+        self,
+        sender: str,
+        nonce: str,
+        now: float,
+        ttl: float,
+    ) -> bool:
+        self.purge(now, ttl)
+        return (sender, nonce) in self._nonces
+
+    def add(
+        self,
+        message_id: str,
+        sender: str,
+        nonce: str,
+        timestamp: float,
+    ) -> None:
         self._messages[message_id] = timestamp
+        self._nonces[(sender, nonce)] = timestamp
 
 
 class NexusProtocol:
@@ -125,9 +151,18 @@ class NexusProtocol:
         if current_time - timestamp > ttl:
             raise ProtocolError("expired envelope")
 
+        if timestamp - current_time > ttl:
+            raise ProtocolError("envelope timestamp is too far in the future")
+
         message_id = str(envelope["message_id"])
-        if replay_cache.contains(message_id, current_time, ttl):
+        sender = str(envelope["sender"])
+        nonce = str(envelope["nonce"])
+
+        if replay_cache.contains_message(message_id, current_time, ttl):
             raise ProtocolError("replay detected")
+
+        if replay_cache.contains_nonce(sender, nonce, current_time, ttl):
+            raise ProtocolError("nonce replay detected")
 
         signature = str(envelope["signature"])
         unsigned = {
@@ -140,5 +175,10 @@ class NexusProtocol:
         if not hmac.compare_digest(expected, signature):
             raise ProtocolError("invalid signature")
 
-        replay_cache.add(message_id, timestamp)
+        replay_cache.add(
+            message_id,
+            sender,
+            nonce,
+            timestamp,
+        )
         return True

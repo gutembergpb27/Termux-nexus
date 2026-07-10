@@ -89,3 +89,46 @@ def test_rejects_replayed_message():
             ttl=60.0,
             replay_cache=replay_cache,
         )
+
+
+def test_rejects_envelope_too_far_in_the_future():
+    protocol = make_protocol()
+    envelope = make_envelope(protocol)
+
+    with pytest.raises(ProtocolError, match="future"):
+        protocol.verify_envelope(
+            envelope,
+            now=900.0,
+            ttl=60.0,
+            replay_cache=ReplayCache(),
+        )
+
+
+def test_rejects_reused_nonce_with_different_message_id():
+    protocol = make_protocol()
+    replay_cache = ReplayCache()
+
+    first = make_envelope(protocol)
+    second = protocol.create_envelope(
+        sender="NO-ARM-01",
+        message_type="HEARTBEAT",
+        payload={"status": "ALIVE"},
+        timestamp=1000.0,
+        nonce="nonce-001",
+        message_id="message-002",
+    )
+
+    assert protocol.verify_envelope(
+        first,
+        now=1001.0,
+        ttl=60.0,
+        replay_cache=replay_cache,
+    )
+
+    with pytest.raises(ProtocolError, match="nonce"):
+        protocol.verify_envelope(
+            second,
+            now=1002.0,
+            ttl=60.0,
+            replay_cache=replay_cache,
+        )
