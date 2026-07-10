@@ -34,3 +34,12 @@ def test_setup_node_installs_python_dotenv_dependency():
         "Provisioning must install the dotenv dependency required "
         "by nexus_security.py."
     )
+
+
+def test_setup_node_configures_local_secret_file():
+    script = Path("setup_node.sh").read_text(encoding="utf-8")
+
+    assert "nexus_config.env" in script, (
+        "Provisioning must configure the local secret file required "
+        "by nexus_security.py."
+    )

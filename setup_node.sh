@@ -36,12 +36,15 @@ sudo mkdir -p "$NEXUS_DIR/archived_patches"
 # Preserva bancos, WAL e arquivos SHM existentes.
 # O provisionamento não deve apagar estado válido de um nó já inicializado.
 
-# Copia o Core e sua dependência de segurança para o diretório de produção
-if [ -f "nexus_distributed_core.py" ] && [ -f "nexus_security.py" ]; then
+# Copia o Core, a camada de segurança e a configuração secreta local.
+# nexus_config.env não é versionado e deve ser provisionado pelo operador.
+if [ -f "nexus_distributed_core.py" ] &&    [ -f "nexus_security.py" ] &&    [ -f "nexus_config.env" ]; then
     sudo cp nexus_distributed_core.py "$NEXUS_DIR/"
     sudo cp nexus_security.py "$NEXUS_DIR/"
+    sudo cp nexus_config.env "$NEXUS_DIR/"
+    sudo chmod 600 "$NEXUS_DIR/nexus_config.env"
 else
-    echo "❌ Erro: nexus_distributed_core.py e nexus_security.py devem existir na pasta atual."
+    echo "❌ Erro: core, segurança e nexus_config.env devem existir na pasta atual."
     exit 1
 fi
 
