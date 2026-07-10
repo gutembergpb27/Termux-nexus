@@ -1,47 +1,115 @@
 # Nexus Product Bridge
 
-## Da visão original ao primeiro produto real
+## Da visão original à malha fechada
 
 ### Pergunta central
 
-Como transformar a visão original de interação inteligente com o usuário em uma experiência mínima, real e testável, usando apenas o que o Nexus já consegue sustentar hoje?
+Como transformar a visão do Nexus em uma plataforma de inteligência distribuída na borda, capaz de operar em malhas locais fechadas, preservar continuidade e sustentar aplicações úteis para pessoas e organizações?
 
-## 1. O problema original
+## 1. A visão de futuro
 
-A notificação tradicional é passiva, genérica e sem continuidade.
+O futuro da computação de borda não será composto apenas por dispositivos isolados executando modelos localmente.
 
-A visão original do Nexus é transformar a notificação em uma interação contextual e bidirecional:
+Será composto por malhas de dispositivos capazes de:
 
-evento → decisão → interação → resposta → memória → adaptação
+- descobrir uns aos outros;
+- compartilhar estado e contexto;
+- distribuir trabalho;
+- continuar operando sem dependência permanente da nuvem;
+- sobreviver à falha de nós;
+- recuperar nós defasados;
+- preservar integridade e confiança localmente.
 
-## 2. Princípio de produto
+A nuvem pode ampliar a malha, mas não deve ser condição para sua existência.
 
-O usuário não precisa ver a complexidade do Runtime.
+## 2. O papel do Nexus
 
-Ele precisa perceber três coisas:
+O Nexus é um runtime de continuidade para inteligência distribuída na borda.
 
-- o Nexus lembra;
-- o Nexus escolhe quando vale a pena aparecer;
-- o Nexus muda com a interação.
+Sua função é permitir que dispositivos deixem de operar como ilhas e passem a formar um sistema local cooperativo.
 
-## 3. Primeira hipótese testável
+O Nexus deve fornecer a base para:
 
-Dez pessoas usarão uma experiência mínima do Nexus durante 7 dias.
+- identidade de nós;
+- comunicação segura;
+- persistência;
+- coordenação;
+- failover;
+- sincronização;
+- recuperação;
+- observabilidade;
+- integridade do estado.
 
-O objetivo não é provar inteligência geral.
+## 3. A unidade fundamental
 
-O objetivo é descobrir se uma interação que lembra, responde e se adapta é percebida como útil.
+A unidade fundamental do Nexus não é um aplicativo, um worker ou um dispositivo isolado.
 
-## 4. Primeira experiência
+A unidade fundamental é a malha.
 
-A experiência inicial terá apenas este ciclo:
+Cada dispositivo participa como nó de uma célula computacional local, contribuindo com capacidade, contexto, memória ou interface.
 
-1. O Nexus faz uma pergunta simples.
-2. O usuário responde.
-3. O Nexus registra a resposta.
-4. O Nexus usa essa resposta na próxima interação.
-5. O usuário informa se a interação foi útil ou inoportuna.
+## 4. As aplicações
 
-## 5. Primeira mensagem
+As aplicações não definem o Nexus.
+
+Elas utilizam a malha Nexus como infraestrutura de continuidade.
+
+Exemplos possíveis:
+
+- notificações inteligentes;
+- automação residencial;
+- monitoramento industrial;
+- coordenação logística;
+- agentes locais;
+- sistemas de resposta a eventos;
+- operação em ambientes desconectados;
+- aplicações de soberania de dados.
+
+Cada aplicação pode usar apenas uma parte da malha ou combinar múltiplos nós, sensores e interfaces.
+
+## 5. A primeira aplicação humana
+
+O projeto de Notificações Inteligentes Personalizadas representa a primeira aplicação humana concebida para o Nexus.
+
+Seu papel é demonstrar, de forma simples, capacidades profundas da malha:
+
+- memória distribuída;
+- contexto local;
+- continuidade entre dispositivos;
+- adaptação baseada em interação;
+- preservação da experiência mesmo diante de falhas.
+
+A pessoa não precisa perceber a infraestrutura.
+
+Ela precisa perceber que o Nexus:
+
+- lembra;
+- continua;
+- aparece quando importa;
+- adapta-se à interação;
+- preserva o contexto.
+
+## 6. A primeira prova integrada
+
+A primeira prova de produto não será apenas uma notificação em um único aparelho.
+
+Será uma interação sustentada por uma malha real.
+
+Exemplo:
+
+1. Um nó identifica um evento.
+2. Outro nó fornece contexto.
+3. A malha registra a decisão.
+4. Um dispositivo apresenta a interação ao usuário.
+5. O usuário responde.
+6. A resposta é preservada e compartilhada pela malha.
+7. Se um nó falhar, a experiência continua.
+8. Quando o nó retornar, ele recupera o estado.
+
+## 7. Hipótese central
+
+Uma malha local de dispositivos pode sustentar uma experiência inteligente contínua sem depender permanentemente de um serviço central.
+
+## 8. Primeira mensagem
 
 Cheguei.
