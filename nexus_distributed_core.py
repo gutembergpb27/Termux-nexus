@@ -120,7 +120,6 @@ class NexusDistributedCore:
                         self.role = "MASTER"
                         print(f"👑 [Sucesso] Nó {self.node_id} promovido para [{self.role}]")
                         threading.Thread(target=self.shell_intake_loop, daemon=True).start()
-                        break
             except Exception as e:
                 print(f"❌ [Polling Error] {e}")
 
