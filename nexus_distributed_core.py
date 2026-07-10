@@ -118,8 +118,7 @@ class NexusDistributedCore:
                         print(f"\n🚨 [Failover] MASTER ausente há {delta:.1f}s!")
                         print("🗳️ [Eleição] Iniciando autoproclamação de liderança por vacância...")
                         self.role = "MASTER"
-                        self.node_id = f"MASTER-PROMOTE-{self.node_id}"
-                        print(f"👑 [Sucesso] Nó promovido! Novo papel: [{self.role}] como {self.node_id}")
+                        print(f"👑 [Sucesso] Nó {self.node_id} promovido para [{self.role}]")
                         threading.Thread(target=self.shell_intake_loop, daemon=True).start()
                         break
             except Exception as e:
