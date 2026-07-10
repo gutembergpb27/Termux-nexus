@@ -16,3 +16,12 @@ def test_setup_node_does_not_delete_existing_databases():
         "Provisioning must preserve existing node state. "
         f"Destructive database cleanup detected: {detected}"
     )
+
+
+def test_setup_node_copies_runtime_security_dependency():
+    script = Path("setup_node.sh").read_text(encoding="utf-8")
+
+    assert "nexus_security.py" in script, (
+        "Provisioning must install nexus_security.py because "
+        "nexus_distributed_core.py imports NexusSecurityProvider."
+    )

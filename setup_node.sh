@@ -30,11 +30,13 @@ sudo mkdir -p "$NEXUS_DIR/archived_patches"
 # Preserva bancos, WAL e arquivos SHM existentes.
 # O provisionamento não deve apagar estado válido de um nó já inicializado.
 
-# Copia o Core nativo reconstruído para o diretório de produção
-if [ -f "nexus_distributed_core.py" ]; then
+# Copia o Core e sua dependência de segurança para o diretório de produção
+if [ -f "nexus_distributed_core.py" ] && [ -f "nexus_security.py" ]; then
     sudo cp nexus_distributed_core.py "$NEXUS_DIR/"
+    sudo cp nexus_security.py "$NEXUS_DIR/"
 else
-    echo "⚠️ Aviso: nexus_distributed_core.py não encontrado na pasta atual. Certifique-se de copiá-lo para $NEXUS_DIR."
+    echo "❌ Erro: nexus_distributed_core.py e nexus_security.py devem existir na pasta atual."
+    exit 1
 fi
 
 # 4. Configuração Dinâmica do Arquivo de Serviço Systemd (Daemon de Inicialização)
