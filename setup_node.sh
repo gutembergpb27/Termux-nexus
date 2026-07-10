@@ -16,10 +16,16 @@ SERVICE_FILE="/etc/systemd/system/nexus.service"
 # 2. Auditoria e Isolamento de Dependências Nativas
 echo "🔍 [Auditoria] Verificando requisitos de sistema..."
 if ! command -v python3 &> /dev/null; then
-    echo "❌ Erro: Python 3 não localizado. Instalando via gerenciador de pacotes..."
-    sudo apt-get update && sudo apt-get install -y python3 sqlite3
+    echo "❌ Erro: Python 3 não localizado. Instalando dependências..."
+    sudo apt-get update
+    sudo apt-get install -y python3 sqlite3 python3-dotenv
 else
-    echo "✔ Python 3 e SQLite3 validados de forma nativa."
+    echo "✔ Python 3 localizado. Validando dependência dotenv..."
+    if ! python3 -c "import dotenv" 2>/dev/null; then
+        sudo apt-get update
+        sudo apt-get install -y python3-dotenv
+    fi
+    echo "✔ Python 3, SQLite3 e dotenv validados."
 fi
 
 # 3. Criação e Limpeza do Diretório de Trabalho (Mitigação de Estado Corrompido)

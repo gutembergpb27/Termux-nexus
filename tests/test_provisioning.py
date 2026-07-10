@@ -25,3 +25,12 @@ def test_setup_node_copies_runtime_security_dependency():
         "Provisioning must install nexus_security.py because "
         "nexus_distributed_core.py imports NexusSecurityProvider."
     )
+
+
+def test_setup_node_installs_python_dotenv_dependency():
+    script = Path("setup_node.sh").read_text(encoding="utf-8")
+
+    assert "python3-dotenv" in script or "python-dotenv" in script, (
+        "Provisioning must install the dotenv dependency required "
+        "by nexus_security.py."
+    )
