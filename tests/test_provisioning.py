@@ -43,3 +43,12 @@ def test_setup_node_configures_local_secret_file():
         "Provisioning must configure the local secret file required "
         "by nexus_security.py."
     )
+
+
+def test_setup_node_passes_hub_url_to_runtime():
+    script = Path("setup_node.sh").read_text(encoding="utf-8")
+
+    assert "NEXUS_HUB_URL" in script, (
+        "Provisioning must configure the rendezvous Hub URL "
+        "instead of relying on a hard-coded address in the runtime."
+    )

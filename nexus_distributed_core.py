@@ -4,6 +4,7 @@ import threading
 import time
 import json
 import sqlite3
+import os
 import urllib.request
 
 class NexusDistributedCore:
@@ -12,7 +13,7 @@ class NexusDistributedCore:
         self.web_port = int(web_port)
         self.tcp_port = int(tcp_port)
         self.role = role
-        self.hub_url = "http://192.168.1.5:8500"
+        self.hub_url = os.getenv("NEXUS_HUB_URL", "http://127.0.0.1:8500")
         self.last_master_heartbeat = time.time()
         
         self.db_name = f"nexus_{self.node_id}.db"

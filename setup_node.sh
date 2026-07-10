@@ -56,6 +56,7 @@ NODE_ID=${1:-"NO-ARM-FOLLOWER"}
 WEB_PORT=${2:-"8082"}
 TCP_PORT=${3:-"9092"}
 ROLE=${4:-"FOLLOWER"}
+NEXUS_HUB_URL=${5:-"http://127.0.0.1:8500"}
 
 sudo cat << SYSTEMD_EOF | sudo tee "$SERVICE_FILE" > /dev/null
 [Unit]
@@ -65,6 +66,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=$NEXUS_DIR
+Environment=NEXUS_HUB_URL=$NEXUS_HUB_URL
 ExecStart=/usr/bin/python3 nexus_distributed_core.py $NODE_ID $WEB_PORT $TCP_PORT $ROLE
 Restart=always
 RestartSec=5
