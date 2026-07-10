@@ -27,8 +27,8 @@ echo "🧹 [Persistência] Organizando diretórios e isolando bancos antigos..."
 sudo mkdir -p "$NEXUS_DIR"
 sudo mkdir -p "$NEXUS_DIR/archived_patches"
 
-# Limpa resquícios de WAL ou caches parciais residuais de sessões anteriores
-sudo rm -f "$NEXUS_DIR"/nexus_*.db "$NEXUS_DIR"/nexus_*.db-wal "$NEXUS_DIR"/nexus_*.db-shm
+# Preserva bancos, WAL e arquivos SHM existentes.
+# O provisionamento não deve apagar estado válido de um nó já inicializado.
 
 # Copia o Core nativo reconstruído para o diretório de produção
 if [ -f "nexus_distributed_core.py" ]; then
