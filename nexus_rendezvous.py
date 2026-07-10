@@ -2,9 +2,73 @@ import json
 import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
+from typing import Any, MutableMapping
+
+from nexus_protocol import NexusProtocol, ReplayCache
 
 PEERS = {}
 PEER_TIMEOUT = 30
+
+
+def register_peer(
+    *,
+    envelope: dict[str, Any],
+    client_ip: str,
+    protocol: NexusProtocol,
+    replay_cache: ReplayCache,
+    peers: MutableMapping[str, dict[str, Any]],
+    now: float,
+    ttl: float,
+) -> dict[str, Any]:
+    protocol.verify_envelope(
+        envelope,
+        now=now,
+        ttl=ttl,
+        replay_cache=replay_cache,
+    )
+
+    if envelope.get("type") != "REGISTER":
+        raise ValueError("invalid registration message type")
+
+    payload = envelope.get("payload")
+    if not isinstance(payload, dict):
+        raise ValueError("invalid registration payload")
+
+    node_id = str(payload.get("node_id", "")).strip()
+    sender = str(envelope.get("sender", "")).strip()
+
+    if not node_id:
+        raise ValueError("missing node_id")
+
+    if node_id != sender:
+        raise ValueError("registration sender does not match node_id")
+
+    role = str(payload.get("role", "")).strip().upper()
+    if role not in {"FOLLOWER", "CANDIDATE", "MASTER"}:
+        raise ValueError("invalid role")
+
+    try:
+        web_port = int(payload["web_port"])
+        tcp_port = int(payload["tcp_port"])
+        protocol_version = int(payload["protocol_version"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("invalid registration fields") from exc
+
+    if not 1 <= web_port <= 65535 or not 1 <= tcp_port <= 65535:
+        raise ValueError("invalid registration port")
+
+    record = {
+        "node_id": node_id,
+        "role": role,
+        "web_port": web_port,
+        "tcp_port": tcp_port,
+        "protocol_version": protocol_version,
+        "ip": client_ip,
+        "last_seen": float(now),
+    }
+
+    peers[node_id] = record
+    return record
 
 class NexusRendezvousHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
