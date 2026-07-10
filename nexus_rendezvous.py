@@ -4,10 +4,13 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
 from typing import Any, MutableMapping
 
-from nexus_protocol import NexusProtocol, ReplayCache
+from nexus_protocol import NexusProtocol, ProtocolError, ReplayCache
 
 PEERS = {}
 PEER_TIMEOUT = 30
+PROTOCOL = None
+REPLAY_CACHE = ReplayCache()
+MESSAGE_TTL = 60.0
 
 
 def register_peer(
@@ -74,30 +77,65 @@ class NexusRendezvousHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
+    def _send_json(self, status: int, payload: dict[str, Any]) -> None:
+        body = json.dumps(payload).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_POST(self):
-        if self.path == "/register":
-            content_length = int(self.headers['Content-Length'])
+        if self.path != "/register":
+            self._send_json(404, {"error": "not found"})
+            return
+
+        if PROTOCOL is None:
+            self._send_json(503, {"error": "protocol not configured"})
+            return
+
+        try:
+            raw_length = self.headers.get("Content-Length", "")
+            content_length = int(raw_length)
+            if content_length <= 0 or content_length > 65536:
+                raise ValueError("invalid content length")
+
             post_data = self.rfile.read(content_length)
-            payload = json.loads(post_data.decode('utf-8'))
-            
-            node_id = payload.get("node_id")
-            
-            # NAT Traversal: captura o IP real de quem bateu no socket
-            client_ip = self.headers.get("X-Forwarded-For")
-            if client_ip:
-                public_ip = client_ip.split(',')[0].strip()
-            else:
-                public_ip = self.client_address[0]
-            
-            payload["ip"] = public_ip
-            payload["last_seen"] = time.time()
-            
-            PEERS[node_id] = payload
-            
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"status": "registered", "detected_ip": public_ip}).encode('utf-8'))
+            envelope = json.loads(post_data.decode("utf-8"))
+
+            if not isinstance(envelope, dict):
+                raise ValueError("invalid JSON envelope")
+
+            client_ip = self.client_address[0]
+
+            record = register_peer(
+                envelope=envelope,
+                client_ip=client_ip,
+                protocol=PROTOCOL,
+                replay_cache=REPLAY_CACHE,
+                peers=PEERS,
+                now=time.time(),
+                ttl=MESSAGE_TTL,
+            )
+
+        except json.JSONDecodeError:
+            self._send_json(400, {"error": "invalid JSON"})
+            return
+        except ProtocolError as exc:
+            self._send_json(401, {"error": str(exc)})
+            return
+        except (TypeError, ValueError) as exc:
+            self._send_json(400, {"error": str(exc)})
+            return
+
+        self._send_json(
+            200,
+            {
+                "status": "registered",
+                "node_id": record["node_id"],
+                "detected_ip": record["ip"],
+            },
+        )
 
     def do_GET(self):
         if self.path == "/peers":
