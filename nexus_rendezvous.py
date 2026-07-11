@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
@@ -207,6 +208,13 @@ def auto_reap_expired_nodes():
             del PEERS[node]
 
 if __name__ == "__main__":
+    secret = os.getenv("NEXUS_SECRET_KEY", "").strip()
+    if not secret:
+        raise SystemExit("ERRO: NEXUS_SECRET_KEY não configurada")
+
+    PROTOCOL = NexusProtocol(secret)
+    REPLAY_CACHE = ReplayCache()
+
     threading.Thread(target=auto_reap_expired_nodes, daemon=True).start()
     server_address = ("0.0.0.0", 8500)
     httpd = HTTPServer(server_address, NexusRendezvousHandler)
