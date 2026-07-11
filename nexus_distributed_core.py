@@ -1,4 +1,4 @@
-from nexus_security import NexusSecurityProvider
+from nexus_protocol import NexusProtocol
 import socket
 import threading
 import time
@@ -14,6 +14,8 @@ class NexusDistributedCore:
         self.tcp_port = int(tcp_port)
         self.role = role
         self.hub_url = os.getenv("NEXUS_HUB_URL", "http://127.0.0.1:8500")
+        secret = os.getenv("NEXUS_SECRET_KEY", "").strip()
+        self.protocol = NexusProtocol(secret)
         self.last_master_heartbeat = time.time()
         
         self.db_name = f"nexus_{self.node_id}.db"
@@ -27,6 +29,29 @@ class NexusDistributedCore:
             
         print(f"⚡ [Nexus v2100] Core pronto. Papel corrente: [{self.role}]")
         
+
+    def build_registration_envelope(
+        self,
+        *,
+        timestamp=None,
+        nonce=None,
+        message_id=None,
+    ):
+        return self.protocol.create_envelope(
+            sender=self.node_id,
+            message_type="REGISTER",
+            payload={
+                "node_id": self.node_id,
+                "role": self.role,
+                "web_port": self.web_port,
+                "tcp_port": self.tcp_port,
+                "protocol_version": 1,
+            },
+            timestamp=timestamp,
+            nonce=nonce,
+            message_id=message_id,
+        )
+
     def init_db(self):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
@@ -92,7 +117,7 @@ class NexusDistributedCore:
                 
                 # Heartbeat via urllib nativo
                 try:
-                    payload = json.dumps({"node_id": self.node_id, "port": self.web_port, "tcp_port": self.tcp_port, "role": self.role}).encode('utf-8')
+                    payload = json.dumps(self.build_registration_envelope()).encode("utf-8")
                     req = urllib.request.Request(f"{self.hub_url}/register", data=payload, headers={'Content-Type': 'application/json'}, method='POST')
                     with urllib.request.urlopen(req, timeout=2) as response:
                         pass
