@@ -105,3 +105,44 @@ def test_cluster_endpoint_reports_leader_and_followers(tmp_path):
     assert body["followers"] == ["NO-WEB-01"]
     assert body["nodes"] == 2
     assert set(body["peers"]) == {"NO-WEB-01", "NO-WEB-02"}
+
+
+def test_health_endpoint_returns_200_when_runtime_is_healthy(tmp_path):
+    runtime = FakeRuntime(tmp_path)
+    runtime.runtime_health = lambda: {
+        "healthy": True,
+        "node_id": runtime.node_id,
+        "role": runtime.role,
+        "storage": {"valid": True},
+    }
+    web_panel._runtime_instance = runtime
+
+    handler, request = make_handler("/health")
+    handler.do_GET()
+
+    body = read_body(request)
+
+    assert request.status == 200
+    assert body["healthy"] is True
+    assert body["storage"]["valid"] is True
+
+
+def test_health_endpoint_returns_503_when_runtime_is_unhealthy(tmp_path):
+    runtime = FakeRuntime(tmp_path)
+    runtime.runtime_health = lambda: {
+        "healthy": False,
+        "node_id": runtime.node_id,
+        "role": runtime.role,
+        "storage": {"valid": False},
+        "reason": "checkpoint mismatch",
+    }
+    web_panel._runtime_instance = runtime
+
+    handler, request = make_handler("/health")
+    handler.do_GET()
+
+    body = read_body(request)
+
+    assert request.status == 503
+    assert body["healthy"] is False
+    assert body["reason"] == "checkpoint mismatch"

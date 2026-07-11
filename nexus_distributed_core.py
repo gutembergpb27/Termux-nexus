@@ -52,6 +52,33 @@ class NexusDistributedCore:
         logger.info("core_ready node=%s role=%s", getattr(self, "node_id", "unknown"), self.role)
         
 
+    def runtime_health(self):
+        try:
+            self.persistence.validate_chain()
+            summary = self.persistence.state_summary(
+                term=getattr(self, "term", 0)
+            )
+            return {
+                "healthy": True,
+                "node_id": self.node_id,
+                "role": self.role,
+                "storage": {
+                    "valid": True,
+                    "height": summary["height"],
+                    "tip_hash": summary["tip_hash"],
+                },
+            }
+        except Exception as exc:
+            return {
+                "healthy": False,
+                "node_id": getattr(self, "node_id", "unknown"),
+                "role": getattr(self, "role", "UNKNOWN"),
+                "storage": {
+                    "valid": False,
+                },
+                "reason": str(exc),
+            }
+
     def build_registration_envelope(
         self,
         *,

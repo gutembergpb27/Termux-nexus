@@ -31,6 +31,12 @@ class MetricsHTTPHandler(BaseHTTPRequestHandler):
             self._send_json(503, {"error": "runtime unavailable"})
             return
 
+        if self.path == "/health":
+            payload = runtime.runtime_health()
+            status = 200 if payload.get("healthy") else 503
+            self._send_json(status, payload)
+            return
+
         if self.path == "/status":
             summary = runtime.persistence.state_summary(
                 term=getattr(runtime, "term", 0)

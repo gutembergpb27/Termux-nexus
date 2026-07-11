@@ -108,3 +108,37 @@ def test_core_builds_authenticated_state_summary_envelope(tmp_path):
         ttl=60.0,
         replay_cache=ReplayCache(),
     )
+
+
+def test_runtime_health_reports_valid_storage(tmp_path):
+    from persistence import NexusPersistence
+
+    core = make_core()
+    core.persistence = NexusPersistence(
+        filepath=str(tmp_path / "healthy.db")
+    )
+    core.term = 4
+
+    health = core.runtime_health()
+
+    assert health["healthy"] is True
+    assert health["node_id"] == "NO-ARM-01"
+    assert health["role"] == "FOLLOWER"
+    assert health["storage"]["valid"] is True
+    assert health["storage"]["height"] == 0
+
+
+def test_runtime_health_reports_storage_failure():
+    core = make_core()
+
+    class BrokenPersistence:
+        def validate_chain(self):
+            raise ValueError("checkpoint mismatch")
+
+    core.persistence = BrokenPersistence()
+
+    health = core.runtime_health()
+
+    assert health["healthy"] is False
+    assert health["storage"]["valid"] is False
+    assert health["reason"] == "checkpoint mismatch"
