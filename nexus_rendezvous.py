@@ -73,6 +73,44 @@ def register_peer(
     peers[node_id] = record
     return record
 
+def update_peer_heartbeat(
+    *,
+    envelope: dict[str, Any],
+    protocol: NexusProtocol,
+    replay_cache: ReplayCache,
+    peers: MutableMapping[str, dict[str, Any]],
+    now: float,
+    ttl: float,
+) -> dict[str, Any]:
+    protocol.verify_envelope(
+        envelope,
+        now=now,
+        ttl=ttl,
+        replay_cache=replay_cache,
+    )
+
+    if envelope.get("type") != "HEARTBEAT":
+        raise ValueError("invalid heartbeat message type")
+
+    payload = envelope.get("payload")
+    if not isinstance(payload, dict):
+        raise ValueError("invalid heartbeat payload")
+
+    node_id = str(envelope.get("sender", "")).strip()
+    if node_id not in peers:
+        raise ValueError("peer not registered")
+
+    role = str(payload.get("role", peers[node_id]["role"])).upper()
+    if role not in {"FOLLOWER", "CANDIDATE", "MASTER"}:
+        raise ValueError("invalid role")
+
+    record = dict(peers[node_id])
+    record["role"] = role
+    record["last_seen"] = float(now)
+    peers[node_id] = record
+    return record
+
+
 class NexusRendezvousHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
@@ -86,7 +124,7 @@ class NexusRendezvousHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
-        if self.path != "/register":
+        if self.path not in {"/register", "/heartbeat"}:
             self._send_json(404, {"error": "not found"})
             return
 
@@ -108,15 +146,29 @@ class NexusRendezvousHandler(BaseHTTPRequestHandler):
 
             client_ip = self.client_address[0]
 
-            record = register_peer(
-                envelope=envelope,
-                client_ip=client_ip,
-                protocol=PROTOCOL,
-                replay_cache=REPLAY_CACHE,
-                peers=PEERS,
-                now=time.time(),
-                ttl=MESSAGE_TTL,
-            )
+            now = time.time()
+
+            if self.path == "/register":
+                record = register_peer(
+                    envelope=envelope,
+                    client_ip=client_ip,
+                    protocol=PROTOCOL,
+                    replay_cache=REPLAY_CACHE,
+                    peers=PEERS,
+                    now=now,
+                    ttl=MESSAGE_TTL,
+                )
+                response_status = "registered"
+            else:
+                record = update_peer_heartbeat(
+                    envelope=envelope,
+                    protocol=PROTOCOL,
+                    replay_cache=REPLAY_CACHE,
+                    peers=PEERS,
+                    now=now,
+                    ttl=MESSAGE_TTL,
+                )
+                response_status = "alive"
 
         except json.JSONDecodeError:
             self._send_json(400, {"error": "invalid JSON"})
@@ -131,7 +183,7 @@ class NexusRendezvousHandler(BaseHTTPRequestHandler):
         self._send_json(
             200,
             {
-                "status": "registered",
+                "status": response_status,
                 "node_id": record["node_id"],
                 "detected_ip": record["ip"],
             },
