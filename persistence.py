@@ -142,6 +142,14 @@ class NexusPersistence:
                         height += 1
         return height
 
+    def state_summary(self, term=0):
+        self.validate_chain()
+        return {
+            "height": self._current_height(),
+            "tip_hash": self.last_hash,
+            "term": int(term),
+        }
+
     def _write_checkpoint(self):
         checkpoint = {
             "height": self._current_height(),

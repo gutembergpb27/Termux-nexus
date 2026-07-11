@@ -47,3 +47,16 @@ def run_stress_test():
 
 if __name__ == "__main__":
     run_stress_test()
+
+
+def test_state_summary_reports_height_tip_and_term(tmp_path):
+    from persistence import NexusPersistence
+
+    store = NexusPersistence(filepath=str(tmp_path / "nexus.db"))
+    store.append_transaction({"event": "TEST", "data": {"value": 1}})
+
+    summary = store.state_summary(term=7)
+
+    assert summary["height"] == 1
+    assert summary["tip_hash"] == store.last_hash
+    assert summary["term"] == 7
