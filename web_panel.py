@@ -49,6 +49,34 @@ class MetricsHTTPHandler(BaseHTTPRequestHandler):
             )
             return
 
+        if self.path == "/cluster":
+            peers = getattr(runtime, "peers", {})
+            leader = next(
+                (
+                    node_id
+                    for node_id, info in peers.items()
+                    if info.get("role") == "MASTER"
+                ),
+                None,
+            )
+            followers = [
+                node_id
+                for node_id, info in peers.items()
+                if info.get("role") == "FOLLOWER"
+            ]
+
+            self._send_json(
+                200,
+                {
+                    "status": "OPERATIONAL",
+                    "leader": leader,
+                    "followers": followers,
+                    "nodes": len(peers),
+                    "peers": peers,
+                },
+            )
+            return
+
         if self.path == "/metrics":
             summary = runtime.persistence.state_summary(
                 term=getattr(runtime, "term", 0)
