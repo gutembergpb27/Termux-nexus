@@ -199,6 +199,44 @@ class NexusDistributedCore:
         finally:
             conn.close()
 
+    def sync_from_peer(self, peer):
+        host = str(peer.get("ip", "")).strip()
+        tcp_port = int(peer.get("tcp_port", 0))
+
+        if not host or not 1 <= tcp_port <= 65535:
+            raise ValueError("invalid peer sync address")
+
+        request = {
+            "type": "STATE_SUMMARY",
+            "payload": self.persistence.state_summary(),
+        }
+
+        with socket.create_connection(
+            (host, tcp_port),
+            timeout=3,
+        ) as conn:
+            conn.sendall(json.dumps(request).encode("utf-8"))
+            data = conn.recv(65535)
+
+        if not data:
+            raise ValueError("empty sync response")
+
+        response = json.loads(data.decode("utf-8"))
+        if response.get("type") != "SYNC_BATCH":
+            raise ValueError("invalid sync response type")
+
+        applied = self.persistence.apply_blocks(
+            response.get("blocks", [])
+        )
+
+        logger.info(
+            "peer_sync_completed node=%s peer=%s blocks=%s",
+            getattr(self, "node_id", "unknown"),
+            peer.get("node_id", "unknown"),
+            applied,
+        )
+        return applied
+
     def async_polling_loop(self):
         logger.info("polling_started node=%s", self.node_id)
         registered = False
@@ -249,6 +287,15 @@ class NexusDistributedCore:
 
                 if master_node:
                     self.last_master_heartbeat = current_time
+                    try:
+                        self.sync_from_peer(raw_peers[master_node])
+                    except Exception as exc:
+                        logger.warning(
+                            "peer_sync_failed node=%s peer=%s error=%s",
+                            getattr(self, "node_id", "unknown"),
+                            master_node,
+                            exc,
+                        )
                 else:
                     delta = current_time - self.last_master_heartbeat
                     if self.role == "FOLLOWER" and delta > 15.0:
