@@ -1,5 +1,6 @@
 from nexus_protocol import NexusProtocol
 from persistence import NexusPersistence
+from web_panel import start_web_server
 import socket
 import threading
 import time
@@ -35,6 +36,10 @@ class NexusDistributedCore:
         self.persistence = NexusPersistence(filepath=persistence_path)
         self.init_db()
         
+        self.web_server = start_web_server(
+            self,
+            self.web_port,
+        )
         threading.Thread(target=self.start_tcp_server, daemon=True).start()
         threading.Thread(target=self.async_polling_loop, daemon=True).start()
         

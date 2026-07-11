@@ -1,42 +1,84 @@
-from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
-# Referência global para expor os dados do supervisor sem travar o escopo
-_supervisor_instance = None
+
+_runtime_instance = None
+
 
 class MetricsHTTPHandler(BaseHTTPRequestHandler):
-    def log_message(self, format, *args):
-        return # Silencia os logs de requisição no terminal para não poluir o monitor do Core
+    def log_message(self, _format, *_args):
+        return
+
+    def _send_json(self, status, payload):
+        body = json.dumps(
+            payload,
+            indent=2,
+            ensure_ascii=False,
+        ).encode("utf-8")
+
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(body)
 
     def do_GET(self):
-        global _supervisor_instance
-        if self.path == "/metrics":
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            
-            # Monta o snapshot de telemetria atual do sistema
-            metrics = {
-                "status": "OPERATIONAL",
-                "engine_version": "Nexus v1000 (SRE Production)",
-                "active_workers_count": len(_supervisor_instance.workers) if _supervisor_instance else 0,
-                "workers": [w_id for w_id in _supervisor_instance.workers.keys()] if _supervisor_instance else [],
-                "last_chain_hash": _supervisor_instance.persistence.last_hash if _supervisor_instance else "N/A"
-            }
-            
-            self.wfile.write(json.dumps(metrics, indent=2).encode('utf-8'))
-        else:
-            self.send_response(404)
-            self.end_headers()
+        runtime = _runtime_instance
 
-def start_web_server(supervisor_instance, port=9090):
-    """Inicializa o servidor HTTP de telemetria em segundo plano."""
-    global _supervisor_instance
-    _supervisor_instance = supervisor_instance
-    
-    server = HTTPServer(("0.0.0.0", port), MetricsHTTPHandler)
-    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
-    server_thread.start()
-    print(f"📊 [Web SRE] Painel de métricas de produção online em: http://localhost:{port}/metrics")
+        if runtime is None:
+            self._send_json(503, {"error": "runtime unavailable"})
+            return
+
+        if self.path == "/status":
+            summary = runtime.persistence.state_summary(
+                term=getattr(runtime, "term", 0)
+            )
+
+            self._send_json(
+                200,
+                {
+                    "status": "OPERATIONAL",
+                    "node_id": runtime.node_id,
+                    "role": runtime.role,
+                    "web_port": runtime.web_port,
+                    "tcp_port": runtime.tcp_port,
+                    **summary,
+                },
+            )
+            return
+
+        if self.path == "/metrics":
+            summary = runtime.persistence.state_summary(
+                term=getattr(runtime, "term", 0)
+            )
+
+            self._send_json(
+                200,
+                {
+                    "status": "OPERATIONAL",
+                    "engine_version": "Nexus Runtime v1.1 RC1",
+                    "node_id": runtime.node_id,
+                    "role": runtime.role,
+                    "height": summary["height"],
+                    "tip_hash": summary["tip_hash"],
+                    "term": summary["term"],
+                },
+            )
+            return
+
+        self._send_json(404, {"error": "not found"})
+
+
+def start_web_server(runtime_instance, port):
+    global _runtime_instance
+    _runtime_instance = runtime_instance
+
+    server = HTTPServer(("0.0.0.0", int(port)), MetricsHTTPHandler)
+    thread = threading.Thread(
+        target=server.serve_forever,
+        daemon=True,
+    )
+    thread.start()
+    return server
