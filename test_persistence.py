@@ -60,3 +60,18 @@ def test_state_summary_reports_height_tip_and_term(tmp_path):
     assert summary["height"] == 1
     assert summary["tip_hash"] == store.last_hash
     assert summary["term"] == 7
+
+
+def test_blocks_from_height_returns_only_delta(tmp_path):
+    from persistence import NexusPersistence
+
+    store = NexusPersistence(filepath=str(tmp_path / "nexus.db"))
+    store.append_transaction({"event": "A"})
+    store.append_transaction({"event": "B"})
+    store.append_transaction({"event": "C"})
+
+    delta = store.blocks_from_height(1)
+
+    assert len(delta) == 2
+    assert delta[0]["payload"] == {"event": "B"}
+    assert delta[1]["payload"] == {"event": "C"}

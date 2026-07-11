@@ -150,6 +150,34 @@ class NexusPersistence:
             "term": int(term),
         }
 
+    def blocks_from_height(self, start_height):
+        start_height = int(start_height)
+        if start_height < 0:
+            raise ValueError("start_height must not be negative")
+
+        blocks = []
+        current_height = 0
+
+        for candidate in (f"{self.filepath}.1", self.filepath):
+            if not os.path.exists(candidate):
+                continue
+
+            with open(candidate, "r", encoding="utf-8") as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+
+                    block = json.loads(line)
+                    if block.get("payload") == "ROTATION_ANCHOR":
+                        continue
+
+                    if current_height >= start_height:
+                        blocks.append(block)
+
+                    current_height += 1
+
+        return blocks
+
     def _write_checkpoint(self):
         checkpoint = {
             "height": self._current_height(),
