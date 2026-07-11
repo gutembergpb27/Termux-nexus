@@ -136,29 +136,42 @@ class NexusDistributedCore:
 
     def handle_client(self, conn):
         try:
-            data = conn.recv(65535).decode('utf-8')
-            if not data: return
-            msg = json.loads(data)
-            
-            if msg.get("type") == "SYNC_CHECK":
-                db = sqlite3.connect(self.db_name)
-                cursor = db.cursor()
-                cursor.execute("SELECT * FROM ledger ORDER BY id ASC")
-                blocks = cursor.fetchall()
-                db.close()
-                payload = {"type": "SYNC_BATCH", "blocks": blocks}
-                conn.sendall(json.dumps(payload).encode('utf-8'))
-                
-            elif msg.get("type") == "SYNC_BATCH":
-                db = sqlite3.connect(self.db_name)
-                cursor = db.cursor()
-                for b in msg.get("blocks", []):
-                    cursor.execute("INSERT OR IGNORE INTO ledger (id, payload, prev_hash, current_hash, votes) VALUES (?, ?, ?, ?, ?)", b)
-                db.commit()
-                db.close()
-                print(f"✔ [Catch-Up] Sincronização concluída! Core alinhado.")
-        except:
-            pass
+            data = conn.recv(65535).decode("utf-8")
+            if not data:
+                return
+
+            message = json.loads(data)
+            message_type = message.get("type")
+
+            if message_type == "STATE_SUMMARY":
+                payload = message.get("payload", {})
+                remote_height = int(payload.get("height", 0))
+
+                response = {
+                    "type": "SYNC_BATCH",
+                    "from_height": remote_height,
+                    "blocks": self.persistence.blocks_from_height(
+                        remote_height
+                    ),
+                }
+                conn.sendall(json.dumps(response).encode("utf-8"))
+
+            elif message_type == "SYNC_BATCH":
+                print(
+                    "⚠️ [Sync] Recebimento de lote ainda não integrado "
+                    "à NexusPersistence."
+                )
+
+            else:
+                print(
+                    f"⚠️ [TCP] Tipo de mensagem não suportado: "
+                    f"{message_type}"
+                )
+
+        except (json.JSONDecodeError, TypeError, ValueError) as exc:
+            print(f"❌ [TCP Protocol Error] {exc}")
+        except Exception as exc:
+            print(f"❌ [TCP Error] {exc}")
         finally:
             conn.close()
 
