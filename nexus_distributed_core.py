@@ -1,4 +1,5 @@
 from nexus_protocol import NexusProtocol
+from persistence import NexusPersistence
 import socket
 import threading
 import time
@@ -19,6 +20,11 @@ class NexusDistributedCore:
         self.last_master_heartbeat = time.time()
         
         self.db_name = f"nexus_{self.node_id}.db"
+        persistence_path = os.getenv(
+            "NEXUS_DB_PATH",
+            f"outputs/nexus_{self.node_id}.db",
+        )
+        self.persistence = NexusPersistence(filepath=persistence_path)
         self.init_db()
         
         threading.Thread(target=self.start_tcp_server, daemon=True).start()
@@ -218,12 +224,16 @@ class NexusDistributedCore:
                 payload = input(f"[{self.node_id} Intake] Digite o payload -> ")
                 if not payload: continue
                 
-                conn = sqlite3.connect(self.db_name)
-                cursor = conn.cursor()
-                cursor.execute("INSERT INTO ledger (payload, prev_hash, current_hash, votes) VALUES (?, ?, ?, ?)", (payload, "hash_prev", "hash_curr", 0))
-                conn.commit()
-                conn.close()
-                print(f"✔ [Aprovado] Bloco selado localmente sob modo WAL!")
+                current_hash = self.persistence.append_transaction(
+                    {
+                        "event": "EDGE_AI_EVENT",
+                        "data": {"payload": payload},
+                    }
+                )
+                print(
+                    f"✔ [Aprovado] Evento persistido com hash "
+                    f"{current_hash[:12]}..."
+                )
             except (KeyboardInterrupt, EOFError):
                 break
 
