@@ -10,21 +10,55 @@ SECRET = "demo-secret"
 HUB_URL = "http://127.0.0.1:8500"
 
 
+def get_peers():
+    with urllib.request.urlopen(f"{HUB_URL}/peers", timeout=2) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
 def wait_for_peers(expected, timeout=15):
     deadline = time.time() + timeout
 
     while time.time() < deadline:
         try:
-            with urllib.request.urlopen(f"{HUB_URL}/peers", timeout=2) as response:
-                peers = json.loads(response.read().decode("utf-8"))
-                if len(peers) >= expected:
-                    return peers
+            peers = get_peers()
+            if len(peers) >= expected:
+                return peers
         except Exception:
             pass
 
         time.sleep(0.5)
 
     raise RuntimeError(f"timeout aguardando {expected} peers")
+
+
+def wait_for_role(node_id, role, timeout=70):
+    deadline = time.time() + timeout
+
+    while time.time() < deadline:
+        try:
+            peers = get_peers()
+            if peers.get(node_id, {}).get("role") == role:
+                return peers
+        except Exception:
+            pass
+
+        time.sleep(1)
+
+    raise RuntimeError(
+        f"timeout aguardando {node_id} assumir papel {role}"
+    )
+
+
+def stop_process(process):
+    if process.poll() is not None:
+        return
+
+    process.terminate()
+    try:
+        process.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=3)
 
 
 def main():
@@ -71,21 +105,25 @@ def main():
         processes.append(node_b)
 
         peers = wait_for_peers(2)
-
         assert peers["NO-DEMO-A"]["role"] == "MASTER"
         assert peers["NO-DEMO-B"]["role"] == "FOLLOWER"
 
-        print("PASS: Hub, registro e heartbeat operando com 2 nós")
+        print("PASS 1: registro e heartbeat operando com 2 nós")
+        print("TESTE: encerrando o MASTER NO-DEMO-A...")
+
+        stop_process(node_a)
+
+        peers = wait_for_role("NO-DEMO-B", "MASTER")
+
+        assert "NO-DEMO-A" not in peers
+        assert peers["NO-DEMO-B"]["role"] == "MASTER"
+
+        print("PASS 2: follower promovido automaticamente para MASTER")
+        print("PASS: demo de registro, heartbeat e failover concluída")
 
     finally:
         for process in reversed(processes):
-            process.terminate()
-
-        for process in reversed(processes):
-            try:
-                process.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                process.kill()
+            stop_process(process)
 
 
 if __name__ == "__main__":
