@@ -134,6 +134,45 @@ class NexusDistributedCore:
             except:
                 pass
 
+    def handle_state_summary(self, conn, message):
+        payload = message.get("payload", {})
+        remote_height = int(payload.get("height", 0))
+
+        response = {
+            "type": "SYNC_BATCH",
+            "from_height": remote_height,
+            "blocks": self.persistence.blocks_from_height(
+                remote_height
+            ),
+        }
+        conn.sendall(json.dumps(response).encode("utf-8"))
+
+    def handle_sync_batch(self, _conn, message):
+        blocks = message.get("blocks", [])
+        applied = self.persistence.apply_blocks(blocks)
+        print(
+            f"✔ [Catch-Up] {applied} blocos aplicados "
+            "com validação de integridade."
+        )
+
+    def dispatch_tcp_message(self, conn, message):
+        handlers = {
+            "STATE_SUMMARY": self.handle_state_summary,
+            "SYNC_BATCH": self.handle_sync_batch,
+        }
+
+        message_type = message.get("type")
+        handler = handlers.get(message_type)
+
+        if handler is None:
+            print(
+                f"⚠️ [TCP] Tipo de mensagem não suportado: "
+                f"{message_type}"
+            )
+            return
+
+        handler(conn, message)
+
     def handle_client(self, conn):
         try:
             data = conn.recv(65535).decode("utf-8")
@@ -141,34 +180,7 @@ class NexusDistributedCore:
                 return
 
             message = json.loads(data)
-            message_type = message.get("type")
-
-            if message_type == "STATE_SUMMARY":
-                payload = message.get("payload", {})
-                remote_height = int(payload.get("height", 0))
-
-                response = {
-                    "type": "SYNC_BATCH",
-                    "from_height": remote_height,
-                    "blocks": self.persistence.blocks_from_height(
-                        remote_height
-                    ),
-                }
-                conn.sendall(json.dumps(response).encode("utf-8"))
-
-            elif message_type == "SYNC_BATCH":
-                blocks = message.get("blocks", [])
-                applied = self.persistence.apply_blocks(blocks)
-                print(
-                    f"✔ [Catch-Up] {applied} blocos aplicados "
-                    "com validação de integridade."
-                )
-
-            else:
-                print(
-                    f"⚠️ [TCP] Tipo de mensagem não suportado: "
-                    f"{message_type}"
-                )
+            self.dispatch_tcp_message(conn, message)
 
         except (json.JSONDecodeError, TypeError, ValueError) as exc:
             print(f"❌ [TCP Protocol Error] {exc}")
