@@ -1,4 +1,5 @@
 from nexus_protocol import NexusProtocol
+from nexus_transport import recv_message, send_message
 from persistence import NexusPersistence
 from web_panel import start_web_server
 import socket
@@ -160,7 +161,7 @@ class NexusDistributedCore:
                 remote_height
             ),
         }
-        conn.sendall(json.dumps(response).encode("utf-8"))
+        send_message(conn, response)
 
     def handle_sync_batch(self, _conn, message):
         blocks = message.get("blocks", [])
@@ -192,11 +193,7 @@ class NexusDistributedCore:
 
     def handle_client(self, conn):
         try:
-            data = conn.recv(65535).decode("utf-8")
-            if not data:
-                return
-
-            message = json.loads(data)
+            message = recv_message(conn)
             self.dispatch_tcp_message(conn, message)
 
         except (json.JSONDecodeError, TypeError, ValueError) as exc:
@@ -222,13 +219,8 @@ class NexusDistributedCore:
             (host, tcp_port),
             timeout=3,
         ) as conn:
-            conn.sendall(json.dumps(request).encode("utf-8"))
-            data = conn.recv(65535)
-
-        if not data:
-            raise ValueError("empty sync response")
-
-        response = json.loads(data.decode("utf-8"))
+            send_message(conn, request)
+            response = recv_message(conn)
         if response.get("type") != "SYNC_BATCH":
             raise ValueError("invalid sync response type")
 
