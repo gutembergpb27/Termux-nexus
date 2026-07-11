@@ -75,3 +75,28 @@ def test_blocks_from_height_returns_only_delta(tmp_path):
     assert len(delta) == 2
     assert delta[0]["payload"] == {"event": "B"}
     assert delta[1]["payload"] == {"event": "C"}
+
+
+def test_apply_blocks_accepts_valid_delta_and_rejects_tampering(tmp_path):
+    from persistence import NexusPersistence
+
+    leader = NexusPersistence(filepath=str(tmp_path / "leader.db"))
+    follower = NexusPersistence(filepath=str(tmp_path / "follower.db"))
+
+    leader.append_transaction({"event": "A"})
+    leader.append_transaction({"event": "B"})
+
+    applied = follower.apply_blocks(leader.blocks_from_height(0))
+
+    assert applied == 2
+    assert follower.state_summary()["height"] == 2
+    assert follower.last_hash == leader.last_hash
+
+    tampered = leader.blocks_from_height(0)[0].copy()
+    tampered["payload"] = {"event": "ALTERED"}
+
+    empty = NexusPersistence(filepath=str(tmp_path / "empty.db"))
+
+    import pytest
+    with pytest.raises(ValueError, match="hash"):
+        empty.apply_blocks([tampered])

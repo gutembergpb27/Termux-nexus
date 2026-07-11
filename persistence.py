@@ -178,6 +178,58 @@ class NexusPersistence:
 
         return blocks
 
+    def apply_blocks(self, blocks):
+        if not isinstance(blocks, list):
+            raise ValueError("blocks must be a list")
+
+        validated = []
+        previous_hash = self.last_hash
+
+        for index, block in enumerate(blocks):
+            if not isinstance(block, dict):
+                raise ValueError(f"invalid block at index {index}")
+
+            try:
+                timestamp = block["timestamp"]
+                payload = block["payload"]
+                prev_hash = block["prev_hash"]
+                stored_hash = block["hash"]
+            except KeyError as exc:
+                raise ValueError(
+                    f"missing block field at index {index}: {exc}"
+                ) from exc
+
+            if prev_hash != previous_hash:
+                raise ValueError(
+                    f"sync chain mismatch at index {index}"
+                )
+
+            expected_hash = self._compute_hash(
+                timestamp,
+                payload,
+                prev_hash,
+            )
+            if stored_hash != expected_hash:
+                raise ValueError(
+                    f"invalid sync block hash at index {index}"
+                )
+
+            validated.append(block)
+            previous_hash = stored_hash
+
+        if not validated:
+            return 0
+
+        with open(self.filepath, "a", encoding="utf-8") as f:
+            for block in validated:
+                f.write(json.dumps(block) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+
+        self.last_hash = previous_hash
+        self._write_checkpoint()
+        return len(validated)
+
     def _write_checkpoint(self):
         checkpoint = {
             "height": self._current_height(),
