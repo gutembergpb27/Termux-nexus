@@ -157,9 +157,11 @@ class NexusDistributedCore:
                 conn.sendall(json.dumps(response).encode("utf-8"))
 
             elif message_type == "SYNC_BATCH":
+                blocks = message.get("blocks", [])
+                applied = self.persistence.apply_blocks(blocks)
                 print(
-                    "⚠️ [Sync] Recebimento de lote ainda não integrado "
-                    "à NexusPersistence."
+                    f"✔ [Catch-Up] {applied} blocos aplicados "
+                    "com validação de integridade."
                 )
 
             else:
