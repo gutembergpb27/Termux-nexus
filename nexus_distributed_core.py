@@ -52,6 +52,37 @@ class NexusDistributedCore:
             message_id=message_id,
         )
 
+    def build_heartbeat_envelope(
+        self,
+        *,
+        timestamp=None,
+        nonce=None,
+        message_id=None,
+    ):
+        return self.protocol.create_envelope(
+            sender=self.node_id,
+            message_type="HEARTBEAT",
+            payload={"role": self.role},
+            timestamp=timestamp,
+            nonce=nonce,
+            message_id=message_id,
+        )
+
+    def post_envelope(self, path, envelope):
+        payload = json.dumps(envelope).encode("utf-8")
+        request = urllib.request.Request(
+            f"{self.hub_url}{path}",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=2) as response:
+                return response.status == 200
+        except Exception as exc:
+            print(f"[Hub {path}] {exc}")
+            return False
+
     def init_db(self):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
@@ -110,43 +141,76 @@ class NexusDistributedCore:
 
     def async_polling_loop(self):
         print("📡 [v2100 Polling] Thread de monitoramento e failover ativa.")
+        registered = False
+
         while True:
             try:
+                if not registered:
+                    registered = self.post_envelope(
+                        "/register",
+                        self.build_registration_envelope(),
+                    )
+                    if not registered:
+                        time.sleep(5)
+                        continue
+
                 time.sleep(5)
                 current_time = time.time()
-                
-                # Heartbeat via urllib nativo
-                try:
-                    payload = json.dumps(self.build_registration_envelope()).encode("utf-8")
-                    req = urllib.request.Request(f"{self.hub_url}/register", data=payload, headers={'Content-Type': 'application/json'}, method='POST')
-                    with urllib.request.urlopen(req, timeout=2) as response:
-                        pass
-                except:
-                    pass
-                
-                # Coleta Peers via urllib nativo
+
+                if not self.post_envelope(
+                    "/heartbeat",
+                    self.build_heartbeat_envelope(),
+                ):
+                    registered = False
+                    continue
+
                 raw_peers = {}
                 try:
-                    with urllib.request.urlopen(f"{self.hub_url}/peers", timeout=2) as response:
+                    with urllib.request.urlopen(
+                        f"{self.hub_url}/peers",
+                        timeout=2,
+                    ) as response:
                         if response.status == 200:
-                            raw_peers = json.loads(response.read().decode('utf-8'))
-                except:
-                    pass
-                
-                master_node = next((p for p, i in raw_peers.items() if i.get("role") == "MASTER" and p != self.node_id), None)
-                
+                            raw_peers = json.loads(
+                                response.read().decode("utf-8")
+                            )
+                except Exception as exc:
+                    print(f"[Peers] {exc}")
+
+                master_node = next(
+                    (
+                        node_id
+                        for node_id, info in raw_peers.items()
+                        if info.get("role") == "MASTER"
+                        and node_id != self.node_id
+                    ),
+                    None,
+                )
+
                 if master_node:
                     self.last_master_heartbeat = current_time
                 else:
                     delta = current_time - self.last_master_heartbeat
                     if self.role == "FOLLOWER" and delta > 15.0:
-                        print(f"\n🚨 [Failover] MASTER ausente há {delta:.1f}s!")
-                        print("🗳️ [Eleição] Iniciando autoproclamação de liderança por vacância...")
+                        print(
+                            f"\n🚨 [Failover] MASTER ausente há {delta:.1f}s!"
+                        )
+                        print(
+                            "🗳️ [Eleição] Iniciando autoproclamação "
+                            "de liderança por vacância..."
+                        )
                         self.role = "MASTER"
-                        print(f"👑 [Sucesso] Nó {self.node_id} promovido para [{self.role}]")
-                        threading.Thread(target=self.shell_intake_loop, daemon=True).start()
-            except Exception as e:
-                print(f"❌ [Polling Error] {e}")
+                        print(
+                            f"👑 [Sucesso] Nó {self.node_id} promovido "
+                            f"para [{self.role}]"
+                        )
+                        threading.Thread(
+                            target=self.shell_intake_loop,
+                            daemon=True,
+                        ).start()
+
+            except Exception as exc:
+                print(f"❌ [Polling Error] {exc}")
 
     def shell_intake_loop(self):
         while self.role == "MASTER":
