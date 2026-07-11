@@ -58,6 +58,23 @@ class NexusDistributedCore:
             message_id=message_id,
         )
 
+    def build_state_summary_envelope(
+        self,
+        *,
+        term=0,
+        timestamp=None,
+        nonce=None,
+        message_id=None,
+    ):
+        return self.protocol.create_envelope(
+            sender=self.node_id,
+            message_type="STATE_SUMMARY",
+            payload=self.persistence.state_summary(term=term),
+            timestamp=timestamp,
+            nonce=nonce,
+            message_id=message_id,
+        )
+
     def build_heartbeat_envelope(
         self,
         *,

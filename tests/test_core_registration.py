@@ -75,3 +75,36 @@ def test_core_builds_authenticated_heartbeat_envelope():
         ttl=60.0,
         replay_cache=ReplayCache(),
     )
+
+
+def test_core_builds_authenticated_state_summary_envelope(tmp_path):
+    from persistence import NexusPersistence
+
+    core = make_core()
+    core.persistence = NexusPersistence(
+        filepath=str(tmp_path / "nexus.db")
+    )
+    core.persistence.append_transaction(
+        {"event": "TEST", "data": {"value": 1}}
+    )
+
+    envelope = core.build_state_summary_envelope(
+        term=7,
+        timestamp=1000.0,
+        nonce="core-summary-nonce",
+        message_id="core-summary-message",
+    )
+
+    assert envelope["type"] == "STATE_SUMMARY"
+    assert envelope["sender"] == "NO-ARM-01"
+    assert envelope["payload"]["height"] == 1
+    assert envelope["payload"]["tip_hash"] == core.persistence.last_hash
+    assert envelope["payload"]["term"] == 7
+
+    verifier = NexusProtocol("test-secret")
+    assert verifier.verify_envelope(
+        envelope,
+        now=1001.0,
+        ttl=60.0,
+        replay_cache=ReplayCache(),
+    )
