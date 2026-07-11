@@ -4,9 +4,17 @@ import socket
 import threading
 import time
 import json
+import logging
 import sqlite3
 import os
 import urllib.request
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+logger = logging.getLogger("nexus.core")
+
 
 class NexusDistributedCore:
     def __init__(self, node_id, web_port, tcp_port, role):
@@ -33,7 +41,7 @@ class NexusDistributedCore:
         if self.role == "MASTER":
             threading.Thread(target=self.shell_intake_loop, daemon=True).start()
             
-        print(f"⚡ [Nexus v2100] Core pronto. Papel corrente: [{self.role}]")
+        logger.info("core_ready node=%s role=%s", getattr(self, "node_id", "unknown"), self.role)
         
 
     def build_registration_envelope(
@@ -44,10 +52,10 @@ class NexusDistributedCore:
         message_id=None,
     ):
         return self.protocol.create_envelope(
-            sender=self.node_id,
+            sender=getattr(self, "node_id", "unknown"),
             message_type="REGISTER",
             payload={
-                "node_id": self.node_id,
+                "node_id": getattr(self, "node_id", "unknown"),
                 "role": self.role,
                 "web_port": self.web_port,
                 "tcp_port": self.tcp_port,
@@ -67,7 +75,7 @@ class NexusDistributedCore:
         message_id=None,
     ):
         return self.protocol.create_envelope(
-            sender=self.node_id,
+            sender=getattr(self, "node_id", "unknown"),
             message_type="STATE_SUMMARY",
             payload=self.persistence.state_summary(term=term),
             timestamp=timestamp,
@@ -83,7 +91,7 @@ class NexusDistributedCore:
         message_id=None,
     ):
         return self.protocol.create_envelope(
-            sender=self.node_id,
+            sender=getattr(self, "node_id", "unknown"),
             message_type="HEARTBEAT",
             payload={"role": self.role},
             timestamp=timestamp,
@@ -103,7 +111,7 @@ class NexusDistributedCore:
             with urllib.request.urlopen(request, timeout=2) as response:
                 return response.status == 200
         except Exception as exc:
-            print(f"[Hub {path}] {exc}")
+            logger.warning("hub_request_failed path=%s error=%s", path, exc)
             return False
 
     def init_db(self):
@@ -150,9 +158,10 @@ class NexusDistributedCore:
     def handle_sync_batch(self, _conn, message):
         blocks = message.get("blocks", [])
         applied = self.persistence.apply_blocks(blocks)
-        print(
-            f"✔ [Catch-Up] {applied} blocos aplicados "
-            "com validação de integridade."
+        logger.info(
+            "sync_batch_applied node=%s blocks=%s",
+            getattr(self, "node_id", "unknown"),
+            applied,
         )
 
     def dispatch_tcp_message(self, conn, message):
@@ -165,9 +174,10 @@ class NexusDistributedCore:
         handler = handlers.get(message_type)
 
         if handler is None:
-            print(
-                f"⚠️ [TCP] Tipo de mensagem não suportado: "
-                f"{message_type}"
+            logger.warning(
+                "tcp_message_unsupported node=%s type=%s",
+                getattr(self, "node_id", "unknown"),
+                message_type,
             )
             return
 
@@ -183,14 +193,14 @@ class NexusDistributedCore:
             self.dispatch_tcp_message(conn, message)
 
         except (json.JSONDecodeError, TypeError, ValueError) as exc:
-            print(f"❌ [TCP Protocol Error] {exc}")
+            logger.warning("tcp_protocol_error node=%s error=%s", getattr(self, "node_id", "unknown"), exc)
         except Exception as exc:
-            print(f"❌ [TCP Error] {exc}")
+            logger.exception("tcp_error node=%s error=%s", getattr(self, "node_id", "unknown"), exc)
         finally:
             conn.close()
 
     def async_polling_loop(self):
-        print("📡 [v2100 Polling] Thread de monitoramento e failover ativa.")
+        logger.info("polling_started node=%s", self.node_id)
         registered = False
 
         while True:
@@ -225,7 +235,7 @@ class NexusDistributedCore:
                                 response.read().decode("utf-8")
                             )
                 except Exception as exc:
-                    print(f"[Peers] {exc}")
+                    logger.warning("peer_fetch_failed node=%s error=%s", getattr(self, "node_id", "unknown"), exc)
 
                 master_node = next(
                     (
@@ -242,17 +252,20 @@ class NexusDistributedCore:
                 else:
                     delta = current_time - self.last_master_heartbeat
                     if self.role == "FOLLOWER" and delta > 15.0:
-                        print(
-                            f"\n🚨 [Failover] MASTER ausente há {delta:.1f}s!"
+                        logger.warning(
+                            "master_missing node=%s seconds=%.1f",
+                            getattr(self, "node_id", "unknown"),
+                            delta,
                         )
-                        print(
-                            "🗳️ [Eleição] Iniciando autoproclamação "
-                            "de liderança por vacância..."
+                        logger.info(
+                            "leadership_promotion_started node=%s",
+                            getattr(self, "node_id", "unknown"),
                         )
                         self.role = "MASTER"
-                        print(
-                            f"👑 [Sucesso] Nó {self.node_id} promovido "
-                            f"para [{self.role}]"
+                        logger.info(
+                            "leadership_promoted node=%s role=%s",
+                            getattr(self, "node_id", "unknown"),
+                            self.role,
                         )
                         threading.Thread(
                             target=self.shell_intake_loop,
@@ -260,7 +273,7 @@ class NexusDistributedCore:
                         ).start()
 
             except Exception as exc:
-                print(f"❌ [Polling Error] {exc}")
+                logger.exception("polling_error node=%s error=%s", getattr(self, "node_id", "unknown"), exc)
 
     def shell_intake_loop(self):
         while self.role == "MASTER":
@@ -274,9 +287,10 @@ class NexusDistributedCore:
                         "data": {"payload": payload},
                     }
                 )
-                print(
-                    f"✔ [Aprovado] Evento persistido com hash "
-                    f"{current_hash[:12]}..."
+                logger.info(
+                    "event_persisted node=%s hash=%s",
+                    getattr(self, "node_id", "unknown"),
+                    current_hash[:12],
                 )
             except (KeyboardInterrupt, EOFError):
                 break
