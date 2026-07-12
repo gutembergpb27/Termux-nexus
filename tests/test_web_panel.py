@@ -146,3 +146,47 @@ def test_health_endpoint_returns_503_when_runtime_is_unhealthy(tmp_path):
     assert request.status == 503
     assert body["healthy"] is False
     assert body["reason"] == "checkpoint mismatch"
+
+
+def test_liveness_endpoint_reports_process_alive(tmp_path):
+    runtime = FakeRuntime(tmp_path)
+    web_panel._runtime_instance = runtime
+
+    handler, request = make_handler("/liveness")
+    handler.do_GET()
+
+    body = read_body(request)
+
+    assert request.status == 200
+    assert body["alive"] is True
+    assert body["node_id"] == "NO-WEB-01"
+
+
+def test_readiness_endpoint_returns_200_for_operational_role(tmp_path):
+    runtime = FakeRuntime(tmp_path)
+    web_panel._runtime_instance = runtime
+
+    handler, request = make_handler("/readiness")
+    handler.do_GET()
+
+    body = read_body(request)
+
+    assert request.status == 200
+    assert body["ready"] is True
+    assert body["role"] == "FOLLOWER"
+    assert body["peers_known"] == 2
+
+
+def test_readiness_endpoint_returns_503_for_invalid_role(tmp_path):
+    runtime = FakeRuntime(tmp_path)
+    runtime.role = "UNKNOWN"
+    web_panel._runtime_instance = runtime
+
+    handler, request = make_handler("/readiness")
+    handler.do_GET()
+
+    body = read_body(request)
+
+    assert request.status == 503
+    assert body["ready"] is False
+    assert body["role"] == "UNKNOWN"

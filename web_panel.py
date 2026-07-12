@@ -31,6 +31,32 @@ class MetricsHTTPHandler(BaseHTTPRequestHandler):
             self._send_json(503, {"error": "runtime unavailable"})
             return
 
+        if self.path == "/liveness":
+            self._send_json(
+                200,
+                {
+                    "alive": True,
+                    "node_id": runtime.node_id,
+                },
+            )
+            return
+
+        if self.path == "/readiness":
+            role = getattr(runtime, "role", "UNKNOWN")
+            peers = getattr(runtime, "peers", {})
+            ready = role in {"MASTER", "FOLLOWER"} and isinstance(peers, dict)
+
+            self._send_json(
+                200 if ready else 503,
+                {
+                    "ready": ready,
+                    "node_id": getattr(runtime, "node_id", "unknown"),
+                    "role": role,
+                    "peers_known": len(peers),
+                },
+            )
+            return
+
         if self.path == "/health":
             payload = runtime.runtime_health()
             status = 200 if payload.get("healthy") else 503
