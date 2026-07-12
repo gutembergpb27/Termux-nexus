@@ -4,9 +4,9 @@
 
 - Repositório: `Termux-nexus`
 - Branch: `canonical-evidence`
-- HEAD: `98de167`
+- HEAD: `a10de14`
 - Versão: `runtime-v1.1-rc1`
-- Testes: **60 passed, 1 xfailed**
+- Testes: **76 passed, 1 xfailed**
 
 ---
 
@@ -61,6 +61,9 @@
 
 - Dispatcher TCP
 - Handlers especializados
+- Framing TCP com prefixo de tamanho
+- Camada `nexus_transport.py`
+- `send_message()` e `recv_message()`
 
 ### Observabilidade
 
@@ -69,6 +72,9 @@ Endpoints disponíveis:
 - `/status`
 - `/metrics`
 - `/cluster`
+- `/health`
+- `/liveness`
+- `/readiness`
 
 ---
 
@@ -76,7 +82,7 @@ Endpoints disponíveis:
 
 - Runtime v1.1 RC1
 - Branch sincronizada com origin
-- 60 testes aprovados
+- 76 testes aprovados
 - 1 teste xfailed conhecido
 - Todos os testes verdes
 
@@ -84,25 +90,23 @@ Endpoints disponíveis:
 
 ## Últimos commits
 
-- `98de167` test(observability): cover runtime HTTP endpoints
-- `c77f400` feat(observability): expose cluster peer snapshot
-- `0061e65` feat(observability): expose runtime status and metrics API
-- `ae88d2c` test(sync): cover follower rejoin convergence
-- `d34b327` feat(sync): automatically sync followers from master
+- `a10de14` feat(runtime): derive readiness from cluster health
+- `5a4cc19` refactor(core): remove duplicate peer snapshot assignments
+- `c8037d7` feat(runtime): expose liveness and readiness endpoints
+- `906ceda` feat(runtime): expose operational health endpoint
+- `e8dfe03` refactor(transport): migrate core sync to framed messages
 
 ---
 
 ## Próximo objetivo
 
-Implementar endpoints de saúde do Runtime:
+Evoluir o Runtime para diagnóstico distribuído real:
 
-- `/health`
-- `/liveness`
-- `/readiness`
-
-com validação real da persistência utilizando:
-
-`runtime.persistence.validate_chain()`
+- detectar atraso de sincronização em relação ao MASTER;
+- identificar múltiplos líderes;
+- expor estado operacional do nó;
+- preparar a máquina de estados do Runtime;
+- manter a suíte completa verde.
 
 ---
 
