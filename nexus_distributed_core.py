@@ -29,7 +29,6 @@ class NexusDistributedCore:
         self.protocol = NexusProtocol(secret)
         self.last_master_heartbeat = time.time()
         self.peers = {}
-        self.peers = {}
         
         self.db_name = f"nexus_{self.node_id}.db"
         persistence_path = os.getenv(
@@ -300,8 +299,6 @@ class NexusDistributedCore:
                             )
                 except Exception as exc:
                     logger.warning("peer_fetch_failed node=%s error=%s", getattr(self, "node_id", "unknown"), exc)
-
-                self.peers = raw_peers
 
                 self.peers = raw_peers
 
