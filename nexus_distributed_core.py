@@ -78,6 +78,60 @@ class NexusDistributedCore:
                 "reason": str(exc),
             }
 
+    def runtime_readiness(self, *, now=None, heartbeat_ttl=15.0):
+        current_time = time.time() if now is None else float(now)
+        role = getattr(self, "role", "UNKNOWN")
+        health = self.runtime_health()
+
+        result = {
+            "ready": False,
+            "node_id": getattr(self, "node_id", "unknown"),
+            "role": role,
+            "peers_known": len(getattr(self, "peers", {})),
+        }
+
+        if not health.get("healthy"):
+            result["reason"] = "storage_unhealthy"
+            return result
+
+        if role == "MASTER":
+            result["ready"] = True
+            result["reason"] = "master_operational"
+            return result
+
+        if role != "FOLLOWER":
+            result["reason"] = "invalid_role"
+            return result
+
+        peers = getattr(self, "peers", {})
+        masters = [
+            node_id
+            for node_id, info in peers.items()
+            if info.get("role") == "MASTER"
+            and node_id != getattr(self, "node_id", None)
+        ]
+
+        if len(masters) != 1:
+            result["reason"] = (
+                "master_missing" if not masters else "multiple_masters"
+            )
+            return result
+
+        heartbeat_age = (
+            current_time
+            - float(getattr(self, "last_master_heartbeat", 0.0))
+        )
+        result["leader"] = masters[0]
+        result["master_heartbeat_age"] = heartbeat_age
+
+        if heartbeat_age > float(heartbeat_ttl):
+            result["reason"] = "master_heartbeat_stale"
+            return result
+
+        result["ready"] = True
+        result["reason"] = "follower_operational"
+        return result
+
     def build_registration_envelope(
         self,
         *,

@@ -42,19 +42,9 @@ class MetricsHTTPHandler(BaseHTTPRequestHandler):
             return
 
         if self.path == "/readiness":
-            role = getattr(runtime, "role", "UNKNOWN")
-            peers = getattr(runtime, "peers", {})
-            ready = role in {"MASTER", "FOLLOWER"} and isinstance(peers, dict)
-
-            self._send_json(
-                200 if ready else 503,
-                {
-                    "ready": ready,
-                    "node_id": getattr(runtime, "node_id", "unknown"),
-                    "role": role,
-                    "peers_known": len(peers),
-                },
-            )
+            payload = runtime.runtime_readiness()
+            status = 200 if payload.get("ready") else 503
+            self._send_json(status, payload)
             return
 
         if self.path == "/health":

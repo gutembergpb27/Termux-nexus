@@ -164,6 +164,14 @@ def test_liveness_endpoint_reports_process_alive(tmp_path):
 
 def test_readiness_endpoint_returns_200_for_operational_role(tmp_path):
     runtime = FakeRuntime(tmp_path)
+    runtime.runtime_readiness = lambda: {
+        "ready": True,
+        "node_id": runtime.node_id,
+        "role": runtime.role,
+        "peers_known": 2,
+        "leader": "NO-WEB-02",
+        "reason": "follower_operational",
+    }
     web_panel._runtime_instance = runtime
 
     handler, request = make_handler("/readiness")
@@ -180,6 +188,13 @@ def test_readiness_endpoint_returns_200_for_operational_role(tmp_path):
 def test_readiness_endpoint_returns_503_for_invalid_role(tmp_path):
     runtime = FakeRuntime(tmp_path)
     runtime.role = "UNKNOWN"
+    runtime.runtime_readiness = lambda: {
+        "ready": False,
+        "node_id": runtime.node_id,
+        "role": runtime.role,
+        "peers_known": 2,
+        "reason": "invalid_role",
+    }
     web_panel._runtime_instance = runtime
 
     handler, request = make_handler("/readiness")

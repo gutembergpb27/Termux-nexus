@@ -142,3 +142,100 @@ def test_runtime_health_reports_storage_failure():
     assert health["healthy"] is False
     assert health["storage"]["valid"] is False
     assert health["reason"] == "checkpoint mismatch"
+
+
+def test_runtime_readiness_accepts_healthy_master(tmp_path):
+    from persistence import NexusPersistence
+
+    core = make_core()
+    core.role = "MASTER"
+    core.peers = {}
+    core.persistence = NexusPersistence(
+        filepath=str(tmp_path / "master.db")
+    )
+
+    readiness = core.runtime_readiness(now=1000.0)
+
+    assert readiness["ready"] is True
+    assert readiness["reason"] == "master_operational"
+
+
+def test_runtime_readiness_accepts_follower_with_recent_master(tmp_path):
+    from persistence import NexusPersistence
+
+    core = make_core()
+    core.peers = {
+        "NO-MASTER-01": {
+            "node_id": "NO-MASTER-01",
+            "role": "MASTER",
+        },
+    }
+    core.last_master_heartbeat = 995.0
+    core.persistence = NexusPersistence(
+        filepath=str(tmp_path / "follower.db")
+    )
+
+    readiness = core.runtime_readiness(
+        now=1000.0,
+        heartbeat_ttl=15.0,
+    )
+
+    assert readiness["ready"] is True
+    assert readiness["reason"] == "follower_operational"
+    assert readiness["leader"] == "NO-MASTER-01"
+    assert readiness["master_heartbeat_age"] == 5.0
+
+
+def test_runtime_readiness_rejects_follower_without_master(tmp_path):
+    from persistence import NexusPersistence
+
+    core = make_core()
+    core.peers = {}
+    core.last_master_heartbeat = 1000.0
+    core.persistence = NexusPersistence(
+        filepath=str(tmp_path / "missing-master.db")
+    )
+
+    readiness = core.runtime_readiness(now=1000.0)
+
+    assert readiness["ready"] is False
+    assert readiness["reason"] == "master_missing"
+
+
+def test_runtime_readiness_rejects_stale_master_heartbeat(tmp_path):
+    from persistence import NexusPersistence
+
+    core = make_core()
+    core.peers = {
+        "NO-MASTER-01": {
+            "node_id": "NO-MASTER-01",
+            "role": "MASTER",
+        },
+    }
+    core.last_master_heartbeat = 970.0
+    core.persistence = NexusPersistence(
+        filepath=str(tmp_path / "stale-master.db")
+    )
+
+    readiness = core.runtime_readiness(
+        now=1000.0,
+        heartbeat_ttl=15.0,
+    )
+
+    assert readiness["ready"] is False
+    assert readiness["reason"] == "master_heartbeat_stale"
+
+
+def test_runtime_readiness_rejects_unhealthy_storage():
+    core = make_core()
+    core.peers = {}
+
+    core.runtime_health = lambda: {
+        "healthy": False,
+        "reason": "checkpoint mismatch",
+    }
+
+    readiness = core.runtime_readiness(now=1000.0)
+
+    assert readiness["ready"] is False
+    assert readiness["reason"] == "storage_unhealthy"
