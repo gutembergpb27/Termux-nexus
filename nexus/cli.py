@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Sequence
 
-from nexus.commands import status, version
+from nexus.commands import peers, status, version
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -30,6 +30,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Consulta o estado de um n? Nexus.",
     )
     status.configure_parser(status_parser)
+
+    peers_parser = subparsers.add_parser(
+        "peers",
+        help="Lista os peers registrados no Hub.",
+    )
+    peers.configure_parser(peers_parser)
 
     return parser
 

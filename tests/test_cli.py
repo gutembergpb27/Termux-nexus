@@ -38,3 +38,33 @@ def test_status_command(monkeypatch, capsys):
     assert "Status: OPERATIONAL" in captured.out
     assert "Height: 6" in captured.out
     assert "Term: 0" in captured.out
+
+
+def test_peers_command(monkeypatch, capsys):
+    payload = {
+        "NO-WIN-A": {
+            "role": "MASTER",
+            "ip": "192.168.1.7",
+            "web_port": 8081,
+            "tcp_port": 9091,
+        },
+        "NO-TERMUX": {
+            "role": "FOLLOWER",
+            "ip": "192.168.1.8",
+            "web_port": 8083,
+            "tcp_port": 9093,
+        },
+    }
+
+    monkeypatch.setattr(
+        "nexus.commands.peers.NexusClient.get_json",
+        lambda self, url: payload,
+    )
+
+    exit_code = main(["peers"])
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "NO-WIN-A: role=MASTER" in captured.out
+    assert "NO-TERMUX: role=FOLLOWER" in captured.out
