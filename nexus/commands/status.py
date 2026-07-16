@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import argparse
-import json
-import urllib.error
-import urllib.request
+
+from nexus.client import NexusClient
+from nexus.exceptions import NexusClientError
 
 
 def configure_parser(parser: argparse.ArgumentParser) -> None:
@@ -18,10 +18,11 @@ def configure_parser(parser: argparse.ArgumentParser) -> None:
 
 
 def run(args: argparse.Namespace) -> int:
+    client = NexusClient()
+
     try:
-        with urllib.request.urlopen(args.url, timeout=5) as response:
-            payload = json.load(response)
-    except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+        payload = client.status(args.url)
+    except NexusClientError as exc:
         print(f"Erro ao consultar o Nexus: {exc}")
         return 1
 

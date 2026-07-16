@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import io
-import json
-
 from nexus.cli import main
 
 
@@ -26,16 +23,9 @@ def test_status_command(monkeypatch, capsys):
         "term": 0,
     }
 
-    class FakeResponse:
-        def __enter__(self):
-            return io.StringIO(json.dumps(payload))
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
     monkeypatch.setattr(
-        "urllib.request.urlopen",
-        lambda *args, **kwargs: FakeResponse(),
+        "nexus.commands.status.NexusClient.status",
+        lambda self, url: payload,
     )
 
     exit_code = main(["status"])
