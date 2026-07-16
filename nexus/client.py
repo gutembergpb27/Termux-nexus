@@ -1,4 +1,4 @@
-"""Cliente HTTP reutiliz?vel da Nexus Platform."""
+"""Cliente HTTP reutilizável da Nexus Platform."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ class NexusClient:
 
         if not isinstance(payload, dict):
             raise NexusClientError(
-                f"Resposta inv?lida recebida de {url}: esperado objeto JSON."
+                f"Resposta inválida recebida de {url}: esperado objeto JSON."
             )
 
         return payload

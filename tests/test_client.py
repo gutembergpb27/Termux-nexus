@@ -1,4 +1,4 @@
-"""Testes do cliente HTTP reutiliz?vel."""
+"""Testes do cliente HTTP reutilizável."""
 
 from __future__ import annotations
 
