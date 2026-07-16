@@ -92,3 +92,39 @@ def test_status_command_json(monkeypatch, capsys):
         '{"height": 6, "node_id": "NO-TEST", "role": "MASTER", '
         '"status": "OPERATIONAL", "term": 0}'
     )
+
+
+def test_peers_command_json(monkeypatch, capsys):
+    payload = {
+        "NO-WIN-A": {
+            "role": "MASTER",
+            "ip": "192.168.1.7",
+            "web_port": 8081,
+            "tcp_port": 9091,
+        },
+        "NO-TERMUX": {
+            "role": "FOLLOWER",
+            "ip": "192.168.1.8",
+            "web_port": 8083,
+            "tcp_port": 9093,
+        },
+    }
+
+    monkeypatch.setattr(
+        "nexus.commands.peers.NexusClient.get_json",
+        lambda self, url: payload,
+    )
+
+    exit_code = main(["peers", "--json"])
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert captured.out.strip() == (
+        '{"NO-TERMUX": {"ip": "192.168.1.8", '
+        '"role": "FOLLOWER", "tcp_port": 9093, '
+        '"web_port": 8083}, '
+        '"NO-WIN-A": {"ip": "192.168.1.7", '
+        '"role": "MASTER", "tcp_port": 9091, '
+        '"web_port": 8081}}'
+    )
