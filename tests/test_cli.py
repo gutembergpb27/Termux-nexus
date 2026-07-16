@@ -128,3 +128,28 @@ def test_peers_command_json(monkeypatch, capsys):
         '"role": "MASTER", "tcp_port": 9091, '
         '"web_port": 8081}}'
     )
+
+def test_cluster_command_json(monkeypatch, capsys):
+    payload = {
+        "status": "OPERATIONAL",
+        "leader": "NO-WIN-A",
+        "nodes": 2,
+        "followers": ["NO-WIN-B"],
+    }
+
+    monkeypatch.setattr(
+        "nexus.commands.cluster.NexusClient.get_json",
+        lambda self, url: payload,
+    )
+
+    exit_code = main(["cluster", "--json"])
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert captured.out.strip() == (
+        '{"followers": ["NO-WIN-B"], '
+        '"leader": "NO-WIN-A", '
+        '"nodes": 2, '
+        '"status": "OPERATIONAL"}'
+    )
