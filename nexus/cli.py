@@ -1,11 +1,11 @@
-﻿"""Interface oficial de linha de comando do Nexus."""
+"""Interface oficial de linha de comando do Nexus."""
 
 from __future__ import annotations
 
 import argparse
 from collections.abc import Sequence
 
-from nexus import __version__
+from nexus.commands import version
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -21,16 +21,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     version_parser = subparsers.add_parser(
         "version",
-        help="Exibe a versão da plataforma.",
+        help="Exibe a vers?o da plataforma.",
     )
-    version_parser.set_defaults(handler=show_version)
+    version.configure_parser(version_parser)
 
     return parser
-
-
-def show_version(_: argparse.Namespace) -> int:
-    print(f"Nexus Runtime Platform v{__version__}")
-    return 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
