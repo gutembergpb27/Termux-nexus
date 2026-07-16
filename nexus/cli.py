@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Sequence
 
-from nexus.commands import version
+from nexus.commands import status, version
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -24,6 +24,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Exibe a vers?o da plataforma.",
     )
     version.configure_parser(version_parser)
+
+    status_parser = subparsers.add_parser(
+        "status",
+        help="Consulta o estado de um n? Nexus.",
+    )
+    status.configure_parser(status_parser)
 
     return parser
 
