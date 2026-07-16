@@ -21,13 +21,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     version_parser = subparsers.add_parser(
         "version",
-        help="Exibe a vers?o da plataforma.",
+        help="Exibe a versão da plataforma.",
     )
     version.configure_parser(version_parser)
 
     status_parser = subparsers.add_parser(
         "status",
-        help="Consulta o estado de um n? Nexus.",
+        help="Consulta o estado de um nó Nexus.",
     )
     status.configure_parser(status_parser)
 
