@@ -3,3 +3,5 @@ __pycache__/
 *.db
 outputs/
 nexus_config.env
+
+nexus_runtime_platform.egg-info/

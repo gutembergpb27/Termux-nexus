@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nexus-runtime-platform"
+version = "2300.0.0a1"
+description = "Plataforma distribuída leve, resiliente e portátil."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name = "Gutemberg Procópio Barbosa" }
+]
+dependencies = []
+
+[project.scripts]
+nexus = "nexus.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["nexus*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
