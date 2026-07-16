@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 
 from nexus.client import NexusClient
 from nexus.exceptions import NexusClientError
@@ -13,6 +14,11 @@ def configure_parser(parser: argparse.ArgumentParser) -> None:
         "--url",
         default="http://127.0.0.1:8081/status",
         help="URL do endpoint /status.",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Exibe a resposta em JSON.",
     )
     parser.set_defaults(handler=run)
 
@@ -25,6 +31,10 @@ def run(args: argparse.Namespace) -> int:
     except NexusClientError as exc:
         print(f"Erro ao consultar o Nexus: {exc}")
         return 1
+
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+        return 0
 
     print("Nexus Runtime Platform")
     print("----------------------")
