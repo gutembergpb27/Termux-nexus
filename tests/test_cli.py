@@ -181,3 +181,43 @@ def test_doctor_command(monkeypatch, capsys):
     assert "Executable  : C:\\Python314\\python.exe" in captured.out
     assert "Working Dir :" in captured.out
     assert "Status: OK" in captured.out
+
+
+def test_doctor_command_json(monkeypatch, capsys):
+    monkeypatch.setattr(
+        "nexus.commands.doctor.platform.python_version",
+        lambda: "3.14.6",
+    )
+    monkeypatch.setattr(
+        "nexus.commands.doctor.platform.platform",
+        lambda: "Windows-Test",
+    )
+    monkeypatch.setattr(
+        "nexus.commands.doctor.sys.executable",
+        r"C:\Python314\python.exe",
+    )
+    monkeypatch.setattr(
+        "nexus.commands.doctor.collect_diagnostics",
+        lambda: {
+            "executable": r"C:\Python314\python.exe",
+            "platform": "Windows-Test",
+            "python": "3.14.6",
+            "status": "OK",
+            "version": "2300.0.0-dev",
+            "working_dir": r"C:\Termux-nexus",
+        },
+    )
+
+    exit_code = main(["doctor", "--json"])
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert captured.out.strip() == (
+        '{"executable": "C:\\\\Python314\\\\python.exe", '
+        '"platform": "Windows-Test", '
+        '"python": "3.14.6", '
+        '"status": "OK", '
+        '"version": "2300.0.0-dev", '
+        '"working_dir": "C:\\\\Termux-nexus"}'
+    )
