@@ -153,3 +153,31 @@ def test_cluster_command_json(monkeypatch, capsys):
         '"nodes": 2, '
         '"status": "OPERATIONAL"}'
     )
+
+
+def test_doctor_command(monkeypatch, capsys):
+    monkeypatch.setattr(
+        "nexus.commands.doctor.platform.python_version",
+        lambda: "3.14.6",
+    )
+    monkeypatch.setattr(
+        "nexus.commands.doctor.platform.platform",
+        lambda: "Windows-Test",
+    )
+    monkeypatch.setattr(
+        "nexus.commands.doctor.sys.executable",
+        r"C:\Python314\python.exe",
+    )
+
+    exit_code = main(["doctor"])
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "Nexus Runtime Platform Doctor" in captured.out
+    assert "CLI Version : 2300.0.0-dev" in captured.out
+    assert "Python      : 3.14.6" in captured.out
+    assert "Platform    : Windows-Test" in captured.out
+    assert "Executable  : C:\\Python314\\python.exe" in captured.out
+    assert "Working Dir :" in captured.out
+    assert "Status: OK" in captured.out
