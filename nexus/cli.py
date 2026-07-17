@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Sequence
 
-from nexus.commands import cluster, peers, status, version
+from nexus.commands import cluster, doctor, peers, status, version
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -42,6 +42,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Exibe o resumo do cluster.",
     )
     cluster.configure_parser(cluster_parser)
+
+    doctor_parser = subparsers.add_parser(
+        "doctor",
+        help="Executa o diagnostico do ambiente Nexus.",
+    )
+    doctor.configure_parser(doctor_parser)
 
     return parser
 
