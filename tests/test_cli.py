@@ -157,16 +157,26 @@ def test_cluster_command_json(monkeypatch, capsys):
 
 def test_doctor_command(monkeypatch, capsys):
     monkeypatch.setattr(
-        "nexus.commands.doctor.platform.python_version",
-        lambda: "3.14.6",
-    )
-    monkeypatch.setattr(
-        "nexus.commands.doctor.platform.platform",
-        lambda: "Windows-Test",
-    )
-    monkeypatch.setattr(
-        "nexus.commands.doctor.sys.executable",
-        r"C:\Python314\python.exe",
+        "nexus.commands.doctor.collect_diagnostics",
+        lambda: {
+            "checks": {
+                "python": {
+                    "status": "OK",
+                    "version": "3.14.6",
+                },
+                "working_directory": {
+                    "path": r"C:\Termux-nexus",
+                    "status": "OK",
+                    "writable": True,
+                },
+            },
+            "executable": r"C:\Python314\python.exe",
+            "platform": "Windows-Test",
+            "python": "3.14.6",
+            "status": "OK",
+            "version": "2300.0.0-dev",
+            "working_dir": r"C:\Termux-nexus",
+        },
     )
 
     exit_code = main(["doctor"])
@@ -179,26 +189,27 @@ def test_doctor_command(monkeypatch, capsys):
     assert "Python      : 3.14.6" in captured.out
     assert "Platform    : Windows-Test" in captured.out
     assert "Executable  : C:\\Python314\\python.exe" in captured.out
-    assert "Working Dir :" in captured.out
+    assert "Working Dir : C:\\Termux-nexus" in captured.out
+    assert "[ OK ] Python 3.14.6" in captured.out
+    assert "[ OK ] Working directory writable: True" in captured.out
     assert "Status: OK" in captured.out
 
 
 def test_doctor_command_json(monkeypatch, capsys):
     monkeypatch.setattr(
-        "nexus.commands.doctor.platform.python_version",
-        lambda: "3.14.6",
-    )
-    monkeypatch.setattr(
-        "nexus.commands.doctor.platform.platform",
-        lambda: "Windows-Test",
-    )
-    monkeypatch.setattr(
-        "nexus.commands.doctor.sys.executable",
-        r"C:\Python314\python.exe",
-    )
-    monkeypatch.setattr(
         "nexus.commands.doctor.collect_diagnostics",
         lambda: {
+            "checks": {
+                "python": {
+                    "status": "OK",
+                    "version": "3.14.6",
+                },
+                "working_directory": {
+                    "path": r"C:\Termux-nexus",
+                    "status": "OK",
+                    "writable": True,
+                },
+            },
             "executable": r"C:\Python314\python.exe",
             "platform": "Windows-Test",
             "python": "3.14.6",
@@ -213,11 +224,46 @@ def test_doctor_command_json(monkeypatch, capsys):
     captured = capsys.readouterr()
 
     assert exit_code == 0
-    assert captured.out.strip() == (
-        '{"executable": "C:\\\\Python314\\\\python.exe", '
-        '"platform": "Windows-Test", '
-        '"python": "3.14.6", '
-        '"status": "OK", '
-        '"version": "2300.0.0-dev", '
-        '"working_dir": "C:\\\\Termux-nexus"}'
+
+    payload = __import__("json").loads(captured.out)
+
+    assert payload["status"] == "OK"
+    assert payload["version"] == "2300.0.0-dev"
+    assert payload["checks"]["python"]["status"] == "OK"
+    assert payload["checks"]["working_directory"]["writable"] is True
+
+
+def test_doctor_returns_error_when_directory_is_not_writable(
+    monkeypatch,
+    capsys,
+):
+    monkeypatch.setattr(
+        "nexus.commands.doctor.collect_diagnostics",
+        lambda: {
+            "checks": {
+                "python": {
+                    "status": "OK",
+                    "version": "3.14.6",
+                },
+                "working_directory": {
+                    "path": r"C:\ReadOnly",
+                    "status": "ERROR",
+                    "writable": False,
+                },
+            },
+            "executable": r"C:\Python314\python.exe",
+            "platform": "Windows-Test",
+            "python": "3.14.6",
+            "status": "ERROR",
+            "version": "2300.0.0-dev",
+            "working_dir": r"C:\ReadOnly",
+        },
     )
+
+    exit_code = main(["doctor"])
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "[ERROR] Working directory writable: False" in captured.out
+    assert "Status: ERROR" in captured.out
