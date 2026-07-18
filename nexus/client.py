@@ -39,3 +39,9 @@ class NexusClient:
 
     def status(self, url: str) -> dict[str, Any]:
         return self.get_json(url)
+
+    def health(self, url: str) -> dict[str, Any]:
+        return self.get_json(url)
+
+    def cluster(self, url: str) -> dict[str, Any]:
+        return self.get_json(url)
