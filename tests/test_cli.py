@@ -267,3 +267,36 @@ def test_doctor_returns_error_when_directory_is_not_writable(
     assert exit_code == 1
     assert "[ERROR] Working directory writable: False" in captured.out
     assert "Status: ERROR" in captured.out
+
+
+def test_doctor_reports_runtime_identity(monkeypatch, capsys):
+    payload = {
+        "status": "OPERATIONAL",
+        "node_id": "NO-TEST",
+        "role": "MASTER",
+        "height": 6,
+        "term": 0,
+    }
+
+    monkeypatch.setattr(
+        "nexus.commands.doctor.NexusClient.status",
+        lambda self, url: payload,
+    )
+
+    exit_code = main(
+        [
+            "doctor",
+            "--url",
+            "http://127.0.0.1:8081/status",
+        ]
+    )
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "Runtime:" in captured.out
+    assert "[ OK ] Node ID: NO-TEST" in captured.out
+    assert "[ OK ] Role: MASTER" in captured.out
+    assert "[ OK ] Runtime status: OPERATIONAL" in captured.out
+    assert "[ OK ] Height: 6" in captured.out
+    assert "[ OK ] Term: 0" in captured.out

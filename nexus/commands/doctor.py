@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from nexus import __version__
+from nexus.client import NexusClient
+from nexus.exceptions import NexusClientError
 
 
 def configure_parser(parser: argparse.ArgumentParser) -> None:
@@ -19,6 +21,10 @@ def configure_parser(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         dest="json_output",
         help="Exibe o diagnostico em formato JSON.",
+    )
+    parser.add_argument(
+        "--url",
+        help="URL opcional do endpoint /status do runtime.",
     )
     parser.set_defaults(handler=run)
 
@@ -68,8 +74,68 @@ def collect_diagnostics() -> dict[str, Any]:
     }
 
 
+def collect_runtime_status(
+    url: str,
+    client: NexusClient | None = None,
+) -> dict[str, Any]:
+    runtime_client = client or NexusClient()
+    return runtime_client.status(url)
+
+
+def add_runtime_diagnostics(
+    diagnostics: dict[str, Any],
+    url: str,
+) -> dict[str, Any] | None:
+    try:
+        runtime = collect_runtime_status(url)
+    except NexusClientError as exc:
+        diagnostics["checks"]["runtime"] = {
+            "status": "ERROR",
+            "url": url,
+            "error": str(exc),
+        }
+        diagnostics["status"] = "ERROR"
+        return None
+
+    diagnostics["checks"]["runtime"] = {
+        "status": "OK",
+        "url": url,
+        "node_id": runtime.get("node_id"),
+        "role": runtime.get("role"),
+        "runtime_status": runtime.get("status"),
+        "height": runtime.get("height"),
+        "term": runtime.get("term"),
+    }
+    diagnostics["runtime"] = runtime
+
+    return runtime
+
+
+def print_runtime(runtime: dict[str, Any]) -> None:
+    print()
+    print("Runtime:")
+    print(f"[ OK ] Node ID: {runtime.get('node_id', 'desconhecido')}")
+    print(f"[ OK ] Role: {runtime.get('role', 'desconhecido')}")
+    print(
+        "[ OK ] Runtime status: "
+        f"{runtime.get('status', 'desconhecido')}"
+    )
+    print(f"[ OK ] Height: {runtime.get('height', 'desconhecido')}")
+    print(f"[ OK ] Term: {runtime.get('term', 'desconhecido')}")
+
+
+def print_runtime_error(runtime_check: dict[str, Any]) -> None:
+    print()
+    print("Runtime:")
+    print(f"[ERROR] {runtime_check['error']}")
+
+
 def run(args: argparse.Namespace) -> int:
     diagnostics = collect_diagnostics()
+    runtime = None
+
+    if args.url:
+        runtime = add_runtime_diagnostics(diagnostics, args.url)
 
     if args.json_output:
         print(json.dumps(diagnostics, sort_keys=True))
@@ -96,6 +162,11 @@ def run(args: argparse.Namespace) -> int:
         f"[{marker}] Working directory writable: "
         f"{working_directory['writable']}"
     )
+
+    if runtime is not None:
+        print_runtime(runtime)
+    elif args.url:
+        print_runtime_error(diagnostics["checks"]["runtime"])
 
     print()
     print(f"Status: {diagnostics['status']}")
