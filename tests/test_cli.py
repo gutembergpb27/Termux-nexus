@@ -282,6 +282,18 @@ def test_doctor_reports_runtime_identity(monkeypatch, capsys):
         "nexus.commands.doctor.NexusClient.status",
         lambda self, url: payload,
     )
+    monkeypatch.setattr(
+        "nexus.commands.doctor.NexusClient.health",
+        lambda self, url: {"healthy": True},
+    )
+    monkeypatch.setattr(
+        "nexus.commands.doctor.NexusClient.cluster",
+        lambda self, url: {
+            "leader": "NO-TEST",
+            "followers": [],
+            "nodes": 1,
+        },
+    )
 
     exit_code = main(
         [
@@ -300,3 +312,60 @@ def test_doctor_reports_runtime_identity(monkeypatch, capsys):
     assert "[ OK ] Runtime status: OPERATIONAL" in captured.out
     assert "[ OK ] Height: 6" in captured.out
     assert "[ OK ] Term: 0" in captured.out
+
+
+
+def test_doctor_reports_health_and_cluster(monkeypatch, capsys):
+    requested_urls = []
+
+    monkeypatch.setattr(
+        "nexus.commands.doctor.NexusClient.status",
+        lambda self, url: requested_urls.append(url) or {
+            "status": "OPERATIONAL",
+            "node_id": "NO-TEST",
+            "role": "MASTER",
+            "height": 6,
+            "term": 1,
+        },
+    )
+    monkeypatch.setattr(
+        "nexus.commands.doctor.NexusClient.health",
+        lambda self, url: requested_urls.append(url) or {
+            "healthy": True,
+            "storage": {
+                "valid": True,
+            },
+        },
+    )
+    monkeypatch.setattr(
+        "nexus.commands.doctor.NexusClient.cluster",
+        lambda self, url: requested_urls.append(url) or {
+            "leader": "NO-TEST",
+            "followers": ["NO-FOLLOWER"],
+            "nodes": 2,
+        },
+    )
+
+    exit_code = main(
+        [
+            "doctor",
+            "--url",
+            "http://127.0.0.1:8081/status",
+        ]
+    )
+
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert requested_urls == [
+        "http://127.0.0.1:8081/status",
+        "http://127.0.0.1:8081/health",
+        "http://127.0.0.1:8081/cluster",
+    ]
+    assert "Health:" in captured.out
+    assert "[ OK ] Healthy: True" in captured.out
+    assert "[ OK ] Storage valid: True" in captured.out
+    assert "Cluster:" in captured.out
+    assert "[ OK ] Leader: NO-TEST" in captured.out
+    assert "[ OK ] Followers: NO-FOLLOWER" in captured.out
+    assert "[ OK ] Nodes: 2" in captured.out

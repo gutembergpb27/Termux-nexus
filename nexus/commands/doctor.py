@@ -74,6 +74,11 @@ def collect_diagnostics() -> dict[str, Any]:
     }
 
 
+def endpoint_url(status_url: str, endpoint: str) -> str:
+    base_url = status_url.removesuffix("/status").rstrip("/")
+    return f"{base_url}/{endpoint}"
+
+
 def collect_runtime_status(
     url: str,
     client: NexusClient | None = None,
@@ -86,8 +91,14 @@ def add_runtime_diagnostics(
     diagnostics: dict[str, Any],
     url: str,
 ) -> dict[str, Any] | None:
+    client = NexusClient()
+    health_url = endpoint_url(url, "health")
+    cluster_url = endpoint_url(url, "cluster")
+
     try:
-        runtime = collect_runtime_status(url)
+        runtime = client.status(url)
+        health = client.health(health_url)
+        cluster = client.cluster(cluster_url)
     except NexusClientError as exc:
         diagnostics["checks"]["runtime"] = {
             "status": "ERROR",
@@ -106,7 +117,26 @@ def add_runtime_diagnostics(
         "height": runtime.get("height"),
         "term": runtime.get("term"),
     }
+    diagnostics["checks"]["health"] = {
+        "status": "OK" if health.get("healthy") else "ERROR",
+        "url": health_url,
+        "healthy": health.get("healthy"),
+        "storage_valid": health.get("storage", {}).get("valid"),
+    }
+    diagnostics["checks"]["cluster"] = {
+        "status": "OK",
+        "url": cluster_url,
+        "leader": cluster.get("leader"),
+        "followers": cluster.get("followers", []),
+        "nodes": cluster.get("nodes"),
+    }
+
+    if diagnostics["checks"]["health"]["status"] != "OK":
+        diagnostics["status"] = "ERROR"
+
     diagnostics["runtime"] = runtime
+    diagnostics["health"] = health
+    diagnostics["cluster"] = cluster
 
     return runtime
 
@@ -122,6 +152,29 @@ def print_runtime(runtime: dict[str, Any]) -> None:
     )
     print(f"[ OK ] Height: {runtime.get('height', 'desconhecido')}")
     print(f"[ OK ] Term: {runtime.get('term', 'desconhecido')}")
+
+
+def print_health(health: dict[str, Any]) -> None:
+    storage = health.get("storage", {})
+
+    print()
+    print("Health:")
+    print(f"[ OK ] Healthy: {health.get('healthy', 'desconhecido')}")
+    print(
+        "[ OK ] Storage valid: "
+        f"{storage.get('valid', 'desconhecido')}"
+    )
+
+
+def print_cluster(cluster: dict[str, Any]) -> None:
+    followers = cluster.get("followers", [])
+    followers_text = ", ".join(followers) if followers else "nenhum"
+
+    print()
+    print("Cluster:")
+    print(f"[ OK ] Leader: {cluster.get('leader', 'desconhecido')}")
+    print(f"[ OK ] Followers: {followers_text}")
+    print(f"[ OK ] Nodes: {cluster.get('nodes', 'desconhecido')}")
 
 
 def print_runtime_error(runtime_check: dict[str, Any]) -> None:
@@ -165,6 +218,8 @@ def run(args: argparse.Namespace) -> int:
 
     if runtime is not None:
         print_runtime(runtime)
+        print_health(diagnostics["health"])
+        print_cluster(diagnostics["cluster"])
     elif args.url:
         print_runtime_error(diagnostics["checks"]["runtime"])
 
