@@ -61,6 +61,83 @@ O desenvolvimento e evolução do Nexus Runtime prioriza os seguintes pilares fu
 
 ---
 
+---
+
+# 🚀 Nexus Runtime Platform CLI (v2300)
+
+A CLI do Nexus Runtime Platform fornece ferramentas para inspeção, diagnóstico e monitoramento do runtime distribuído.
+
+## Comandos disponíveis
+
+### Exibir a versão
+
+```bash
+nexus version
+```
+
+Exibe a versão instalada do Nexus Runtime Platform.
+
+### Diagnóstico do runtime
+
+```bash
+nexus doctor
+```
+
+Realiza um diagnóstico do ambiente local e, quando uma URL é informada, consulta o runtime distribuído.
+
+### Saída em JSON
+
+```bash
+nexus doctor --json
+```
+
+Retorna o diagnóstico em formato JSON para integração com scripts e ferramentas de automação.
+
+### Diagnóstico remoto
+
+```bash
+nexus doctor --url http://127.0.0.1:8081/status
+```
+
+Consulta o runtime e apresenta informações dos endpoints de status, health e cluster.
+
+### Monitoramento contínuo
+
+```bash
+nexus doctor --url http://127.0.0.1:8081/status --watch
+```
+
+Atualiza continuamente o diagnóstico até a interrupção com `CTRL+C`.
+
+### Intervalo configurável
+
+```bash
+nexus doctor --url http://127.0.0.1:8081/status --watch --interval 2.5
+```
+
+Define, em segundos, o intervalo entre as atualizações.
+
+## Recursos atuais da CLI
+
+- Exibição da versão instalada
+- Diagnóstico do ambiente local
+- Consulta de status do runtime
+- Verificação de health
+- Informações do cluster
+- Saída estruturada em JSON
+- Monitoramento contínuo
+- Intervalo de atualização configurável
+
+## Qualidade validada
+
+```text
+90 passed
+1 xfailed
+```
+
+As funcionalidades da CLI são desenvolvidas com testes automatizados e evolução incremental rastreada no Git.
+
+---
 ## 📊 Matriz de Maturidade e Roadmap do Ecossistema
 
 | Área / Componente Técnico | Status Atual | Classificação SRE |
