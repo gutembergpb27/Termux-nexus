@@ -369,3 +369,30 @@ def test_doctor_reports_health_and_cluster(monkeypatch, capsys):
     assert "[ OK ] Leader: NO-TEST" in captured.out
     assert "[ OK ] Followers: NO-FOLLOWER" in captured.out
     assert "[ OK ] Nodes: 2" in captured.out
+
+
+def test_doctor_watch_runs_repeatedly(monkeypatch):
+    calls = []
+
+    monkeypatch.setattr(
+        "nexus.commands.doctor.run_once",
+        lambda args: calls.append(args.url) or 0,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "nexus.commands.doctor.time.sleep",
+        lambda interval: (_ for _ in ()).throw(KeyboardInterrupt),
+        raising=False,
+    )
+
+    exit_code = main(
+        [
+            "doctor",
+            "--url",
+            "http://127.0.0.1:8081/status",
+            "--watch",
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls == ["http://127.0.0.1:8081/status"]

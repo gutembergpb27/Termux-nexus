@@ -7,6 +7,7 @@ import json
 import platform
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,11 @@ def configure_parser(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--url",
         help="URL opcional do endpoint /status do runtime.",
+    )
+    parser.add_argument(
+        "--watch",
+        action="store_true",
+        help="Atualiza continuamente o diagnostico.",
     )
     parser.set_defaults(handler=run)
 
@@ -183,7 +189,7 @@ def print_runtime_error(runtime_check: dict[str, Any]) -> None:
     print(f"[ERROR] {runtime_check['error']}")
 
 
-def run(args: argparse.Namespace) -> int:
+def run_once(args: argparse.Namespace) -> int:
     diagnostics = collect_diagnostics()
     runtime = None
 
@@ -227,3 +233,15 @@ def run(args: argparse.Namespace) -> int:
     print(f"Status: {diagnostics['status']}")
 
     return 0 if diagnostics["status"] == "OK" else 1
+
+
+def run(args: argparse.Namespace) -> int:
+    if not args.watch:
+        return run_once(args)
+
+    try:
+        while True:
+            run_once(args)
+            time.sleep(1)
+    except KeyboardInterrupt:
+        return 0
