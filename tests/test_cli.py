@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from nexus import __version__
 from nexus.cli import main
 
 
@@ -11,7 +12,7 @@ def test_version_command(capsys):
     captured = capsys.readouterr()
 
     assert exit_code == 0
-    assert captured.out.strip() == "Nexus Runtime Platform v2300.0.0-dev"
+    assert captured.out.strip() == f"Nexus Runtime Platform v{__version__}"
 
 
 def test_status_command(monkeypatch, capsys):
@@ -174,7 +175,7 @@ def test_doctor_command(monkeypatch, capsys):
             "platform": "Windows-Test",
             "python": "3.14.6",
             "status": "OK",
-            "version": "2300.0.0-dev",
+            "version": __version__,
             "working_dir": r"C:\Termux-nexus",
         },
     )
@@ -185,7 +186,7 @@ def test_doctor_command(monkeypatch, capsys):
 
     assert exit_code == 0
     assert "Nexus Runtime Platform Doctor" in captured.out
-    assert "CLI Version : 2300.0.0-dev" in captured.out
+    assert f"CLI Version : {__version__}" in captured.out
     assert "Python      : 3.14.6" in captured.out
     assert "Platform    : Windows-Test" in captured.out
     assert "Executable  : C:\\Python314\\python.exe" in captured.out
@@ -214,7 +215,7 @@ def test_doctor_command_json(monkeypatch, capsys):
             "platform": "Windows-Test",
             "python": "3.14.6",
             "status": "OK",
-            "version": "2300.0.0-dev",
+            "version": __version__,
             "working_dir": r"C:\Termux-nexus",
         },
     )
@@ -228,7 +229,7 @@ def test_doctor_command_json(monkeypatch, capsys):
     payload = __import__("json").loads(captured.out)
 
     assert payload["status"] == "OK"
-    assert payload["version"] == "2300.0.0-dev"
+    assert payload["version"] == __version__
     assert payload["checks"]["python"]["status"] == "OK"
     assert payload["checks"]["working_directory"]["writable"] is True
 
@@ -255,7 +256,7 @@ def test_doctor_returns_error_when_directory_is_not_writable(
             "platform": "Windows-Test",
             "python": "3.14.6",
             "status": "ERROR",
-            "version": "2300.0.0-dev",
+            "version": __version__,
             "working_dir": r"C:\ReadOnly",
         },
     )
