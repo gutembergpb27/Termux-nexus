@@ -38,6 +38,11 @@ def configure_parser(parser: argparse.ArgumentParser) -> None:
         default=1.0,
         help="Intervalo entre atualizacoes em segundos.",
     )
+    parser.add_argument(
+        "--clear",
+        action="store_true",
+        help="Limpa a tela antes de cada atualizacao no modo watch.",
+    )
     parser.set_defaults(handler=run)
 
 
@@ -195,6 +200,10 @@ def print_runtime_error(runtime_check: dict[str, Any]) -> None:
     print(f"[ERROR] {runtime_check['error']}")
 
 
+def clear_screen() -> None:
+    print("\033[2J\033[H", end="")
+
+
 def run_once(args: argparse.Namespace) -> int:
     diagnostics = collect_diagnostics()
     runtime = None
@@ -247,6 +256,8 @@ def run(args: argparse.Namespace) -> int:
 
     try:
         while True:
+            if args.clear:
+                clear_screen()
             run_once(args)
             time.sleep(args.interval)
     except KeyboardInterrupt:

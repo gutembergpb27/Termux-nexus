@@ -430,3 +430,32 @@ def test_doctor_watch_uses_custom_interval(monkeypatch):
     assert exit_code == 0
     assert calls == ["http://127.0.0.1:8081/status"]
     assert intervals == [2.5]
+
+
+def test_doctor_watch_clear_screen_before_refresh(monkeypatch):
+    events = []
+
+    monkeypatch.setattr(
+        "nexus.commands.doctor.clear_screen",
+        lambda: events.append("clear"),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "nexus.commands.doctor.run_once",
+        lambda args: events.append("run") or 0,
+    )
+    monkeypatch.setattr(
+        "nexus.commands.doctor.time.sleep",
+        lambda interval: (_ for _ in ()).throw(KeyboardInterrupt),
+    )
+
+    exit_code = main(
+        [
+            "doctor",
+            "--watch",
+            "--clear",
+        ]
+    )
+
+    assert exit_code == 0
+    assert events == ["clear", "run"]
