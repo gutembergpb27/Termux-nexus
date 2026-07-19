@@ -396,3 +396,37 @@ def test_doctor_watch_runs_repeatedly(monkeypatch):
 
     assert exit_code == 0
     assert calls == ["http://127.0.0.1:8081/status"]
+
+
+def test_doctor_watch_uses_custom_interval(monkeypatch):
+    calls = []
+    intervals = []
+
+    monkeypatch.setattr(
+        "nexus.commands.doctor.run_once",
+        lambda args: calls.append(args.url) or 0,
+    )
+
+    def fake_sleep(interval):
+        intervals.append(interval)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(
+        "nexus.commands.doctor.time.sleep",
+        fake_sleep,
+    )
+
+    exit_code = main(
+        [
+            "doctor",
+            "--url",
+            "http://127.0.0.1:8081/status",
+            "--watch",
+            "--interval",
+            "2.5",
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls == ["http://127.0.0.1:8081/status"]
+    assert intervals == [2.5]
