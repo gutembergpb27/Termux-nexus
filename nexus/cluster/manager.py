@@ -62,3 +62,30 @@ class ClusterManager:
 
         node["role"] = "MASTER"
         return True
+    def leader(self):
+        for node_id, node in self._nodes.items():
+            if node["role"] == "MASTER":
+                return node_id
+
+        return None
+
+    def followers(self):
+        return sorted(
+            node_id
+            for node_id, node in self._nodes.items()
+            if node["role"] == "FOLLOWER"
+        )
+
+    def online_nodes(self):
+        return sorted(
+            node_id
+            for node_id, node in self._nodes.items()
+            if node["status"] == "ONLINE"
+        )
+
+    def offline_nodes(self):
+        return sorted(
+            node_id
+            for node_id, node in self._nodes.items()
+            if node["status"] == "OFFLINE"
+        )

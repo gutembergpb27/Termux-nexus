@@ -163,3 +163,46 @@ def test_elect_unknown_node_returns_false():
     manager = ClusterManager()
 
     assert manager.elect_leader("UNKNOWN") is False
+def test_leader_returns_current_master():
+    manager = ClusterManager()
+
+    manager.add_node("NODE-A")
+    manager.add_node("NODE-B")
+
+    manager.elect_leader("NODE-B")
+
+    assert manager.leader() == "NODE-B"
+
+
+def test_followers_returns_all_followers():
+    manager = ClusterManager()
+
+    manager.add_node("NODE-A")
+    manager.add_node("NODE-B")
+    manager.add_node("NODE-C")
+
+    manager.elect_leader("NODE-B")
+
+    assert set(manager.followers()) == {"NODE-A", "NODE-C"}
+
+
+def test_online_nodes_returns_only_online():
+    manager = ClusterManager()
+
+    manager.add_node("NODE-A")
+    manager.add_node("NODE-B")
+
+    manager.info("NODE-B")["status"] = "OFFLINE"
+
+    assert manager.online_nodes() == ["NODE-A"]
+
+
+def test_offline_nodes_returns_only_offline():
+    manager = ClusterManager()
+
+    manager.add_node("NODE-A")
+    manager.add_node("NODE-B")
+
+    manager.info("NODE-B")["status"] = "OFFLINE"
+
+    assert manager.offline_nodes() == ["NODE-B"]
