@@ -89,3 +89,18 @@ class ClusterManager:
             for node_id, node in self._nodes.items()
             if node["status"] == "OFFLINE"
         )
+    def export_state(self):
+        """
+        Exporta um snapshot do estado atual do cluster.
+        """
+
+        return {
+            "nodes": {
+                node_id: {
+                    "role": node["role"],
+                    "status": node["status"],
+                    "last_seen": node["last_seen"],
+                }
+                for node_id, node in self._nodes.items()
+            }
+        }
