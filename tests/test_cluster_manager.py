@@ -134,3 +134,32 @@ def test_touch_brings_offline_node_back_online():
 
     assert result is True
     assert manager.info("NODE-A")["status"] == "ONLINE"
+def test_elect_leader_promotes_selected_node():
+    manager = ClusterManager()
+
+    manager.add_node("NODE-A")
+    manager.add_node("NODE-B")
+
+    manager.elect_leader("NODE-B")
+
+    assert manager.info("NODE-B")["role"] == "MASTER"
+    assert manager.info("NODE-A")["role"] == "FOLLOWER"
+
+
+def test_elect_leader_changes_previous_master():
+    manager = ClusterManager()
+
+    manager.add_node("NODE-A")
+    manager.add_node("NODE-B")
+
+    manager.elect_leader("NODE-A")
+    manager.elect_leader("NODE-B")
+
+    assert manager.info("NODE-A")["role"] == "FOLLOWER"
+    assert manager.info("NODE-B")["role"] == "MASTER"
+
+
+def test_elect_unknown_node_returns_false():
+    manager = ClusterManager()
+
+    assert manager.elect_leader("UNKNOWN") is False

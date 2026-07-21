@@ -51,3 +51,14 @@ class ClusterManager:
                 offline_nodes.append(node_id)
 
         return sorted(offline_nodes)
+    def elect_leader(self, node_id: str):
+        node = self._nodes.get(node_id)
+
+        if node is None:
+            return False
+
+        for current in self._nodes.values():
+            current["role"] = "FOLLOWER"
+
+        node["role"] = "MASTER"
+        return True
