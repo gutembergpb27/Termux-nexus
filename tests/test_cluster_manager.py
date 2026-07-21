@@ -1,3 +1,5 @@
+﻿from datetime import datetime, timedelta, timezone
+
 from nexus.cluster.manager import ClusterManager
 
 
@@ -88,3 +90,47 @@ def test_touch_updates_last_seen():
     second = manager.info("NODE-A")["last_seen"]
 
     assert second >= first
+
+
+def test_check_timeouts_marks_stale_node_offline():
+    manager = ClusterManager()
+    manager.add_node("NODE-A")
+
+    now = datetime.now(timezone.utc)
+    manager.info("NODE-A")["last_seen"] = now - timedelta(seconds=31)
+
+    offline_nodes = manager.check_timeouts(
+        timeout_seconds=30,
+        now=now,
+    )
+
+    assert manager.info("NODE-A")["status"] == "OFFLINE"
+    assert offline_nodes == ["NODE-A"]
+
+
+def test_check_timeouts_keeps_recent_node_online():
+    manager = ClusterManager()
+    manager.add_node("NODE-A")
+
+    now = datetime.now(timezone.utc)
+    manager.info("NODE-A")["last_seen"] = now - timedelta(seconds=29)
+
+    offline_nodes = manager.check_timeouts(
+        timeout_seconds=30,
+        now=now,
+    )
+
+    assert manager.info("NODE-A")["status"] == "ONLINE"
+    assert offline_nodes == []
+
+
+def test_touch_brings_offline_node_back_online():
+    manager = ClusterManager()
+    manager.add_node("NODE-A")
+
+    manager.info("NODE-A")["status"] = "OFFLINE"
+
+    result = manager.touch("NODE-A")
+
+    assert result is True
+    assert manager.info("NODE-A")["status"] == "ONLINE"

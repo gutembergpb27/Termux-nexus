@@ -36,3 +36,18 @@ class ClusterManager:
         node["last_seen"] = datetime.now(timezone.utc)
         node["status"] = "ONLINE"
         return True
+
+    def check_timeouts(self, timeout_seconds: int, now=None):
+        if now is None:
+            now = datetime.now(timezone.utc)
+
+        offline_nodes = []
+
+        for node_id, node in self._nodes.items():
+            elapsed = (now - node["last_seen"]).total_seconds()
+
+            if elapsed > timeout_seconds:
+                node["status"] = "OFFLINE"
+                offline_nodes.append(node_id)
+
+        return sorted(offline_nodes)
