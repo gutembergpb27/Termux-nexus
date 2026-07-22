@@ -23,3 +23,9 @@ class ClusterReplicator:
 
     def last_sync_at(self):
         return self._last_sync_at
+
+    def stats(self):
+        return {
+            "sync_count": self._sync_count,
+            "last_sync_at": self._last_sync_at,
+        }
