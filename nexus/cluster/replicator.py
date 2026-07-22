@@ -5,6 +5,7 @@ class ClusterReplicator:
     def __init__(self):
         self._sync_count = 0
         self._skipped_syncs = 0
+        self._failed_syncs = 0
         self._last_sync_at = None
 
     def sync(self, leader, follower):
@@ -17,6 +18,8 @@ class ClusterReplicator:
         if synchronized:
             self._sync_count += 1
             self._last_sync_at = datetime.now(timezone.utc)
+        else:
+            self._failed_syncs += 1
 
         return synchronized
 
@@ -30,5 +33,6 @@ class ClusterReplicator:
         return {
             "sync_count": self._sync_count,
             "skipped_syncs": self._skipped_syncs,
+            "failed_syncs": self._failed_syncs,
             "last_sync_at": self._last_sync_at,
         }
