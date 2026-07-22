@@ -7,17 +7,25 @@ class ClusterManager:
         self._version = 0
 
     def add_node(self, node_id: str):
-        self._nodes.setdefault(
-            node_id,
-            {
-                "role": "FOLLOWER",
-                "status": "ONLINE",
-                "last_seen": datetime.now(timezone.utc),
-            },
-        )
+        if node_id in self._nodes:
+            return False
+
+        self._nodes[node_id] = {
+            "role": "FOLLOWER",
+            "status": "ONLINE",
+            "last_seen": datetime.now(timezone.utc),
+        }
+
+        self._version += 1
+        return True
 
     def remove_node(self, node_id: str):
-        self._nodes.pop(node_id, None)
+        if node_id not in self._nodes:
+            return False
+
+        del self._nodes[node_id]
+        self._version += 1
+        return True
 
     def nodes(self):
         return sorted(self._nodes)
@@ -59,10 +67,16 @@ class ClusterManager:
         if node is None:
             return False
 
+        current_leader = self.leader()
+
+        if current_leader == node_id:
+            return True
+
         for current in self._nodes.values():
             current["role"] = "FOLLOWER"
 
         node["role"] = "MASTER"
+        self._version += 1
         return True
 
     def leader(self):
