@@ -51,6 +51,7 @@ class ClusterManager:
                 offline_nodes.append(node_id)
 
         return sorted(offline_nodes)
+
     def elect_leader(self, node_id: str):
         node = self._nodes.get(node_id)
 
@@ -62,6 +63,7 @@ class ClusterManager:
 
         node["role"] = "MASTER"
         return True
+
     def leader(self):
         for node_id, node in self._nodes.items():
             if node["role"] == "MASTER":
@@ -89,6 +91,7 @@ class ClusterManager:
             for node_id, node in self._nodes.items()
             if node["status"] == "OFFLINE"
         )
+
     def export_state(self):
         """
         Exporta um snapshot do estado atual do cluster.
@@ -103,4 +106,18 @@ class ClusterManager:
                 }
                 for node_id, node in self._nodes.items()
             }
+        }
+
+    def import_state(self, snapshot):
+        """
+        Importa um snapshot e substitui o estado atual do cluster.
+        """
+
+        self._nodes = {
+            node_id: {
+                "role": node["role"],
+                "status": node["status"],
+                "last_seen": node["last_seen"],
+            }
+            for node_id, node in snapshot["nodes"].items()
         }
