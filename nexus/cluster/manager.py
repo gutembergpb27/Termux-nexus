@@ -107,6 +107,13 @@ class ClusterManager:
             if node["status"] == "OFFLINE"
         )
 
+    def needs_sync(self, remote_version: int):
+        """
+        Retorna True quando o nó remoto precisa receber
+        uma atualização de estado.
+        """
+        return remote_version < self._version
+
     def export_state(self):
         return {
             "version": self._version,
