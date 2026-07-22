@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 class ClusterManager:
     def __init__(self):
         self._nodes = {}
+        self._version = 0
 
     def add_node(self, node_id: str):
         self._nodes.setdefault(
@@ -93,11 +94,8 @@ class ClusterManager:
         )
 
     def export_state(self):
-        """
-        Exporta um snapshot do estado atual do cluster.
-        """
-
         return {
+            "version": self._version,
             "nodes": {
                 node_id: {
                     "role": node["role"],
@@ -105,13 +103,14 @@ class ClusterManager:
                     "last_seen": node["last_seen"],
                 }
                 for node_id, node in self._nodes.items()
-            }
+            },
         }
 
     def import_state(self, snapshot):
-        """
-        Importa um snapshot e substitui o estado atual do cluster.
-        """
+        snapshot_version = snapshot.get("version", 0)
+
+        if snapshot_version < self._version:
+            return False
 
         self._nodes = {
             node_id: {
@@ -121,3 +120,6 @@ class ClusterManager:
             }
             for node_id, node in snapshot["nodes"].items()
         }
+
+        self._version = snapshot_version
+        return True
