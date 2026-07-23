@@ -4,17 +4,40 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nexus-runtime-platform"
-version = "2300.0.0a1"
-description = "Plataforma distribuída leve, resiliente e portátil."
+version = "2400.0.0a1"
+description = "Experimental Distributed Runtime Platform"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
 authors = [
-  { name = "Gutemberg Procópio Barbosa" }
+    { name = "Gutemberg Procopio Barbosa" }
 ]
+
+keywords = [
+    "runtime",
+    "distributed",
+    "cluster",
+    "orchestrator",
+    "persistence",
+    "replication",
+    "diagnostics"
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
+
 dependencies = []
 
 [project.scripts]
 nexus = "nexus.cli:main"
+
+[tool.setuptools]
+include-package-data = true
 
 [tool.setuptools.packages.find]
 include = ["nexus*"]
