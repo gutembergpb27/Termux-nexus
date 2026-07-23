@@ -1,32 +1,53 @@
-import os
-import hmac
 import hashlib
-from dotenv import load_dotenv
+import hmac
+import os
+from pathlib import Path
 
-# Define o caminho absoluto para o ficheiro de configuração, 
-# garantindo que seja encontrado independentemente de onde o script é chamado
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ENV_PATH = os.path.join(BASE_DIR, 'nexus_config.env')
 
-# Carrega as variáveis de ambiente
-load_dotenv(ENV_PATH)
-SECRET_KEY = os.getenv('NEXUS_SECRET_KEY')
+ENV_PATH = Path(__file__).resolve().parent / "nexus_config.env"
+
+
+def _load_local_secret() -> str:
+    secret = os.getenv("NEXUS_SECRET_KEY", "").strip()
+    if secret:
+        return secret
+
+    if not ENV_PATH.exists():
+        return ""
+
+    for line in ENV_PATH.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        if key.strip() == "NEXUS_SECRET_KEY":
+            return value.strip().strip('"').strip("'")
+
+    return ""
+
 
 class NexusSecurityProvider:
     @staticmethod
-    def get_key():
-        if not SECRET_KEY:
-            raise ValueError("Erro: A chave secreta (NEXUS_SECRET_KEY) não foi encontrada no nexus_config.env")
-        return SECRET_KEY.encode('utf-8')
+    def get_key() -> bytes:
+        secret = _load_local_secret()
+        if not secret:
+            raise ValueError(
+                "Erro: NEXUS_SECRET_KEY não encontrada no ambiente "
+                "nem no nexus_config.env"
+            )
+        return secret.encode("utf-8")
 
     @staticmethod
     def sign_payload(payload: str) -> str:
-        """Assina o payload usando HMAC-SHA256."""
         key = NexusSecurityProvider.get_key()
-        return hmac.new(key, payload.encode('utf-8'), hashlib.sha256).hexdigest()
+        return hmac.new(
+            key,
+            payload.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
 
     @staticmethod
     def verify_payload(payload: str, signature: str) -> bool:
-        """Verifica a integridade do payload comparando a assinatura."""
         expected = NexusSecurityProvider.sign_payload(payload)
         return hmac.compare_digest(expected, signature)

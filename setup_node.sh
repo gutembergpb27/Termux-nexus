@@ -16,10 +16,16 @@ SERVICE_FILE="/etc/systemd/system/nexus.service"
 # 2. Auditoria e Isolamento de Dependências Nativas
 echo "🔍 [Auditoria] Verificando requisitos de sistema..."
 if ! command -v python3 &> /dev/null; then
-    echo "❌ Erro: Python 3 não localizado. Instalando via gerenciador de pacotes..."
-    sudo apt-get update && sudo apt-get install -y python3 sqlite3
+    echo "❌ Erro: Python 3 não localizado. Instalando dependências..."
+    sudo apt-get update
+    sudo apt-get install -y python3 sqlite3 python3-dotenv
 else
-    echo "✔ Python 3 e SQLite3 validados de forma nativa."
+    echo "✔ Python 3 localizado. Validando dependência dotenv..."
+    if ! python3 -c "import dotenv" 2>/dev/null; then
+        sudo apt-get update
+        sudo apt-get install -y python3-dotenv
+    fi
+    echo "✔ Python 3, SQLite3 e dotenv validados."
 fi
 
 # 3. Criação e Limpeza do Diretório de Trabalho (Mitigação de Estado Corrompido)
@@ -27,14 +33,19 @@ echo "🧹 [Persistência] Organizando diretórios e isolando bancos antigos..."
 sudo mkdir -p "$NEXUS_DIR"
 sudo mkdir -p "$NEXUS_DIR/archived_patches"
 
-# Limpa resquícios de WAL ou caches parciais residuais de sessões anteriores
-sudo rm -f "$NEXUS_DIR"/nexus_*.db "$NEXUS_DIR"/nexus_*.db-wal "$NEXUS_DIR"/nexus_*.db-shm
+# Preserva bancos, WAL e arquivos SHM existentes.
+# O provisionamento não deve apagar estado válido de um nó já inicializado.
 
-# Copia o Core nativo reconstruído para o diretório de produção
-if [ -f "nexus_distributed_core.py" ]; then
+# Copia o Core, a camada de segurança e a configuração secreta local.
+# nexus_config.env não é versionado e deve ser provisionado pelo operador.
+if [ -f "nexus_distributed_core.py" ] &&    [ -f "nexus_security.py" ] &&    [ -f "nexus_config.env" ]; then
     sudo cp nexus_distributed_core.py "$NEXUS_DIR/"
+    sudo cp nexus_security.py "$NEXUS_DIR/"
+    sudo cp nexus_config.env "$NEXUS_DIR/"
+    sudo chmod 600 "$NEXUS_DIR/nexus_config.env"
 else
-    echo "⚠️ Aviso: nexus_distributed_core.py não encontrado na pasta atual. Certifique-se de copiá-lo para $NEXUS_DIR."
+    echo "❌ Erro: core, segurança e nexus_config.env devem existir na pasta atual."
+    exit 1
 fi
 
 # 4. Configuração Dinâmica do Arquivo de Serviço Systemd (Daemon de Inicialização)
@@ -45,6 +56,7 @@ NODE_ID=${1:-"NO-ARM-FOLLOWER"}
 WEB_PORT=${2:-"8082"}
 TCP_PORT=${3:-"9092"}
 ROLE=${4:-"FOLLOWER"}
+NEXUS_HUB_URL=${5:-"http://127.0.0.1:8500"}
 
 sudo cat << SYSTEMD_EOF | sudo tee "$SERVICE_FILE" > /dev/null
 [Unit]
@@ -54,6 +66,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=$NEXUS_DIR
+Environment=NEXUS_HUB_URL=$NEXUS_HUB_URL
 ExecStart=/usr/bin/python3 nexus_distributed_core.py $NODE_ID $WEB_PORT $TCP_PORT $ROLE
 Restart=always
 RestartSec=5
