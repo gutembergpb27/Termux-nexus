@@ -1,45 +1,51 @@
-"""Nexus Runtime Platform - Core Runtime Engine."""
+"""Runtime engine."""
 
 from __future__ import annotations
 
-from .health import RuntimeHealth
-from .state import RuntimeState
+from nexus.runtime.cluster import RuntimeCluster
+from nexus.runtime.health import RuntimeHealth
+from nexus.runtime.state import RuntimeState
 
 
 class Runtime:
-    """Core runtime for the Nexus Runtime Platform."""
+    """Main Runtime API."""
 
-    def __init__(self) -> None:
+    def __init__(self):
         self._state = RuntimeState.STOPPED
+
         self.health = RuntimeHealth(self)
+        self.cluster = RuntimeCluster()
 
     @property
     def started(self) -> bool:
-        """Return True when the runtime is running."""
-        return self._state is RuntimeState.RUNNING
+        return self._state == RuntimeState.RUNNING
 
     @property
     def state(self) -> RuntimeState:
-        """Return the current runtime state."""
         return self._state
 
-    def start(self) -> None:
-        """Start the runtime."""
+    def start(self):
+        if self._state == RuntimeState.RUNNING:
+            return False
+
         self._state = RuntimeState.STARTING
         self._state = RuntimeState.RUNNING
+        return True
 
-    def stop(self) -> None:
-        """Stop the runtime."""
+    def stop(self):
+        if self._state == RuntimeState.STOPPED:
+            return False
+
         self._state = RuntimeState.STOPPING
         self._state = RuntimeState.STOPPED
+        return True
 
-    def restart(self) -> None:
-        """Restart the runtime."""
+    def restart(self):
         self.stop()
         self.start()
+        return True
 
-    def status(self) -> dict[str, object]:
-        """Return runtime status information."""
+    def status(self):
         return {
             "state": self._state.value,
             "started": self.started,
