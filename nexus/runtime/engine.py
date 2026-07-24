@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .health import RuntimeHealth
 from .state import RuntimeState
 
 
@@ -10,6 +11,7 @@ class Runtime:
 
     def __init__(self) -> None:
         self._state = RuntimeState.STOPPED
+        self.health = RuntimeHealth(self)
 
     @property
     def started(self) -> bool:
