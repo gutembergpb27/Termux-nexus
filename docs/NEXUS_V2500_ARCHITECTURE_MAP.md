@@ -1,560 +1,390 @@
-\# Nexus Runtime Platform v2500
+# Nexus Runtime Platform v2500
+## Architecture and Delivery Map
 
-\## Architecture Map
+**Status:** Approved  
+**Branch:** `v2500-dev`
 
+---
 
+# Purpose
 
-\*\*Status:\*\* Draft (Approved for v2500)
+The v2500 release establishes `Runtime` as the primary programmatic entry point of the Nexus Runtime Platform.
 
-\*\*Branch:\*\* v2500-dev
+The release must remain focused and finite. Small technical changes are recorded as commits and tasks, not as separate numbered sprints.
 
+---
 
+# Core Principle
 
-\---
+> Runtime coordinates; subsystems execute.
 
+The Runtime exposes a stable public interface while delegating implementation details to specialized services.
 
+---
 
-\# Purpose
+# High-Level Architecture
 
+```text
+External Applications
+        |
+        v
++--------------------------+
+| Public Nexus API         |
+| from nexus import Runtime|
++------------+-------------+
+             |
+             v
++--------------------------+
+| Runtime                  |
+| lifecycle and services   |
++----+--------+--------+---+
+     |        |        |
+     v        v        v
+  Health   Cluster   Metrics
+                      |
+                      v
+                    Events
 
+Additional Runtime service:
 
-The v2500 architecture introduces the Runtime as the primary public entry point of the Nexus Runtime Platform.
-
-
-
-Its purpose is to provide a stable, programmatic API while preserving compatibility with all functionality developed through v2400.
-
-
-
-\---
-
-
-
-\# Architectural Principles
-
-
-
-1\. Runtime coordinates; subsystems execute.
-
-2\. One responsibility per component.
-
-3\. Public API remains small and stable.
-
-4\. CLI becomes a consumer of the Runtime API.
-
-5\. Existing modules are reused whenever possible.
-
-6\. Incremental evolution over disruptive refactoring.
-
-
-
-\---
-
-
-
-\# High-Level Architecture
-
-
-
+  Config
 ```
 
-Applications
+---
 
-&#x20;     │
+# Public API
 
-&#x20;     ▼
-
-+----------------------+
-
-| Public Nexus API     |
-
-| from nexus import    |
-
-+----------+-----------+
-
-&#x20;          │
-
-&#x20;          ▼
-
-+----------------------+
-
-| Runtime              |
-
-+---+-------+------+---+
-
-&#x20;   |       |      |
-
-&#x20;   ▼       ▼      ▼
-
-&#x20;Cluster  Health Metrics
-
-&#x20;   |
-
-&#x20;   ▼
-
-Persistence
-
-```
-
-
-
-\---
-
-
-
-\# Runtime
-
-
-
-Package:
-
-
-
-```
-
-nexus/runtime/
-
-```
-
-
-
-Responsibilities:
-
-
-
-\- Runtime lifecycle
-
-\- Initialization
-
-\- Shutdown
-
-\- Coordination
-
-\- Public API
-
-\- Future event dispatch
-
-
-
-The Runtime never implements business logic belonging to another subsystem.
-
-
-
-\---
-
-
-
-\# Cluster
-
-
-
-Package:
-
-
-
-```
-
-nexus/cluster/
-
-```
-
-
-
-Responsibilities:
-
-
-
-\- Node management
-
-\- Replication
-
-\- Synchronization
-
-\- Leader state
-
-\- Cluster topology
-
-
-
-Internal modules:
-
-
-
-```
-
-manager.py
-
-replicator.py
-
-orchestrator.py
-
-```
-
-
-
-\---
-
-
-
-\# Persistence
-
-
-
-Responsible for:
-
-
-
-\- State durability
-
-\- Hash chain
-
-\- Checkpoints
-
-\- Recovery
-
-\- Integrity validation
-
-
-
-Future location:
-
-
-
-```
-
-nexus/persistence/
-
-```
-
-
-
-\---
-
-
-
-\# Transport
-
-
-
-Responsible for:
-
-
-
-\- Network communication
-
-\- HTTP
-
-\- Protocol serialization
-
-\- Peer communication
-
-
-
-Future location:
-
-
-
-```
-
-nexus/transport/
-
-```
-
-
-
-\---
-
-
-
-\# Commands
-
-
-
-Package:
-
-
-
-```
-
-nexus/commands/
-
-```
-
-
-
-Responsibilities:
-
-
-
-\- Parse CLI arguments
-
-\- Invoke Runtime APIs
-
-\- Format output
-
-\- Exit codes
-
-
-
-Commands should never become the only implementation of a capability.
-
-
-
-\---
-
-
-
-\# Public API
-
-
-
-Current:
-
-
+Current API:
 
 ```python
-
 from nexus import Runtime
-
-
 
 runtime = Runtime()
 
-
-
 runtime.start()
-
 runtime.stop()
+runtime.restart()
 
+runtime.status()
+runtime.health.check()
+runtime.health.summary()
 ```
 
-
-
-Target:
-
-
+Target API for v2500:
 
 ```python
+from nexus import Runtime
+
+runtime = Runtime()
 
 runtime.start()
 
-
-
 runtime.health.check()
-
-
-
+runtime.cluster.peers()
+runtime.cluster.snapshot()
 runtime.cluster.sync()
-
-
 
 runtime.metrics.snapshot()
 
+runtime.events.subscribe(...)
+runtime.events.publish(...)
 
+runtime.config.snapshot()
 
 runtime.stop()
-
 ```
 
+---
 
+# Package Responsibilities
 
-\---
+## `nexus/runtime`
 
+Responsible for:
 
+- Runtime lifecycle
+- Service composition
+- Public orchestration API
+- Runtime state
+- Runtime health
+- Runtime metrics
+- Runtime events
+- Runtime configuration access
 
-\# Dependency Rules
+The Runtime must not duplicate business logic owned by another subsystem.
 
+---
 
+## `nexus/cluster`
 
-Runtime
+Responsible for:
 
-&#x20;   ↓
+- Node management
+- Cluster topology
+- Replication
+- Synchronization
+- Leader and follower information
+- Cluster snapshots
 
-Cluster
+Existing cluster components should be reused through adapters or facades.
 
-&#x20;   ↓
+---
 
-Persistence
+## `nexus/commands`
 
+Responsible for:
 
+- CLI argument handling
+- Runtime API invocation
+- Output formatting
+- Exit codes
 
-Runtime
+Commands must not be the exclusive implementation location of a platform capability.
 
-&#x20;   ↓
+---
 
-Transport
+## `nexus/client.py`
 
+Responsible for:
 
+- Remote Nexus communication
+- HTTP requests
+- Serialization
+- Timeouts
+- Response handling
+- Transport-related errors
 
-Commands
+---
 
-&#x20;   ↓
+## `nexus/exceptions.py`
 
-Runtime
+Responsible for:
 
+- Public Nexus exception hierarchy
+- Runtime errors
+- Cluster errors
+- Transport errors
+- Configuration errors
 
+---
 
-Applications
+## `nexus/__init__.py`
 
-&#x20;   ↓
+Responsible only for the stable public package facade.
 
-Runtime
+Expected public imports:
 
+```python
+from nexus import Runtime
+from nexus import __version__
+```
 
+---
 
-No subsystem should depend on Commands.
+# Architectural Rules
 
+1. Runtime coordinates; services execute.
+2. Public APIs return structured data.
+3. CLI formatting remains outside business logic.
+4. Existing components are reused instead of rewritten.
+5. Public interfaces remain small and stable.
+6. Dependencies are explicit whenever practical.
+7. Repeated lifecycle operations must remain predictable.
+8. Each technical change must include focused tests.
+9. The complete test suite must pass before every feature commit.
+10. Large migrations must be incremental.
 
+---
 
-\---
+# Delivery Governance
 
+The v2500 release uses milestones rather than dozens of numbered sprints.
 
+## Commits
 
-\# Design Rules
+A commit records one coherent technical change.
 
+Examples:
 
+```text
+feat(runtime): introduce cluster service
+feat(runtime): add metrics snapshot
+feat(runtime): add event bus
+docs(runtime): document public SDK
+```
 
-\- Keep interfaces stable.
+## Tasks
 
-\- Avoid circular dependencies.
+A task represents a specific implementation or test activity.
 
-\- Prefer composition over inheritance.
+Examples:
 
-\- Return structured data.
+```text
+Create Cluster service facade
+Expose cluster snapshot
+Add metrics tests
+Document Runtime configuration
+```
 
-\- Keep methods idempotent whenever possible.
+## Milestones
 
-\- Make Runtime the single public orchestration layer.
+A milestone represents a complete user-visible capability group.
 
+---
 
+# v2500 Milestones
 
-\---
-
-
-
-\# v2500 Roadmap
-
-
-
-\## Sprint 2500.1
-
-
-
-\- Runtime Core
-
-\- Public Runtime API
-
-
+## Milestone 1 — Runtime Foundation
 
 Status: Completed
 
+Delivered:
 
+- Runtime public API
+- Runtime lifecycle
+- Runtime state model
+- Runtime status
+- Runtime health inspection
+- Architecture documentation
+- Automated tests
 
-\---
+Current validated baseline:
 
+```text
+136 passed
+1 xfailed
+```
 
+---
 
-\## Sprint 2500.2
+## Milestone 2 — Runtime Services
 
+Status: In progress
 
+Deliverables:
 
-Lifecycle
+### Cluster Service
 
+```python
+runtime.cluster.peers()
+runtime.cluster.snapshot()
+runtime.cluster.sync()
+```
 
+The service must adapt the existing cluster implementation rather than duplicate it.
 
-\- restart()
+### Metrics Service
 
-\- status()
+```python
+runtime.metrics.snapshot()
+```
 
+The first version must expose structured Runtime and service metrics.
 
+### Event Service
 
-\---
+```python
+runtime.events.subscribe(...)
+runtime.events.publish(...)
+```
 
+The first version should be synchronous and in-memory.
 
+### Configuration Service
 
-\## Sprint 2500.3
+```python
+runtime.config.snapshot()
+```
 
+The service should provide structured access to Runtime configuration without exposing mutable internal state unnecessarily.
 
+---
 
-Health API
+## Milestone 3 — SDK and Consolidation
 
+Status: Planned
 
+Deliverables:
 
-\- health.check()
+- Stable public Runtime API
+- CLI reuse of Runtime services where practical
+- API documentation
+- Official usage examples
+- Exception hierarchy review
+- Version metadata update
+- Full regression validation
+- Release notes
+- v2500 release tag
 
-\- health.summary()
+---
 
+# Definition of Done for v2500
 
+The v2500 release is complete when all conditions below are met:
 
-\---
+- Runtime is the official programmatic entry point.
+- Lifecycle API is stable.
+- Health API is stable.
+- Cluster service is available.
+- Metrics snapshot is available.
+- Basic event service is available.
+- Configuration snapshot is available.
+- Public APIs return structured results.
+- Documentation contains working examples.
+- Existing CLI behavior remains compatible.
+- Full automated test suite passes.
+- Release notes are complete.
+- The release is tagged.
 
+Features outside these conditions belong to v2600 or later.
 
-
-\## Sprint 2500.4
-
-
-
-Cluster API
-
-
-
-\- cluster.sync()
-
-\- cluster.peers()
-
-\- cluster.snapshot()
-
-
-
-\---
-
-
-
-\## Sprint 2500.5
-
-
-
-Metrics API
-
-
-
-\- metrics.snapshot()
-
-\- metrics.export()
-
-
-
-\---
-
-
-
-\## Sprint 2500.6
-
-
-
-Runtime Event Bus
-
-
-
-\- Runtime lifecycle events
-
-\- Cluster events
-
-\- Persistence events
-
-
-
-\---
-
-
-
-\## Long-Term Vision
-
-
-
-The Runtime becomes the official programming interface of the Nexus Runtime Platform.
-
-
-
-The CLI, tests, dashboards, plugins, and future integrations all consume the same Runtime API, ensuring consistency, reuse, and maintainability.
-
+---
+
+# Deferred to v2600
+
+The following topics are explicitly outside the v2500 scope unless required for compatibility:
+
+- Advanced plugin system
+- Asynchronous event broker
+- Container orchestration
+- Cloud control plane
+- Distributed scheduler redesign
+- Full package relocation of legacy modules
+- Large transport protocol redesign
+- Breaking public API changes
+- Advanced dashboard redesign
+
+---
+
+# Required Development Workflow
+
+For every technical change:
+
+```text
+Define public API
+        |
+        v
+Replace complete affected files
+        |
+        v
+Run focused tests
+        |
+        v
+Run complete test suite
+        |
+        v
+Review git status
+        |
+        v
+Commit one coherent change
+```
+
+---
+
+# Long-Term Vision
+
+The Nexus Runtime Platform should be usable as a compact distributed runtime through a consistent Python API.
+
+The CLI, dashboards, tests, automation tools, and external applications should consume the same underlying Runtime services.
+
+The v2500 release establishes that programming model. Later releases may expand the platform without indefinitely extending the v2500 scope.
