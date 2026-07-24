@@ -7,6 +7,7 @@ from .health import RuntimeHealth
 from .logger import RuntimeLogger
 from .metrics import RuntimeMetrics
 from .state import RuntimeState
+from .tracing import RuntimeTracing
 
 __all__ = [
     "Runtime",
@@ -16,4 +17,5 @@ __all__ = [
     "RuntimeLogger",
     "RuntimeMetrics",
     "RuntimeState",
+    "RuntimeTracing",
 ]

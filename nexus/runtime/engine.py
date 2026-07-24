@@ -8,6 +8,7 @@ from nexus.runtime.health import RuntimeHealth
 from nexus.runtime.logger import RuntimeLogger
 from nexus.runtime.metrics import RuntimeMetrics
 from nexus.runtime.state import RuntimeState
+from nexus.runtime.tracing import RuntimeTracing
 
 
 class Runtime:
@@ -21,6 +22,7 @@ class Runtime:
         self.metrics = RuntimeMetrics(self)
         self.events = RuntimeEvents()
         self.logger = RuntimeLogger()
+        self.tracing = RuntimeTracing()
 
     @property
     def started(self) -> bool:
@@ -34,6 +36,8 @@ class Runtime:
         if self._state == RuntimeState.RUNNING:
             return False
 
+        trace = self.tracing.begin("runtime.start")
+
         self._state = RuntimeState.STARTING
         self.logger.info("Runtime starting")
 
@@ -41,12 +45,15 @@ class Runtime:
 
         self.events.publish("runtime.started")
         self.logger.info("Runtime started")
+        self.tracing.finish(trace["trace_id"])
 
         return True
 
     def stop(self):
         if self._state == RuntimeState.STOPPED:
             return False
+
+        trace = self.tracing.begin("runtime.stop")
 
         self._state = RuntimeState.STOPPING
 
@@ -57,13 +64,19 @@ class Runtime:
 
         self.events.publish("runtime.stopped")
         self.logger.info("Runtime stopped")
+        self.tracing.finish(trace["trace_id"])
 
         return True
 
     def restart(self):
+        trace = self.tracing.begin("runtime.restart")
+
         self.logger.info("Runtime restart requested")
         self.stop()
         self.start()
+
+        self.tracing.finish(trace["trace_id"])
+
         return True
 
     def status(self):
