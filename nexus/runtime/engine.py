@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from nexus.runtime.cluster import RuntimeCluster
 from nexus.runtime.health import RuntimeHealth
+from nexus.runtime.metrics import RuntimeMetrics
 from nexus.runtime.state import RuntimeState
 
 
@@ -15,6 +16,7 @@ class Runtime:
 
         self.health = RuntimeHealth(self)
         self.cluster = RuntimeCluster()
+        self.metrics = RuntimeMetrics(self)
 
     @property
     def started(self) -> bool:
