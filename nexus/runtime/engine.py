@@ -5,6 +5,7 @@ from __future__ import annotations
 from nexus.runtime.cluster import RuntimeCluster
 from nexus.runtime.events import RuntimeEvents
 from nexus.runtime.health import RuntimeHealth
+from nexus.runtime.logger import RuntimeLogger
 from nexus.runtime.metrics import RuntimeMetrics
 from nexus.runtime.state import RuntimeState
 
@@ -19,6 +20,7 @@ class Runtime:
         self.cluster = RuntimeCluster()
         self.metrics = RuntimeMetrics(self)
         self.events = RuntimeEvents()
+        self.logger = RuntimeLogger()
 
     @property
     def started(self) -> bool:
@@ -33,9 +35,12 @@ class Runtime:
             return False
 
         self._state = RuntimeState.STARTING
+        self.logger.info("Runtime starting")
+
         self._state = RuntimeState.RUNNING
 
         self.events.publish("runtime.started")
+        self.logger.info("Runtime started")
 
         return True
 
@@ -46,14 +51,17 @@ class Runtime:
         self._state = RuntimeState.STOPPING
 
         self.events.publish("runtime.stopping")
+        self.logger.info("Runtime stopping")
 
         self._state = RuntimeState.STOPPED
 
         self.events.publish("runtime.stopped")
+        self.logger.info("Runtime stopped")
 
         return True
 
     def restart(self):
+        self.logger.info("Runtime restart requested")
         self.stop()
         self.start()
         return True
