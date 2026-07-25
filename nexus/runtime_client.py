@@ -25,6 +25,12 @@ class RuntimeClient:
         return self._runtime.config
 
     @property
+    def cluster(self):
+        """Return the Runtime cluster facade."""
+
+        return self._runtime.cluster
+
+    @property
     def started(self) -> bool:
         """Return whether the Runtime is running."""
 
