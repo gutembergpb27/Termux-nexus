@@ -1,8 +1,9 @@
-﻿"""Runtime engine."""
+"""Runtime engine."""
 
 from __future__ import annotations
 
 from nexus.runtime.cluster import RuntimeCluster
+from nexus.runtime.diagnostics import RuntimeDiagnostics
 from nexus.runtime.events import RuntimeEvents
 from nexus.runtime.health import RuntimeHealth
 from nexus.runtime.logger import RuntimeLogger
@@ -23,6 +24,7 @@ class Runtime:
         self.events = RuntimeEvents()
         self.logger = RuntimeLogger()
         self.tracing = RuntimeTracing()
+        self.diagnostics = RuntimeDiagnostics(self)
 
     @property
     def started(self) -> bool:
