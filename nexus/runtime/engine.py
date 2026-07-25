@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from nexus.runtime.cluster import RuntimeCluster
+from nexus.runtime.config import RuntimeConfig
 from nexus.runtime.diagnostics import RuntimeDiagnostics
 from nexus.runtime.events import RuntimeEvents
 from nexus.runtime.health import RuntimeHealth
@@ -16,7 +17,8 @@ from nexus.runtime.tracing import RuntimeTracing
 class Runtime:
     """Main Runtime API."""
 
-    def __init__(self):
+    def __init__(self, config: RuntimeConfig | None = None):
+        self.config = config or RuntimeConfig()
         self._state = RuntimeState.STOPPED
 
         self.health = RuntimeHealth(self)

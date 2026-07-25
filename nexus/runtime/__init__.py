@@ -1,6 +1,7 @@
 """Public Runtime API."""
 
 from .cluster import RuntimeCluster
+from .config import RuntimeConfig
 from .diagnostics import RuntimeDiagnostics
 from .engine import Runtime
 from .events import RuntimeEvents
@@ -14,6 +15,7 @@ from .tracing import RuntimeTracing
 __all__ = [
     "Runtime",
     "RuntimeCluster",
+    "RuntimeConfig",
     "RuntimeDiagnostics",
     "RuntimeEvents",
     "RuntimeHealth",
