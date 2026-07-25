@@ -9,6 +9,7 @@ from nexus.runtime.health import RuntimeHealth
 from nexus.runtime.logger import RuntimeLogger
 from nexus.runtime.metrics import RuntimeMetrics
 from nexus.runtime.state import RuntimeState
+from nexus.runtime.telemetry import RuntimeTelemetry
 from nexus.runtime.tracing import RuntimeTracing
 
 
@@ -25,6 +26,7 @@ class Runtime:
         self.logger = RuntimeLogger()
         self.tracing = RuntimeTracing()
         self.diagnostics = RuntimeDiagnostics(self)
+        self.telemetry = RuntimeTelemetry(self)
 
     @property
     def started(self) -> bool:
