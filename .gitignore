@@ -49,3 +49,8 @@ outputs/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Rotated runtime databases
+*.db.*
+*.sqlite.*
+*.sqlite3.*
