@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from nexus.runtime import Runtime
 from nexus.runtime import RuntimeConfig
+from nexus.runtime_observability import RuntimeObservability
 
 
 class RuntimeClient:
@@ -11,6 +12,7 @@ class RuntimeClient:
 
     def __init__(self, config: RuntimeConfig | None = None):
         self._runtime = Runtime(config=config)
+        self._observability = RuntimeObservability(self._runtime)
 
     @property
     def runtime(self) -> Runtime:
@@ -29,6 +31,12 @@ class RuntimeClient:
         """Return the Runtime cluster facade."""
 
         return self._runtime.cluster
+
+    @property
+    def observability(self) -> RuntimeObservability:
+        """Return the Runtime observability facade."""
+
+        return self._observability
 
     @property
     def started(self) -> bool:
@@ -59,19 +67,19 @@ class RuntimeClient:
     def health(self) -> dict[str, object]:
         """Return the Runtime health summary."""
 
-        return self._runtime.health.summary()
+        return self._observability.health()
 
     def metrics(self) -> dict[str, object]:
         """Return the Runtime metrics summary."""
 
-        return self._runtime.metrics.summary()
+        return self._observability.metrics()
 
     def diagnostics(self) -> dict[str, object]:
         """Return a Runtime diagnostics snapshot."""
 
-        return self._runtime.diagnostics.snapshot()
+        return self._observability.diagnostics()
 
     def telemetry(self) -> dict[str, object]:
         """Return a Runtime telemetry snapshot."""
 
-        return self._runtime.telemetry.snapshot()
+        return self._observability.telemetry()
