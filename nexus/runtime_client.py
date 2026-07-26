@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from nexus.runtime import Runtime
 from nexus.runtime import RuntimeConfig
+from nexus.runtime_lifecycle import RuntimeLifecycle
 from nexus.runtime_observability import RuntimeObservability
 
 
@@ -12,6 +13,7 @@ class RuntimeClient:
 
     def __init__(self, config: RuntimeConfig | None = None):
         self._runtime = Runtime(config=config)
+        self._lifecycle = RuntimeLifecycle(self._runtime)
         self._observability = RuntimeObservability(self._runtime)
 
     @property
@@ -33,6 +35,12 @@ class RuntimeClient:
         return self._runtime.cluster
 
     @property
+    def lifecycle(self) -> RuntimeLifecycle:
+        """Return the Runtime lifecycle facade."""
+
+        return self._lifecycle
+
+    @property
     def observability(self) -> RuntimeObservability:
         """Return the Runtime observability facade."""
 
@@ -42,27 +50,27 @@ class RuntimeClient:
     def started(self) -> bool:
         """Return whether the Runtime is running."""
 
-        return self._runtime.started
+        return self._lifecycle.started
 
     def start(self) -> bool:
         """Start the Runtime."""
 
-        return self._runtime.start()
+        return self._lifecycle.start()
 
     def stop(self) -> bool:
         """Stop the Runtime."""
 
-        return self._runtime.stop()
+        return self._lifecycle.stop()
 
     def restart(self) -> bool:
         """Restart the Runtime."""
 
-        return self._runtime.restart()
+        return self._lifecycle.restart()
 
     def status(self) -> dict[str, object]:
         """Return the Runtime status."""
 
-        return self._runtime.status()
+        return self._lifecycle.status()
 
     def health(self) -> dict[str, object]:
         """Return the Runtime health summary."""
