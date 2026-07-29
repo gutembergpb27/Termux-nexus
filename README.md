@@ -1,357 +1,380 @@
-# Nexus Runtime Platform v2400
+﻿<div align="center">
 
-> Experimental Distributed Runtime Platform for Edge Computing, Resilient Persistence, Cluster Orchestration and Runtime Diagnostics.
+# Nexus Runtime Platform
 
----
+### Distributed runtime infrastructure for resilient systems
 
-# Overview
+**Runtime · Cluster · Replication · Diagnostics · Observability**
 
-Nexus Runtime Platform is an experimental distributed runtime designed to study,
-validate and evolve resilient distributed architectures through incremental
-engineering.
+![Version](https://img.shields.io/badge/version-2500.0.0rc1-2563eb)
+![Python](https://img.shields.io/badge/python-3.14%2B-3776ab)
+![Status](https://img.shields.io/badge/status-release%20candidate-f59e0b)
+![Tests](https://img.shields.io/badge/tests-193%20passed-16a34a)
 
-The platform combines immutable persistence, cluster orchestration,
-runtime diagnostics and integrity validation into a modular architecture
-designed for research, experimentation and future deployment in
-distributed edge environments.
+</div>
 
 ---
 
-# Current Status
+## Overview
 
-| Item | Status |
-|------|--------|
-| Project | Beta |
-| Current Version | v2400 |
-| Language | Python 3 |
-| Platforms | Windows · Linux · Termux |
+Nexus Runtime Platform is an experimental distributed runtime designed for
+research, validation and development of resilient computing infrastructure.
 
----
+The platform combines runtime lifecycle management, cluster orchestration,
+state replication, diagnostics, health inspection and observability through
+a modular Python architecture.
 
-# Highlights
-
-- Runtime CLI
-- Distributed Diagnostics
-- Immutable Persistence
-- Cluster Management
-- State Replication
-- Cluster Orchestration
-- Integrity Validation
-- Health Monitoring
+> Current release: **v2500.0.0rc1**
 
 ---
 
-# Architecture
+## Core capabilities
+
+| Area | Capabilities |
+|---|---|
+| Runtime | Engine, configuration, state and events |
+| Cluster | Node management, orchestration and replication |
+| Diagnostics | Local environment and remote runtime inspection |
+| Health | Runtime and storage-integrity checks |
+| Observability | Logging, metrics, telemetry and tracing |
+| CLI | Version, doctor, status, peers and cluster commands |
+| Integration | Runtime client and HTTP endpoint client |
+| Validation | Automated regression and cross-platform tests |
+
+---
+
+## Architecture
+
+```mermaid
+flowchart TD
+    OPERATOR["Operator / Automation"] --> CLI["Nexus CLI"]
+
+    CLI --> CLIENT["Runtime Client"]
+    CLIENT --> ENGINE["Runtime Engine"]
+
+    ENGINE --> CONFIG["Configuration"]
+    ENGINE --> STATE["Runtime State"]
+    ENGINE --> EVENTS["Runtime Events"]
+
+    ENGINE --> CLUSTER["Cluster Manager"]
+    CLUSTER --> ORCHESTRATOR["Cluster Orchestrator"]
+    ORCHESTRATOR --> REPLICATOR["State Replicator"]
+
+    ENGINE --> HEALTH["Health & Diagnostics"]
+    ENGINE --> OBSERVABILITY["Observability"]
+
+    OBSERVABILITY --> LOGGING["Logging"]
+    OBSERVABILITY --> METRICS["Metrics"]
+    OBSERVABILITY --> TELEMETRY["Telemetry"]
+    OBSERVABILITY --> TRACING["Tracing"]
+
+    HEALTH --> STORAGE["Persistence & Integrity"]
+```
+
+The architecture is divided into independent layers so runtime, cluster,
+diagnostic and observability components can evolve without requiring a
+monolithic implementation.
+
+---
+
+## Command-line interface
+
+The `nexus` command provides a unified operational interface.
 
 ```text
-                    Nexus Runtime Platform
+usage: nexus [-h] {version,status,peers,cluster,doctor} ...
 
-                           Runtime CLI
-                                │
-                         Diagnostics Layer
-                                │
-                        Cluster Manager
-                                │
-                       Cluster Replicator
-                                │
-                     Cluster Orchestrator
-                                │
-                       Persistence Layer
-                                │
-                        Immutable Ledger
-```---
-
-# Runtime Flow
-
-```text
-Leader
-   │
-   ▼
-Cluster Manager
-   │
-   ▼
-Cluster Replicator
-   │
-   ▼
-Followers
-   │
-   ▼
-Cluster Orchestrator
-   │
-   ▼
-Synchronization Report
+Nexus Runtime Platform CLI
 ```
 
----
+Available commands:
 
-# Core Components
+| Command | Purpose |
+|---|---|
+| `nexus version` | Display the installed platform version |
+| `nexus doctor` | Diagnose the local environment or a remote runtime |
+| `nexus status` | Query the state of a Nexus node |
+| `nexus peers` | List peers registered in the Hub |
+| `nexus cluster` | Display the cluster summary |
 
-## Runtime CLI
+These commands correspond to the CLI currently exposed by the project.
 
-Provides operational diagnostics through the `nexus` command.
+### Version
 
-Main features:
-
-- Runtime inspection
-- Health verification
-- Cluster status
-- JSON output
-- Continuous monitoring
-
----
-
-## Cluster Manager
-
-Responsible for logical cluster management.
-
-Responsibilities:
-
-- Leader management
-- Follower management
-- Cluster topology
-- Runtime coordination
-
----
-
-## Cluster Replicator
-
-Responsible for state replication.
-
-Current capabilities:
-
-- State synchronization
-- Replication statistics
-- Skipped synchronization detection
-- Failed synchronization detection
-
----
-
-## Cluster Orchestrator
-
-Coordinates synchronization cycles.
-
-Current capabilities:
-
-- Automatic follower discovery
-- Online synchronization
-- Execution cycles
-- Synchronization reports
-
----
-
-## Persistence Layer
-
-Provides immutable storage using:
-
-- Write-Ahead Logging (WAL)
-- SHA-256 integrity verification
-- Checkpoints
-- Rollback detection
-- External anchor verification
----
-
-# Installation
-
-Clone the repository:
-
-```bash
-git clone https://github.com/gutembergpb27/Termux-nexus.git
-
-cd Termux-nexus
-```
-
-Install the project in editable mode:
-
-```bash
-python -m pip install -e .
-```
-
-Verify the installation:
-
-```bash
+```powershell
 nexus version
 ```
 
----
-
-# Runtime CLI
-
-Display the installed version:
-
-```bash
-nexus version
+```text
+Nexus Runtime Platform v2500.0.0rc1
 ```
 
-Run a local diagnostic:
+### Local diagnostics
 
-```bash
+```powershell
 nexus doctor
 ```
 
-Return diagnostics as JSON:
+The doctor command reports:
 
-```bash
-nexus doctor --json
-```
+- CLI and Python versions;
+- operating-system information;
+- Python executable;
+- working-directory permissions;
+- optional runtime connectivity;
+- runtime health;
+- storage integrity;
+- cluster leadership and membership.
 
-Monitor the runtime continuously:
+### Remote diagnostics
 
-```bash
-nexus doctor --watch
-```
-
-Inspect a remote runtime:
-
-```bash
+```powershell
 nexus doctor --url http://127.0.0.1:8081/status
 ```
 
----
+### JSON output
 
-# Persistence
+```powershell
+nexus doctor --json
+nexus status --json
+nexus cluster --json
+nexus peers --json
+```
 
-The persistence subsystem provides:
+### Continuous monitoring
 
-- Immutable ledger
-- Write-Ahead Logging (WAL)
-- SHA-256 integrity validation
-- Checkpoints
-- Rollback detection
-- External anchor verification
-
----
-
-# Quality
-
-The platform is continuously validated through automated test suites covering:
-
-- Persistence
-- Integrity
-- Runtime CLI
-- Cluster Replication
-- Cluster Orchestration
-- Distributed Diagnostics
-
-The project follows an incremental engineering model with complete version traceability through Git.
-
----
-
-# Repository Structure
-
-```text
-docs/
-nexus/
-tests/
-assets/
-outputs/
-evidence/
+```powershell
+nexus doctor `
+    --url http://127.0.0.1:8081/status `
+    --watch `
+    --interval 2 `
+    --clear
 ```
 
 ---
 
-# Documentation
+## Quick start
 
-Additional technical documentation is available in:
+### Requirements
 
-- WHITE_PAPER.md
-- VALIDATION.md
-- INTEGRITY_BASELINE_C20.md
-- NEXUS_ARCHITECTURE_REALITY_MAP.md
-- NEXUS_MESH_PROTOCOL_V1.md
-- RUNTIME_V1_BETA_RELEASE.md
-- DOSSIE_TECNICO_C20.md
----
+- Python 3.14 or newer
+- Git
+- PowerShell, Bash or Termux
 
-# Engineering Principles
+### Clone the repository
 
-Nexus Runtime Platform follows five engineering principles that guide its evolution.
+```bash
+git clone https://github.com/gutembergpb27/Termux-nexus.git
+cd Termux-nexus
+```
 
-1. **Observability before optimization**
+### Create a virtual environment
 
-   System visibility and diagnostics are prioritized before premature performance optimization.
+Windows PowerShell:
 
-2. **Isolation before performance**
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
 
-   Components should remain isolated to prevent failures from propagating throughout the runtime.
+Linux or Termux:
 
-3. **Reproducibility before complexity**
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
 
-   Every experiment should be reproducible by third parties using documented procedures.
+### Install for development
 
-4. **Controlled failure before assumed availability**
+```bash
+python -m pip install --upgrade pip
+python -m pip install -e .
+```
 
-   The platform is designed assuming that failures will occur and should be detected, contained and recovered gracefully.
+### Validate the installation
 
-5. **Incremental evolution through experimentation**
-
-   Every new capability is introduced incrementally and validated through automated tests and documented evidence.
-
----
-
-# Roadmap
-
-## v2400
-
-Current platform capabilities:
-
-- Runtime CLI
-- Persistence Layer
-- Cluster Manager
-- Cluster Replicator
-- Cluster Orchestrator
-- Runtime Diagnostics
-- Integrity Validation
+```bash
+nexus version
+nexus doctor
+python -m pytest -q
+```
 
 ---
 
-## v2500 (Planned)
+## Package structure
 
-Planned evolution:
-
-- Cluster Scheduler
-- Monitoring Services
-- Cluster History
-- Advanced Metrics
-- Observability Improvements
-
----
-
-## Long-Term Vision
-
-Future research topics include:
-
-- ARM devices
-- Raspberry Pi clusters
-- Lightweight distributed consensus
-- Multi-site synchronization
-- Edge AI Runtime
-
----
-
-# Contributing
-
-Contributions are welcome.
-
-Before submitting pull requests, please read:
-
-- CONTRIBUTING.md
-
----
-
-# Related Documentation
-
-For additional technical information, refer to:
-
-- WHITE_PAPER.md
-- VALIDATION.md
-- INTEGRITY_BASELINE_C20.md
-- NEXUS_ARCHITECTURE_REALITY_MAP.md
-- NEXUS_MESH_PROTOCOL_V1.md
-- RUNTIME_V1_BETA_RELEASE.md
-- DOSSIE_TECNICO_C20.md
+```text
+nexus/
+├── cli.py
+├── client.py
+├── exceptions.py
+├── runtime_client.py
+├── runtime_lifecycle.py
+├── runtime_observability.py
+│
+├── commands/
+│   ├── version.py
+│   ├── doctor.py
+│   ├── status.py
+│   ├── peers.py
+│   └── cluster.py
+│
+├── cluster/
+│   ├── manager.py
+│   ├── orchestrator.py
+│   └── replicator.py
+│
+└── runtime/
+    ├── cluster.py
+    ├── config.py
+    ├── diagnostics.py
+    ├── engine.py
+    ├── events.py
+    ├── health.py
+    ├── logger.py
+    ├── metrics.py
+    ├── state.py
+    ├── telemetry.py
+    └── tracing.py
+```
 
 ---
 
-# License
+## Runtime endpoints
 
-See the LICENSE file for licensing information.
+| Endpoint | Purpose |
+|---|---|
+| `/status` | Node identity, role and runtime state |
+| `/health` | Runtime and storage-integrity health |
+| `/cluster` | Leader, followers and cluster membership |
+| `/peers` | Peers registered with the rendezvous Hub |
+
+Example:
+
+```powershell
+nexus status --url http://127.0.0.1:8081/status
+nexus cluster --url http://127.0.0.1:8081/cluster
+nexus peers --url http://127.0.0.1:8500/peers
+```
+
+---
+
+## Documentation
+
+| Document | Description |
+|---|---|
+| [Project state](docs/PROJECT_STATE.md) | Current implementation state |
+| [v2500 architecture map](docs/NEXUS_V2500_ARCHITECTURE_MAP.md) | Architecture and component map |
+| [Windows–Android validation](docs/windows_android_validation.md) | Cross-platform validation |
+| [Canonical baseline](docs/canonical/BASELINE.md) | Canonical technical baseline |
+| [Known limitations](docs/canonical/LIMITATIONS.md) | Explicit technical boundaries |
+| [Legacy documentation](docs/legacy/) | Preserved historical material |
+
+---
+
+## Release status
+
+### v2500.0.0 RC1
+
+The v2500 release candidate consolidates:
+
+- unified Nexus CLI;
+- runtime diagnostics;
+- remote endpoint inspection;
+- health and cluster checks;
+- JSON output and watch mode;
+- runtime engine modules;
+- cluster management and orchestration;
+- state replication;
+- metrics, telemetry, logging and tracing;
+- automated regression validation;
+- Windows and Android Termux validation.
+
+This release candidate is intended for technical evaluation, controlled
+experimentation and continued architecture validation.
+
+It should not yet be treated as a production-stable release.
+
+---
+
+## Development validation
+
+Run the complete test suite:
+
+```bash
+python -m pytest -q
+```
+
+Current validated result:
+
+```text
+193 passed, 1 xfailed
+```
+
+Repository consistency checks:
+
+```bash
+git diff --check
+git status
+```
+
+Expected-failure tests are retained when they document a known and explicit
+technical limitation.
+
+---
+
+## Project principles
+
+1. Evidence before claims.
+2. Explicit technical limitations.
+3. Reproducible validation.
+4. Modular architecture.
+5. Runtime observability.
+6. Integrity-aware state management.
+7. Incremental evolution with preserved history.
+
+---
+
+## Roadmap
+
+```mermaid
+timeline
+    title Nexus Runtime Platform evolution
+    Early versions : Persistence and runtime experiments
+    v2200 : Distributed nodes and rendezvous Hub
+    v2300 : Operational CLI and diagnostics
+    v2400 : Runtime integration and observability
+    v2500 RC1 : Unified runtime and cluster architecture
+    Future : Stabilization, packaging and interoperability
+```
+
+Future work may include:
+
+- expanded multi-node testing;
+- stronger network-failure simulation;
+- improved replication protocols;
+- authentication and transport security;
+- packaged releases;
+- additional operating-system validation;
+- formal production-readiness criteria.
+
+---
+
+## Author
+
+**Gutemberg Procopio Barbosa**
+
+Creator and maintainer of the Nexus Runtime Platform.
+
+GitHub: [@gutembergpb27](https://github.com/gutembergpb27)
+
+---
+
+<div align="center">
+
+**Nexus Runtime Platform**
+
+Resilient runtime infrastructure through evidence, modularity and continuous
+validation.
+
+</div>

@@ -6,7 +6,18 @@ on:
       - main
       - canonical-evidence
       - v2300-cli
+      - v2400-dev
+      - v2500-dev
+
   pull_request:
+    branches:
+      - main
+      - canonical-evidence
+      - v2300-cli
+      - v2400-dev
+      - v2500-dev
+
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -66,6 +77,5 @@ jobs:
           & ".\.venv-ci\Scripts\python.exe" -m pip install $wheel.FullName
 
           Set-Location $env:TEMP
-
           & "$env:GITHUB_WORKSPACE\.venv-ci\Scripts\nexus.exe" version
           & "$env:GITHUB_WORKSPACE\.venv-ci\Scripts\nexus.exe" doctor
