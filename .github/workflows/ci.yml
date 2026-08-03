@@ -8,6 +8,7 @@ on:
       - v2300-cli
       - v2400-dev
       - v2500-dev
+      - v2600-dev
 
   pull_request:
     branches:
@@ -16,6 +17,7 @@ on:
       - v2300-cli
       - v2400-dev
       - v2500-dev
+      - v2600-dev
 
   workflow_dispatch:
 
