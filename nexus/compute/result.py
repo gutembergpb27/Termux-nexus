@@ -15,3 +15,5 @@ class ComputeResult:
     status: str
     output: Any
     duration_seconds: float
+    requested_backend: str | None = None
+    selection_reason: str | None = None
