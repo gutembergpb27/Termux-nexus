@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import pytest
 
@@ -162,4 +162,4 @@ def test_selection_reason_contains_metrics() -> None:
 
     assert "priority=10" in selection.reason
     assert "latency_ms=1.0" in selection.reason
-    assert "reliability=1.0" in selection.reason
+    assert "success_rate=1.0" in selection.reason
