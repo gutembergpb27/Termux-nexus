@@ -2,6 +2,7 @@
 
 from nexus.compute.backend import ComputeBackend
 from nexus.compute.capabilities import BackendCapabilities
+from nexus.compute.cluster import ClusterBackend, ClusterDispatcher
 from nexus.compute.health import BackendHealth
 from nexus.compute.local import LocalBackend
 from nexus.compute.metrics import BackendMetrics
@@ -20,6 +21,8 @@ __all__ = [
     "BackendRegistry",
     "BackendScheduler",
     "BackendSelection",
+    "ClusterBackend",
+    "ClusterDispatcher",
     "ComputeBackend",
     "ComputeRequirements",
     "ComputeResult",
