@@ -28,7 +28,10 @@ class ComputeRuntime:
         *,
         backend: str = "auto",
     ) -> ComputeResult:
-        selection = self.scheduler.select(backend)
+        selection = self.scheduler.select(
+            backend,
+            requirements=task.requirements,
+        )
         result = self.registry.get(selection.selected).run(task)
 
         return replace(

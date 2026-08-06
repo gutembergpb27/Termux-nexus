@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import pytest
 
@@ -47,7 +47,7 @@ def test_scheduler_rejects_auto_without_backends() -> None:
     registry = BackendRegistry()
     scheduler = BackendScheduler(registry)
 
-    with pytest.raises(RuntimeError, match="no compute backends available"):
+    with pytest.raises(RuntimeError, match="no backend satisfies task requirements"):
         scheduler.select("auto")
 
 
