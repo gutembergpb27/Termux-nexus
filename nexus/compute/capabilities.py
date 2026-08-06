@@ -14,6 +14,8 @@ class BackendCapabilities:
     estimated_latency_ms: float = 0.0
     estimated_cost: float = 0.0
     reliability: float = 1.0
+    memory_mb: int | None = None
+    has_gpu: bool = False
 
     def __post_init__(self) -> None:
         if not self.compute_type.strip():
@@ -34,3 +36,8 @@ class BackendCapabilities:
 
         if not 0.0 <= self.reliability <= 1.0:
             raise ValueError("reliability must be between zero and one")
+
+        if self.memory_mb is not None and self.memory_mb < 0:
+            raise ValueError(
+                "memory must be greater than or equal to zero"
+            )

@@ -22,6 +22,8 @@ class LocalBackend(ComputeBackend):
             estimated_latency_ms=1.0,
             estimated_cost=0.0,
             reliability=1.0,
+            memory_mb=None,
+            has_gpu=False,
         )
 
     def run(self, task: ComputeTask) -> ComputeResult:
