@@ -9,7 +9,7 @@ from nexus.compute.selection import BackendSelection
 
 
 class BackendScheduler:
-    """Seleciona backends disponíveis e compatíveis."""
+    """Seleciona backends saudáveis, disponíveis e compatíveis."""
 
     def __init__(self, registry: BackendRegistry) -> None:
         self.registry = registry
@@ -17,14 +17,23 @@ class BackendScheduler:
     @staticmethod
     def _ranking_key(
         backend: ComputeBackend,
-    ) -> tuple[int, float, float, float, str]:
+    ) -> tuple[int, int, int, float, float, float, str]:
         capabilities = backend.capabilities()
+        metrics = backend.metrics()
+
+        observed_latency = (
+            metrics.average_latency_ms
+            if metrics.total_runs > 0
+            else capabilities.estimated_latency_ms
+        )
 
         return (
             capabilities.priority,
-            capabilities.estimated_latency_ms,
+            metrics.active_runs,
+            metrics.queued_tasks,
+            observed_latency,
             capabilities.estimated_cost,
-            -capabilities.reliability,
+            -metrics.success_rate,
             backend.name,
         )
 
@@ -90,8 +99,9 @@ class BackendScheduler:
 
             for backend_name in self.registry.names():
                 backend = self.registry.get(backend_name)
+                health = backend.health()
 
-                if not backend.is_available():
+                if not health.available:
                     continue
 
                 if not self._satisfies(backend, task_requirements):
@@ -106,22 +116,31 @@ class BackendScheduler:
 
             selected_backend = min(candidates, key=self._ranking_key)
             capabilities = selected_backend.capabilities()
+            metrics = selected_backend.metrics()
+
+            observed_latency = (
+                metrics.average_latency_ms
+                if metrics.total_runs > 0
+                else capabilities.estimated_latency_ms
+            )
 
             return BackendSelection(
                 requested="auto",
                 selected=selected_backend.name,
                 reason=(
-                    "selected by auto policy: "
+                    "selected by dynamic auto policy: "
                     f"priority={capabilities.priority}, "
-                    f"latency_ms={capabilities.estimated_latency_ms}, "
-                    f"cost={capabilities.estimated_cost}, "
-                    f"reliability={capabilities.reliability}"
+                    f"active_runs={metrics.active_runs}, "
+                    f"queued_tasks={metrics.queued_tasks}, "
+                    f"latency_ms={observed_latency}, "
+                    f"success_rate={metrics.success_rate}"
                 ),
             )
 
         backend = self.registry.get(name)
+        health = backend.health()
 
-        if not backend.is_available():
+        if not health.available:
             raise RuntimeError(f"backend unavailable: {name}")
 
         if not self._satisfies(backend, task_requirements):

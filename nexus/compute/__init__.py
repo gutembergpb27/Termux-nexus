@@ -2,7 +2,9 @@
 
 from nexus.compute.backend import ComputeBackend
 from nexus.compute.capabilities import BackendCapabilities
+from nexus.compute.health import BackendHealth
 from nexus.compute.local import LocalBackend
+from nexus.compute.metrics import BackendMetrics
 from nexus.compute.registry import BackendRegistry
 from nexus.compute.requirements import ComputeRequirements
 from nexus.compute.result import ComputeResult
@@ -13,6 +15,8 @@ from nexus.compute.task import ComputeTask
 
 __all__ = [
     "BackendCapabilities",
+    "BackendHealth",
+    "BackendMetrics",
     "BackendRegistry",
     "BackendScheduler",
     "BackendSelection",

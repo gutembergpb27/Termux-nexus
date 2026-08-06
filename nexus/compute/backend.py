@@ -5,6 +5,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from nexus.compute.capabilities import BackendCapabilities
+from nexus.compute.health import BackendHealth
+from nexus.compute.metrics import BackendMetrics
 from nexus.compute.result import ComputeResult
 from nexus.compute.task import ComputeTask
 
@@ -26,3 +28,18 @@ class ComputeBackend(ABC):
         """Indica se o backend pode receber tarefas."""
 
         return True
+
+    def health(self) -> BackendHealth:
+        """Retorna o estado operacional atual do backend."""
+
+        available = self.is_available()
+
+        return BackendHealth(
+            available=available,
+            status="healthy" if available else "unavailable",
+        )
+
+    def metrics(self) -> BackendMetrics:
+        """Retorna métricas observadas do backend."""
+
+        return BackendMetrics()
