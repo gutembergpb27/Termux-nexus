@@ -1,4 +1,4 @@
-﻿"""API pública da camada Nexus Compute."""
+"""API pública da camada Nexus Compute."""
 
 from nexus.compute.backend import ComputeBackend
 from nexus.compute.capabilities import BackendCapabilities
@@ -14,6 +14,7 @@ from nexus.compute.runtime import ComputeRuntime
 from nexus.compute.scheduler import BackendScheduler
 from nexus.compute.selection import BackendSelection
 from nexus.compute.task import ComputeTask
+from nexus.compute.transport_executor import TransportNodeExecutor
 
 __all__ = [
     "BackendCapabilities",
@@ -30,5 +31,6 @@ __all__ = [
     "ComputeRuntime",
     "ComputeTask",
     "LocalBackend",
+    "TransportNodeExecutor",
     "NodeExecutor",
 ]

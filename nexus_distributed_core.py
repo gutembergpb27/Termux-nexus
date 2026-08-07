@@ -252,10 +252,59 @@ class NexusDistributedCore:
             applied,
         )
 
+    def handle_compute_task(self, conn, message):
+        payload = message.get("payload", {})
+
+        if not isinstance(payload, dict):
+            raise ValueError(
+                "compute task payload envelope must be an object"
+            )
+
+        task_id = str(payload.get("task_id", "")).strip()
+        name = str(payload.get("name", "")).strip()
+        task_payload = payload.get("task_payload", {})
+
+        if not task_id:
+            raise ValueError("compute task id must not be empty")
+
+        if not name:
+            raise ValueError("compute task name must not be empty")
+
+        if not isinstance(task_payload, dict):
+            raise ValueError(
+                "compute task payload must be an object"
+            )
+
+        response = {
+            "type": "COMPUTE_RESULT",
+            "payload": {
+                "task_id": task_id,
+                "status": "completed",
+                "node_id": getattr(
+                    self,
+                    "node_id",
+                    "unknown",
+                ),
+                "output": {
+                    "name": name,
+                    "payload": task_payload,
+                },
+            },
+        }
+
+        send_message(conn, response)
+
+        logger.info(
+            "compute_task_completed node=%s task_id=%s",
+            getattr(self, "node_id", "unknown"),
+            task_id,
+        )
+
     def dispatch_tcp_message(self, conn, message):
         handlers = {
             "STATE_SUMMARY": self.handle_state_summary,
             "SYNC_BATCH": self.handle_sync_batch,
+            "COMPUTE_TASK": self.handle_compute_task,
         }
 
         message_type = message.get("type")
