@@ -1,4 +1,4 @@
-from nexus_protocol import NexusProtocol
+from nexus_protocol import NexusProtocol, ReplayCache
 from nexus_transport import recv_message, send_message
 from persistence import NexusPersistence
 from web_panel import start_web_server
@@ -27,6 +27,14 @@ class NexusDistributedCore:
         self.hub_url = os.getenv("NEXUS_HUB_URL", "http://127.0.0.1:8500")
         secret = os.getenv("NEXUS_SECRET_KEY", "").strip()
         self.protocol = NexusProtocol(secret)
+        self.compute_replay_cache = ReplayCache()
+        self.compute_message_ttl = float(
+            os.getenv("NEXUS_MESSAGE_TTL", "60.0")
+        )
+        if self.compute_message_ttl <= 0:
+            raise ValueError(
+                "NEXUS_MESSAGE_TTL must be greater than zero"
+            )
         self.last_master_heartbeat = time.time()
         self.peers = {}
         
@@ -253,7 +261,17 @@ class NexusDistributedCore:
         )
 
     def handle_compute_task(self, conn, message):
-        payload = message.get("payload", {})
+        self.protocol.verify_envelope(
+            message,
+            now=time.time(),
+            ttl=self.compute_message_ttl,
+            replay_cache=self.compute_replay_cache,
+        )
+
+        if message.get("type") != "COMPUTE_TASK":
+            raise ValueError("invalid compute request type")
+
+        payload = message.get("payload")
 
         if not isinstance(payload, dict):
             raise ValueError(
@@ -275,29 +293,34 @@ class NexusDistributedCore:
                 "compute task payload must be an object"
             )
 
-        response = {
-            "type": "COMPUTE_RESULT",
-            "payload": {
-                "task_id": task_id,
-                "status": "completed",
-                "node_id": getattr(
-                    self,
-                    "node_id",
-                    "unknown",
-                ),
-                "output": {
-                    "name": name,
-                    "payload": task_payload,
-                },
+        response_payload = {
+            "task_id": task_id,
+            "status": "completed",
+            "node_id": getattr(
+                self,
+                "node_id",
+                "unknown",
+            ),
+            "output": {
+                "name": name,
+                "payload": task_payload,
             },
         }
+
+        response = self.protocol.create_envelope(
+            sender=getattr(self, "node_id", "unknown"),
+            message_type="COMPUTE_RESULT",
+            payload=response_payload,
+        )
 
         send_message(conn, response)
 
         logger.info(
-            "compute_task_completed node=%s task_id=%s",
+            "secure_compute_task_completed "
+            "node=%s task_id=%s sender=%s",
             getattr(self, "node_id", "unknown"),
             task_id,
+            message.get("sender"),
         )
 
     def dispatch_tcp_message(self, conn, message):

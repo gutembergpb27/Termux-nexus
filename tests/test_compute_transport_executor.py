@@ -3,6 +3,7 @@
 import pytest
 
 from nexus.compute import ComputeTask, TransportNodeExecutor
+from nexus_protocol import NexusProtocol, ProtocolError
 
 
 class FakeConnection:
@@ -22,18 +23,37 @@ def build_peers():
     }
 
 
-def test_transport_executor_sends_compute_task(monkeypatch) -> None:
+def build_protocol():
+    return NexusProtocol("compute-test-secret")
+
+
+def build_executor():
+    return TransportNodeExecutor(
+        build_peers(),
+        protocol=build_protocol(),
+        sender_id="node-client",
+    )
+
+
+def patch_connection(monkeypatch):
+    monkeypatch.setattr(
+        "nexus.compute.transport_executor.socket.create_connection",
+        lambda address, timeout: FakeConnection(),
+    )
+
+
+def test_transport_executor_sends_signed_compute_task(
+    monkeypatch,
+) -> None:
     sent = {}
+    protocol = build_protocol()
 
     task = ComputeTask(
         name="remote-job",
         payload={"value": 42},
     )
 
-    monkeypatch.setattr(
-        "nexus.compute.transport_executor.socket.create_connection",
-        lambda address, timeout: FakeConnection(),
-    )
+    patch_connection(monkeypatch)
 
     def fake_send_message(conn, message):
         sent["message"] = message
@@ -43,212 +63,239 @@ def test_transport_executor_sends_compute_task(monkeypatch) -> None:
         fake_send_message,
     )
 
-    monkeypatch.setattr(
-        "nexus.compute.transport_executor.recv_message",
-        lambda conn: {
-            "type": "COMPUTE_RESULT",
-            "payload": {
-                "task_id": task.task_id,
-                "status": "completed",
-                "node_id": "node-a",
-                "output": {"value": 42},
-            },
+    response = protocol.create_envelope(
+        sender="node-a",
+        message_type="COMPUTE_RESULT",
+        payload={
+            "task_id": task.task_id,
+            "status": "completed",
+            "node_id": "node-a",
+            "output": {"value": 42},
         },
     )
 
-    executor = TransportNodeExecutor(build_peers())
+    monkeypatch.setattr(
+        "nexus.compute.transport_executor.recv_message",
+        lambda conn: response,
+    )
+
+    executor = TransportNodeExecutor(
+        build_peers(),
+        protocol=protocol,
+        sender_id="node-client",
+    )
 
     result = executor("node-a", task)
 
-    assert sent["message"] == {
-        "type": "COMPUTE_TASK",
-        "payload": {
-            "task_id": task.task_id,
-            "name": "remote-job",
-            "task_payload": {"value": 42},
-        },
-    }
+    request = sent["message"]
+
+    assert request["type"] == "COMPUTE_TASK"
+    assert request["sender"] == "node-client"
+    assert request["payload"]["task_id"] == task.task_id
+    assert request["payload"]["name"] == "remote-job"
+    assert "signature" in request
 
     assert result == {"value": 42}
 
 
-def test_transport_executor_rejects_unknown_node() -> None:
-    executor = TransportNodeExecutor({})
+def test_transport_executor_rejects_tampered_response(
+    monkeypatch,
+) -> None:
+    protocol = build_protocol()
+    task = ComputeTask(name="remote-job")
 
-    with pytest.raises(
-        RuntimeError,
-        match="unknown cluster node",
-    ):
+    patch_connection(monkeypatch)
+
+    monkeypatch.setattr(
+        "nexus.compute.transport_executor.send_message",
+        lambda conn, message: None,
+    )
+
+    response = protocol.create_envelope(
+        sender="node-a",
+        message_type="COMPUTE_RESULT",
+        payload={
+            "task_id": task.task_id,
+            "status": "completed",
+            "output": {"ok": True},
+        },
+    )
+
+    response["payload"]["status"] = "tampered"
+
+    monkeypatch.setattr(
+        "nexus.compute.transport_executor.recv_message",
+        lambda conn: response,
+    )
+
+    executor = TransportNodeExecutor(
+        build_peers(),
+        protocol=protocol,
+        sender_id="node-client",
+    )
+
+    with pytest.raises(ProtocolError, match="signature"):
+        executor("node-a", task)
+
+
+def test_transport_executor_rejects_replayed_response(
+    monkeypatch,
+) -> None:
+    protocol = build_protocol()
+    task = ComputeTask(name="remote-job")
+
+    patch_connection(monkeypatch)
+
+    monkeypatch.setattr(
+        "nexus.compute.transport_executor.send_message",
+        lambda conn, message: None,
+    )
+
+    response = protocol.create_envelope(
+        sender="node-a",
+        message_type="COMPUTE_RESULT",
+        payload={
+            "task_id": task.task_id,
+            "status": "completed",
+            "output": {"ok": True},
+        },
+    )
+
+    monkeypatch.setattr(
+        "nexus.compute.transport_executor.recv_message",
+        lambda conn: response,
+    )
+
+    executor = TransportNodeExecutor(
+        build_peers(),
+        protocol=protocol,
+        sender_id="node-client",
+    )
+
+    assert executor("node-a", task) == {"ok": True}
+
+    with pytest.raises(ProtocolError, match="replay"):
+        executor("node-a", task)
+
+
+def test_transport_executor_rejects_unknown_node() -> None:
+    executor = TransportNodeExecutor(
+        {},
+        protocol=build_protocol(),
+        sender_id="client",
+    )
+
+    with pytest.raises(RuntimeError, match="unknown cluster node"):
         executor(
             "missing",
             ComputeTask(name="remote-job"),
         )
 
 
-def test_transport_executor_rejects_invalid_address() -> None:
-    executor = TransportNodeExecutor(
-        {
-            "node-a": {
-                "ip": "",
-                "tcp_port": 0,
-            }
-        }
-    )
-
-    with pytest.raises(
-        RuntimeError,
-        match="invalid cluster node address",
-    ):
-        executor(
-            "node-a",
-            ComputeTask(name="remote-job"),
+def test_transport_executor_rejects_empty_sender() -> None:
+    with pytest.raises(ValueError, match="sender id"):
+        TransportNodeExecutor(
+            build_peers(),
+            protocol=build_protocol(),
+            sender_id=" ",
         )
 
 
-def test_transport_executor_rejects_invalid_response_type(
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr(
-        "nexus.compute.transport_executor.socket.create_connection",
-        lambda address, timeout: FakeConnection(),
-    )
-
-    monkeypatch.setattr(
-        "nexus.compute.transport_executor.send_message",
-        lambda conn, message: None,
-    )
-
-    monkeypatch.setattr(
-        "nexus.compute.transport_executor.recv_message",
-        lambda conn: {
-            "type": "WRONG",
-        },
-    )
-
-    executor = TransportNodeExecutor(build_peers())
-
-    with pytest.raises(
-        RuntimeError,
-        match="invalid compute response type",
-    ):
-        executor(
-            "node-a",
-            ComputeTask(name="remote-job"),
+def test_transport_executor_rejects_non_positive_timeout() -> None:
+    with pytest.raises(ValueError, match="timeout"):
+        TransportNodeExecutor(
+            build_peers(),
+            protocol=build_protocol(),
+            sender_id="client",
+            timeout=0,
         )
 
 
-def test_transport_executor_rejects_invalid_response_payload(
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr(
-        "nexus.compute.transport_executor.socket.create_connection",
-        lambda address, timeout: FakeConnection(),
-    )
-
-    monkeypatch.setattr(
-        "nexus.compute.transport_executor.send_message",
-        lambda conn, message: None,
-    )
-
-    monkeypatch.setattr(
-        "nexus.compute.transport_executor.recv_message",
-        lambda conn: {
-            "type": "COMPUTE_RESULT",
-            "payload": None,
-        },
-    )
-
-    executor = TransportNodeExecutor(build_peers())
-
-    with pytest.raises(
-        RuntimeError,
-        match="invalid compute response payload",
-    ):
-        executor(
-            "node-a",
-            ComputeTask(name="remote-job"),
+def test_transport_executor_rejects_non_positive_ttl() -> None:
+    with pytest.raises(ValueError, match="message ttl"):
+        TransportNodeExecutor(
+            build_peers(),
+            protocol=build_protocol(),
+            sender_id="client",
+            message_ttl=0,
         )
 
 
-def test_transport_executor_rejects_task_id_mismatch(
+def test_transport_executor_rejects_sender_mismatch(
     monkeypatch,
 ) -> None:
-    monkeypatch.setattr(
-        "nexus.compute.transport_executor.socket.create_connection",
-        lambda address, timeout: FakeConnection(),
-    )
-
-    monkeypatch.setattr(
-        "nexus.compute.transport_executor.send_message",
-        lambda conn, message: None,
-    )
-
-    monkeypatch.setattr(
-        "nexus.compute.transport_executor.recv_message",
-        lambda conn: {
-            "type": "COMPUTE_RESULT",
-            "payload": {
-                "task_id": "wrong-id",
-                "status": "completed",
-                "output": None,
-            },
-        },
-    )
-
-    executor = TransportNodeExecutor(build_peers())
-
-    with pytest.raises(
-        RuntimeError,
-        match="task id mismatch",
-    ):
-        executor(
-            "node-a",
-            ComputeTask(name="remote-job"),
-        )
-
-
-def test_transport_executor_rejects_remote_failure(
-    monkeypatch,
-) -> None:
+    protocol = build_protocol()
     task = ComputeTask(name="remote-job")
 
-    monkeypatch.setattr(
-        "nexus.compute.transport_executor.socket.create_connection",
-        lambda address, timeout: FakeConnection(),
-    )
+    patch_connection(monkeypatch)
 
     monkeypatch.setattr(
         "nexus.compute.transport_executor.send_message",
         lambda conn, message: None,
     )
 
-    monkeypatch.setattr(
-        "nexus.compute.transport_executor.recv_message",
-        lambda conn: {
-            "type": "COMPUTE_RESULT",
-            "payload": {
-                "task_id": task.task_id,
-                "status": "failed",
-                "output": None,
-            },
+    response = protocol.create_envelope(
+        sender="node-b",
+        message_type="COMPUTE_RESULT",
+        payload={
+            "task_id": task.task_id,
+            "status": "completed",
+            "output": {"ok": True},
         },
     )
 
-    executor = TransportNodeExecutor(build_peers())
+    monkeypatch.setattr(
+        "nexus.compute.transport_executor.recv_message",
+        lambda conn: response,
+    )
+
+    executor = build_executor()
 
     with pytest.raises(
         RuntimeError,
-        match="remote compute failed",
+        match="sender mismatch",
     ):
         executor("node-a", task)
 
 
-def test_transport_executor_rejects_non_positive_timeout() -> None:
+def test_transport_executor_rejects_expired_response(
+    monkeypatch,
+) -> None:
+    protocol = build_protocol()
+    task = ComputeTask(name="remote-job")
+
+    patch_connection(monkeypatch)
+
+    monkeypatch.setattr(
+        "nexus.compute.transport_executor.send_message",
+        lambda conn, message: None,
+    )
+
+    response = protocol.create_envelope(
+        sender="node-a",
+        message_type="COMPUTE_RESULT",
+        payload={
+            "task_id": task.task_id,
+            "status": "completed",
+            "output": {"ok": True},
+        },
+        timestamp=1000.0,
+    )
+
+    monkeypatch.setattr(
+        "nexus.compute.transport_executor.recv_message",
+        lambda conn: response,
+    )
+
+    monkeypatch.setattr(
+        "nexus.compute.transport_executor.time.time",
+        lambda: 2000.0,
+    )
+
+    executor = build_executor()
+
     with pytest.raises(
-        ValueError,
-        match="timeout must be greater than zero",
+        ProtocolError,
+        match="expired",
     ):
-        TransportNodeExecutor(
-            build_peers(),
-            timeout=0,
-        )
+        executor("node-a", task)
