@@ -5,6 +5,7 @@ import time
 import pytest
 
 from nexus_distributed_core import NexusDistributedCore
+from nexus.compute.handlers import build_default_task_registry
 from nexus_protocol import NexusProtocol, ProtocolError, ReplayCache
 
 
@@ -13,6 +14,7 @@ def build_core():
     core.node_id = "NODE-A"
     core.protocol = NexusProtocol("compute-test-secret")
     core.compute_replay_cache = ReplayCache()
+    core.compute_task_handlers = build_default_task_registry()
     core.compute_message_ttl = 60.0
     return core
 
@@ -23,7 +25,7 @@ def make_request(core, *, task_id="task-001"):
         message_type="COMPUTE_TASK",
         payload={
             "task_id": task_id,
-            "name": "demo",
+            "name": "echo",
             "task_payload": {"value": 42},
         },
     )
@@ -120,7 +122,7 @@ def test_secure_compute_handler_rejects_expired_request(
         message_type="COMPUTE_TASK",
         payload={
             "task_id": "task-expired",
-            "name": "demo",
+            "name": "echo",
             "task_payload": {},
         },
         timestamp=1000.0,
@@ -133,3 +135,33 @@ def test_secure_compute_handler_rejects_expired_request(
 
     with pytest.raises(ProtocolError, match="expired"):
         core.handle_compute_task(object(), request)
+
+
+def test_secure_compute_handler_rejects_unknown_handler(
+    monkeypatch,
+) -> None:
+    core = build_core()
+
+    request = core.protocol.create_envelope(
+        sender="NODE-B",
+        message_type="COMPUTE_TASK",
+        payload={
+            "task_id": "task-unknown-handler",
+            "name": "not_registered",
+            "task_payload": {"value": 42},
+        },
+    )
+
+    monkeypatch.setattr(
+        "nexus_distributed_core.send_message",
+        lambda conn, message: None,
+    )
+
+    with pytest.raises(
+        KeyError,
+        match="unknown task handler",
+    ):
+        core.handle_compute_task(
+            object(),
+            request,
+        )
