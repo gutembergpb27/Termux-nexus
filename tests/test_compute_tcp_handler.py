@@ -165,3 +165,53 @@ def test_secure_compute_handler_rejects_unknown_handler(
             object(),
             request,
         )
+
+
+def test_secure_compute_handler_executes_matrix_multiply(
+    monkeypatch,
+) -> None:
+    core = build_core()
+    captured = {}
+
+    request = core.protocol.create_envelope(
+        sender="NODE-B",
+        message_type="COMPUTE_TASK",
+        payload={
+            "task_id": "task-matrix",
+            "name": "matrix_multiply",
+            "task_payload": {
+                "left": [
+                    [1, 2],
+                    [3, 4],
+                ],
+                "right": [
+                    [5, 6],
+                    [7, 8],
+                ],
+            },
+        },
+    )
+
+    monkeypatch.setattr(
+        "nexus_distributed_core.send_message",
+        lambda conn, message: captured.update(
+            message=message
+        ),
+    )
+
+    core.handle_compute_task(
+        object(),
+        request,
+    )
+
+    response = captured["message"]
+
+    assert response["type"] == "COMPUTE_RESULT"
+    assert response["payload"]["task_id"] == "task-matrix"
+    assert response["payload"]["status"] == "completed"
+    assert response["payload"]["output"] == {
+        "matrix": [
+            [19, 22],
+            [43, 50],
+        ],
+    }

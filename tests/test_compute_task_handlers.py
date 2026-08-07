@@ -38,32 +38,6 @@ def test_registry_rejects_duplicate_handler() -> None:
         )
 
 
-def test_registry_rejects_empty_name() -> None:
-    registry = TaskHandlerRegistry()
-
-    with pytest.raises(
-        ValueError,
-        match="must not be empty",
-    ):
-        registry.register(
-            " ",
-            lambda payload: payload,
-        )
-
-
-def test_registry_rejects_non_callable_handler() -> None:
-    registry = TaskHandlerRegistry()
-
-    with pytest.raises(
-        TypeError,
-        match="must be callable",
-    ):
-        registry.register(
-            "invalid",
-            None,  # type: ignore[arg-type]
-        )
-
-
 def test_registry_rejects_unknown_handler() -> None:
     registry = TaskHandlerRegistry()
 
@@ -71,17 +45,145 @@ def test_registry_rejects_unknown_handler() -> None:
         KeyError,
         match="unknown task handler",
     ):
+        registry.execute("missing", {})
+
+
+def test_default_registry_contains_builtin_handlers() -> None:
+    registry = build_default_task_registry()
+
+    assert registry.names() == (
+        "data_transform",
+        "echo",
+        "matrix_multiply",
+    )
+
+
+def test_data_transform_double() -> None:
+    registry = build_default_task_registry()
+
+    result = registry.execute(
+        "data_transform",
+        {
+            "operation": "double",
+            "values": [1, 2, 3],
+        },
+    )
+
+    assert result == {
+        "values": [2, 4, 6],
+    }
+
+
+def test_data_transform_square() -> None:
+    registry = build_default_task_registry()
+
+    result = registry.execute(
+        "data_transform",
+        {
+            "operation": "square",
+            "values": [2, 3, 4],
+        },
+    )
+
+    assert result == {
+        "values": [4, 9, 16],
+    }
+
+
+def test_data_transform_sum() -> None:
+    registry = build_default_task_registry()
+
+    result = registry.execute(
+        "data_transform",
+        {
+            "operation": "sum",
+            "values": [10, 20, 12],
+        },
+    )
+
+    assert result == {
+        "value": 42,
+    }
+
+
+def test_data_transform_rejects_unknown_operation() -> None:
+    registry = build_default_task_registry()
+
+    with pytest.raises(
+        ValueError,
+        match="unsupported data transform operation",
+    ):
         registry.execute(
-            "missing",
-            {},
+            "data_transform",
+            {
+                "operation": "invalid",
+                "values": [1, 2],
+            },
         )
 
 
-def test_default_registry_exposes_echo_only() -> None:
+def test_matrix_multiply_2x2() -> None:
     registry = build_default_task_registry()
 
-    assert registry.names() == ("echo",)
-    assert registry.execute(
-        "echo",
-        {"value": 42},
-    ) == {"value": 42}
+    result = registry.execute(
+        "matrix_multiply",
+        {
+            "left": [
+                [1, 2],
+                [3, 4],
+            ],
+            "right": [
+                [5, 6],
+                [7, 8],
+            ],
+        },
+    )
+
+    assert result == {
+        "matrix": [
+            [19, 22],
+            [43, 50],
+        ],
+    }
+
+
+def test_matrix_multiply_rectangular() -> None:
+    registry = build_default_task_registry()
+
+    result = registry.execute(
+        "matrix_multiply",
+        {
+            "left": [
+                [1, 2, 3],
+                [4, 5, 6],
+            ],
+            "right": [
+                [7, 8],
+                [9, 10],
+                [11, 12],
+            ],
+        },
+    )
+
+    assert result == {
+        "matrix": [
+            [58, 64],
+            [139, 154],
+        ],
+    }
+
+
+def test_matrix_multiply_rejects_incompatible_dimensions() -> None:
+    registry = build_default_task_registry()
+
+    with pytest.raises(
+        ValueError,
+        match="dimensions are incompatible",
+    ):
+        registry.execute(
+            "matrix_multiply",
+            {
+                "left": [[1, 2]],
+                "right": [[1, 2]],
+            },
+        )

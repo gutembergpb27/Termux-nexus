@@ -60,22 +60,107 @@ class TaskHandlerRegistry:
                 "task handler payload must be a mapping"
             )
 
-        handler = self.get(name)
-        return handler(payload)
+        return self.get(name)(payload)
 
     def names(self) -> tuple[str, ...]:
         return tuple(sorted(self._handlers))
 
 
-def echo_handler(payload: Mapping[str, Any]) -> dict[str, Any]:
-    """Handler seguro padrão que ecoa o payload recebido."""
-
+def echo_handler(
+    payload: Mapping[str, Any],
+) -> dict[str, Any]:
     return dict(payload)
 
 
-def build_default_task_registry() -> TaskHandlerRegistry:
-    """Cria o registry padrão do runtime distribuído."""
+def data_transform_handler(
+    payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    values = payload.get("values")
+    operation = str(payload.get("operation", "")).strip()
 
+    if not isinstance(values, list):
+        raise ValueError("values must be a list")
+
+    if operation == "double":
+        return {
+            "values": [value * 2 for value in values],
+        }
+
+    if operation == "square":
+        return {
+            "values": [value * value for value in values],
+        }
+
+    if operation == "sum":
+        return {
+            "value": sum(values),
+        }
+
+    raise ValueError(
+        f"unsupported data transform operation: {operation}"
+    )
+
+
+def matrix_multiply_handler(
+    payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    left = payload.get("left")
+    right = payload.get("right")
+
+    if not isinstance(left, list) or not isinstance(right, list):
+        raise ValueError("matrices must be lists")
+
+    if not left or not right:
+        raise ValueError("matrices must not be empty")
+
+    if not all(isinstance(row, list) and row for row in left):
+        raise ValueError("left matrix is invalid")
+
+    if not all(isinstance(row, list) and row for row in right):
+        raise ValueError("right matrix is invalid")
+
+    left_width = len(left[0])
+    right_width = len(right[0])
+
+    if any(len(row) != left_width for row in left):
+        raise ValueError("left matrix rows must have equal length")
+
+    if any(len(row) != right_width for row in right):
+        raise ValueError("right matrix rows must have equal length")
+
+    if left_width != len(right):
+        raise ValueError("matrix dimensions are incompatible")
+
+    result = []
+
+    for left_row in left:
+        result_row = []
+
+        for column_index in range(right_width):
+            value = sum(
+                left_row[index] * right[index][column_index]
+                for index in range(left_width)
+            )
+            result_row.append(value)
+
+        result.append(result_row)
+
+    return {
+        "matrix": result,
+    }
+
+
+def build_default_task_registry() -> TaskHandlerRegistry:
     registry = TaskHandlerRegistry()
+
     registry.register("echo", echo_handler)
+    registry.register(
+        "data_transform",
+        data_transform_handler,
+    )
+    registry.register(
+        "matrix_multiply",
+        matrix_multiply_handler,
+    )
+
     return registry
