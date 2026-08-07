@@ -1,3 +1,4 @@
+from nexus.compute.handlers import TaskHandlerRegistry, build_default_task_registry
 from nexus_protocol import NexusProtocol, ReplayCache
 from nexus_transport import recv_message, send_message
 from persistence import NexusPersistence
@@ -28,6 +29,7 @@ class NexusDistributedCore:
         secret = os.getenv("NEXUS_SECRET_KEY", "").strip()
         self.protocol = NexusProtocol(secret)
         self.compute_replay_cache = ReplayCache()
+        self.compute_task_handlers = build_default_task_registry()
         self.compute_message_ttl = float(
             os.getenv("NEXUS_MESSAGE_TTL", "60.0")
         )
@@ -293,6 +295,11 @@ class NexusDistributedCore:
                 "compute task payload must be an object"
             )
 
+        output = self.compute_task_handlers.execute(
+            name,
+            task_payload,
+        )
+
         response_payload = {
             "task_id": task_id,
             "status": "completed",
@@ -301,10 +308,7 @@ class NexusDistributedCore:
                 "node_id",
                 "unknown",
             ),
-            "output": {
-                "name": name,
-                "payload": task_payload,
-            },
+            "output": output,
         }
 
         response = self.protocol.create_envelope(
