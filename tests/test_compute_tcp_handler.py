@@ -215,3 +215,64 @@ def test_secure_compute_handler_executes_matrix_multiply(
             [43, 50],
         ],
     }
+
+
+def test_secure_remote_execution_updates_handler_metrics(
+    monkeypatch,
+) -> None:
+    core = build_core()
+    captured = {}
+
+    request = core.protocol.create_envelope(
+        sender="NODE-B",
+        message_type="COMPUTE_TASK",
+        payload={
+            "task_id": "task-metrics",
+            "name": "matrix_multiply",
+            "task_payload": {
+                "left": [
+                    [1, 2],
+                    [3, 4],
+                ],
+                "right": [
+                    [5, 6],
+                    [7, 8],
+                ],
+            },
+        },
+    )
+
+    monkeypatch.setattr(
+        "nexus_distributed_core.send_message",
+        lambda conn, message: captured.update(
+            message=message
+        ),
+    )
+
+    before = core.compute_task_handlers.metrics(
+        "matrix_multiply"
+    )
+
+    assert before.runs == 0
+
+    core.handle_compute_task(
+        object(),
+        request,
+    )
+
+    after = core.compute_task_handlers.metrics(
+        "matrix_multiply"
+    )
+
+    assert after.runs == 1
+    assert after.successes == 1
+    assert after.failures == 0
+    assert after.last_execution_at is not None
+    assert after.last_error is None
+
+    assert captured["message"]["payload"]["output"] == {
+        "matrix": [
+            [19, 22],
+            [43, 50],
+        ],
+    }

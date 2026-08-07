@@ -1,6 +1,10 @@
-﻿"""Registro explícito de handlers permitidos para Nexus Compute."""
+"""Registro explícito de handlers permitidos para Nexus Compute."""
 
 from __future__ import annotations
+
+import time
+from dataclasses import dataclass
+from threading import RLock
 
 from collections.abc import Callable, Mapping
 from typing import Any
@@ -8,11 +12,55 @@ from typing import Any
 TaskHandler = Callable[[Mapping[str, Any]], Any]
 
 
+@dataclass(frozen=True)
+class TaskHandlerMetrics:
+    runs: int = 0
+    failures: int = 0
+    total_duration_seconds: float = 0.0
+    last_execution_at: float | None = None
+    last_error: str | None = None
+
+    @property
+    def successes(self) -> int:
+        return self.runs - self.failures
+
+    @property
+    def average_duration_ms(self) -> float:
+        if self.runs == 0:
+            return 0.0
+
+        return (
+            self.total_duration_seconds
+            / self.runs
+            * 1000.0
+        )
+
+
+@dataclass
+class _MutableTaskHandlerMetrics:
+    runs: int = 0
+    failures: int = 0
+    total_duration_seconds: float = 0.0
+    last_execution_at: float | None = None
+    last_error: str | None = None
+
+    def snapshot(self) -> TaskHandlerMetrics:
+        return TaskHandlerMetrics(
+            runs=self.runs,
+            failures=self.failures,
+            total_duration_seconds=self.total_duration_seconds,
+            last_execution_at=self.last_execution_at,
+            last_error=self.last_error,
+        )
+
+
 class TaskHandlerRegistry:
     """Registro controlado de operações remotas permitidas."""
 
     def __init__(self) -> None:
         self._handlers: dict[str, TaskHandler] = {}
+        self._metrics: dict[str, _MutableTaskHandlerMetrics] = {}
+        self._metrics_lock = RLock()
 
     @staticmethod
     def _normalize_name(name: str) -> str:
@@ -40,6 +88,9 @@ class TaskHandlerRegistry:
 
         self._handlers[normalized] = handler
 
+        with self._metrics_lock:
+            self._metrics[normalized] = _MutableTaskHandlerMetrics()
+
     def get(self, name: str) -> TaskHandler:
         normalized = self._normalize_name(name)
 
@@ -60,10 +111,59 @@ class TaskHandlerRegistry:
                 "task handler payload must be a mapping"
             )
 
-        return self.get(name)(payload)
+        normalized = self._normalize_name(name)
+        handler = self.get(normalized)
+
+        started = time.perf_counter()
+
+        try:
+            result = handler(payload)
+        except Exception as exc:
+            duration = time.perf_counter() - started
+
+            with self._metrics_lock:
+                metrics = self._metrics[normalized]
+                metrics.runs += 1
+                metrics.failures += 1
+                metrics.total_duration_seconds += duration
+                metrics.last_execution_at = time.time()
+                metrics.last_error = f"{type(exc).__name__}: {exc}"
+
+            raise
+
+        duration = time.perf_counter() - started
+
+        with self._metrics_lock:
+            metrics = self._metrics[normalized]
+            metrics.runs += 1
+            metrics.total_duration_seconds += duration
+            metrics.last_execution_at = time.time()
+            metrics.last_error = None
+
+        return result
 
     def names(self) -> tuple[str, ...]:
         return tuple(sorted(self._handlers))
+
+    def metrics(self, name: str) -> TaskHandlerMetrics:
+        normalized = self._normalize_name(name)
+
+        if normalized not in self._handlers:
+            raise KeyError(
+                f"unknown task handler: {normalized}"
+            )
+
+        with self._metrics_lock:
+            return self._metrics[normalized].snapshot()
+
+    def metrics_snapshot(
+        self,
+    ) -> dict[str, TaskHandlerMetrics]:
+        with self._metrics_lock:
+            return {
+                name: self._metrics[name].snapshot()
+                for name in sorted(self._handlers)
+            }
 
 
 def echo_handler(

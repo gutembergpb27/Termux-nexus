@@ -7,6 +7,7 @@ from nexus.compute.dispatcher import ClusterDispatcher, NodeExecutor
 from nexus.compute.handlers import (
     TaskHandler,
     TaskHandlerRegistry,
+    TaskHandlerMetrics,
     build_default_task_registry,
 )
 from nexus.compute.health import BackendHealth
@@ -40,5 +41,6 @@ __all__ = [
     "NodeExecutor",
     "TaskHandler",
     "TaskHandlerRegistry",
+    "TaskHandlerMetrics",
     "build_default_task_registry",
 ]
