@@ -26,7 +26,9 @@ def normalize_capabilities(value):
     handlers = value.get("handlers", [])
 
     if not isinstance(handlers, list):
-        raise ValueError("invalid capabilities handlers")
+        raise ValueError(
+            "invalid capabilities handlers"
+        )
 
     normalized_handlers = []
 
@@ -34,13 +36,70 @@ def normalize_capabilities(value):
         name = str(handler).strip()
 
         if not name:
-            raise ValueError("invalid capability handler")
+            raise ValueError(
+                "invalid capability handler"
+            )
 
         normalized_handlers.append(name)
 
-    return {
-        "handlers": sorted(set(normalized_handlers)),
+    normalized = {
+        "handlers": sorted(
+            set(normalized_handlers)
+        ),
     }
+
+    # Hardware fields remain optional for compatibility
+    # with legacy nodes.
+
+    if "compute_type" in value:
+        compute_type = str(
+            value["compute_type"]
+        ).strip()
+
+        if not compute_type:
+            raise ValueError(
+                "invalid capability compute type"
+            )
+
+        normalized["compute_type"] = compute_type
+
+    if "memory_mb" in value:
+        memory_mb = value["memory_mb"]
+
+        if memory_mb is None:
+            normalized["memory_mb"] = None
+        else:
+            if isinstance(memory_mb, bool):
+                raise ValueError(
+                    "invalid capability memory"
+                )
+
+            try:
+                memory_mb = int(memory_mb)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "invalid capability memory"
+                ) from exc
+
+            if memory_mb < 0:
+                raise ValueError(
+                    "capability memory must be greater "
+                    "than or equal to zero"
+                )
+
+            normalized["memory_mb"] = memory_mb
+
+    if "has_gpu" in value:
+        has_gpu = value["has_gpu"]
+
+        if not isinstance(has_gpu, bool):
+            raise ValueError(
+                "invalid capability GPU flag"
+            )
+
+        normalized["has_gpu"] = has_gpu
+
+    return normalized
 
 
 def register_peer(

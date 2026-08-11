@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from nexus_distributed_core import NexusDistributedCore
 from nexus_protocol import NexusProtocol
@@ -14,6 +14,11 @@ def make_core():
 
     from nexus.compute.handlers import build_default_task_registry
     core.compute_task_handlers = build_default_task_registry()
+    core.hardware_capabilities = lambda: {
+        "compute_type": "cpu",
+        "memory_mb": None,
+        "has_gpu": False,
+    }
 
     return core
 
@@ -45,6 +50,9 @@ def test_registration_envelope_advertises_compute_capabilities():
             "echo",
             "matrix_multiply",
         ],
+        "compute_type": "cpu",
+        "memory_mb": None,
+        "has_gpu": False,
     }
 
 
@@ -63,4 +71,77 @@ def test_heartbeat_envelope_advertises_compute_capabilities():
             "echo",
             "matrix_multiply",
         ],
+        "compute_type": "cpu",
+        "memory_mb": None,
+        "has_gpu": False,
+    }
+
+
+def test_node_advertises_hardware_capabilities():
+    core = make_core()
+
+    core.hardware_capabilities = lambda: {
+        "compute_type": "cpu",
+        "memory_mb": 16384,
+        "has_gpu": False,
+    }
+
+    capabilities = core.compute_capabilities()
+
+    assert capabilities == {
+        "handlers": [
+            "data_transform",
+            "echo",
+            "matrix_multiply",
+        ],
+        "compute_type": "cpu",
+        "memory_mb": 16384,
+        "has_gpu": False,
+    }
+
+
+def test_registration_envelope_advertises_hardware_capabilities():
+    core = make_core()
+
+    core.hardware_capabilities = lambda: {
+        "compute_type": "cpu",
+        "memory_mb": 8192,
+        "has_gpu": False,
+    }
+
+    envelope = core.build_registration_envelope(
+        timestamp=1000.0,
+        nonce="hardware-register-nonce",
+        message_id="hardware-register-message",
+    )
+
+    assert envelope["payload"]["capabilities"]["compute_type"] == "cpu"
+    assert envelope["payload"]["capabilities"]["memory_mb"] == 8192
+    assert envelope["payload"]["capabilities"]["has_gpu"] is False
+
+
+def test_heartbeat_envelope_advertises_hardware_capabilities():
+    core = make_core()
+
+    core.hardware_capabilities = lambda: {
+        "compute_type": "cpu",
+        "memory_mb": None,
+        "has_gpu": False,
+    }
+
+    envelope = core.build_heartbeat_envelope(
+        timestamp=1000.0,
+        nonce="hardware-heartbeat-nonce",
+        message_id="hardware-heartbeat-message",
+    )
+
+    assert envelope["payload"]["capabilities"] == {
+        "handlers": [
+            "data_transform",
+            "echo",
+            "matrix_multiply",
+        ],
+        "compute_type": "cpu",
+        "memory_mb": None,
+        "has_gpu": False,
     }

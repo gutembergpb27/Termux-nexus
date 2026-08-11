@@ -9,6 +9,11 @@ def make_core():
     core.tcp_port = 9092
     core.role = "FOLLOWER"
     core.protocol = NexusProtocol("test-secret")
+    core.hardware_capabilities = lambda: {
+        "compute_type": "cpu",
+        "memory_mb": None,
+        "has_gpu": False,
+    }
     return core
 
 
@@ -31,6 +36,9 @@ def test_core_builds_authenticated_register_envelope():
         "protocol_version": 1,
         "capabilities": {
             "handlers": [],
+            "compute_type": "cpu",
+            "memory_mb": None,
+            "has_gpu": False,
         },
     }
 
@@ -73,6 +81,9 @@ def test_core_builds_authenticated_heartbeat_envelope():
         "role": "FOLLOWER",
         "capabilities": {
             "handlers": [],
+            "compute_type": "cpu",
+            "memory_mb": None,
+            "has_gpu": False,
         },
     }
 
