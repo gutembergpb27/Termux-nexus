@@ -145,3 +145,44 @@ def test_heartbeat_envelope_advertises_hardware_capabilities():
         "memory_mb": None,
         "has_gpu": False,
     }
+
+
+def test_heartbeat_envelope_advertises_node_load():
+    core = make_core()
+
+    core.compute_node_load = lambda: __import__(
+        "nexus.compute",
+        fromlist=["NodeLoad"],
+    ).NodeLoad(
+        active_tasks=2,
+        queued_tasks=1,
+        completed_tasks=10,
+        failed_tasks=1,
+        average_duration_ms=12.5,
+    )
+
+    envelope = core.build_heartbeat_envelope(
+        timestamp=1000.0,
+        nonce="load-heartbeat-nonce",
+        message_id="load-heartbeat-message",
+    )
+
+    assert envelope["payload"]["load"] == {
+        "active_tasks": 2,
+        "queued_tasks": 1,
+        "completed_tasks": 10,
+        "failed_tasks": 1,
+        "average_duration_ms": 12.5,
+    }
+
+
+def test_registration_envelope_does_not_advertise_dynamic_load():
+    core = make_core()
+
+    envelope = core.build_registration_envelope(
+        timestamp=1000.0,
+        nonce="load-register-nonce",
+        message_id="load-register-message",
+    )
+
+    assert "load" not in envelope["payload"]

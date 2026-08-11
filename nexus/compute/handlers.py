@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 from threading import RLock
+from nexus.compute.node_load import NodeLoad
 
 from collections.abc import Callable, Mapping
 from typing import Any
@@ -61,6 +62,7 @@ class TaskHandlerRegistry:
         self._handlers: dict[str, TaskHandler] = {}
         self._metrics: dict[str, _MutableTaskHandlerMetrics] = {}
         self._metrics_lock = RLock()
+        self._active_tasks = 0
 
     @staticmethod
     def _normalize_name(name: str) -> str:
@@ -106,13 +108,11 @@ class TaskHandlerRegistry:
         name: str,
         payload: Mapping[str, Any],
     ) -> Any:
-        if not isinstance(payload, Mapping):
-            raise TypeError(
-                "task handler payload must be a mapping"
-            )
-
         normalized = self._normalize_name(name)
         handler = self.get(normalized)
+
+        with self._metrics_lock:
+            self._active_tasks += 1
 
         started = time.perf_counter()
 
@@ -127,20 +127,72 @@ class TaskHandlerRegistry:
                 metrics.failures += 1
                 metrics.total_duration_seconds += duration
                 metrics.last_execution_at = time.time()
-                metrics.last_error = f"{type(exc).__name__}: {exc}"
+                metrics.last_error = (
+                    f"{type(exc).__name__}: {exc}"
+                )
 
             raise
+        else:
+            duration = time.perf_counter() - started
 
-        duration = time.perf_counter() - started
+            with self._metrics_lock:
+                metrics = self._metrics[normalized]
+                metrics.runs += 1
+                metrics.total_duration_seconds += duration
+                metrics.last_execution_at = time.time()
+                metrics.last_error = None
+
+            return result
+        finally:
+            with self._metrics_lock:
+                self._active_tasks -= 1
+
+    def load_snapshot(self) -> NodeLoad:
+        """Retorna a carga agregada atual do registry."""
 
         with self._metrics_lock:
-            metrics = self._metrics[normalized]
-            metrics.runs += 1
-            metrics.total_duration_seconds += duration
-            metrics.last_execution_at = time.time()
-            metrics.last_error = None
+            metrics = [
+                item.snapshot()
+                for item in self._metrics.values()
+            ]
 
-        return result
+            active_tasks = self._active_tasks
+
+        total_runs = sum(
+            item.runs
+            for item in metrics
+        )
+
+        failed_tasks = sum(
+            item.failures
+            for item in metrics
+        )
+
+        completed_tasks = (
+            total_runs - failed_tasks
+        )
+
+        total_duration_seconds = sum(
+            item.total_duration_seconds
+            for item in metrics
+        )
+
+        average_duration_ms = 0.0
+
+        if total_runs:
+            average_duration_ms = (
+                total_duration_seconds
+                / total_runs
+                * 1000.0
+            )
+
+        return NodeLoad(
+            active_tasks=active_tasks,
+            queued_tasks=0,
+            completed_tasks=completed_tasks,
+            failed_tasks=failed_tasks,
+            average_duration_ms=average_duration_ms,
+        )
 
     def names(self) -> tuple[str, ...]:
         return tuple(sorted(self._handlers))

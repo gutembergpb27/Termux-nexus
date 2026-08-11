@@ -85,6 +85,13 @@ def test_core_builds_authenticated_heartbeat_envelope():
             "memory_mb": None,
             "has_gpu": False,
         },
+        "load": {
+            "active_tasks": 0,
+            "queued_tasks": 0,
+            "completed_tasks": 0,
+            "failed_tasks": 0,
+            "average_duration_ms": 0.0,
+        },
     }
 
     verifier = NexusProtocol("test-secret")
