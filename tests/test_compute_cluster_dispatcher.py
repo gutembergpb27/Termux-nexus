@@ -241,3 +241,46 @@ def test_dispatcher_preserves_leader_only_behavior_without_capabilities_provider
     assert dispatcher.dispatch(
         ComputeTask(name="anything")
     ) == "node-a"
+
+
+def test_dispatcher_uses_peer_capability_provider() -> None:
+    from nexus.compute import PeerCapabilityProvider
+
+    cluster = build_cluster_with_leader()
+    calls = []
+
+    peers = {
+        "node-a": {
+            "capabilities": {
+                "handlers": ["echo"],
+            },
+        },
+        "node-b": {
+            "capabilities": {
+                "handlers": [
+                    "echo",
+                    "matrix_multiply",
+                ],
+            },
+        },
+    }
+
+    provider = PeerCapabilityProvider(
+        lambda: peers,
+    )
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=lambda node_id, task: (
+            calls.append(node_id)
+            or node_id
+        ),
+        capabilities=provider,
+    )
+
+    result = dispatcher.dispatch(
+        ComputeTask(name="matrix_multiply")
+    )
+
+    assert result == "node-b"
+    assert calls == ["node-b"]
