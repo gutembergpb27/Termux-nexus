@@ -284,3 +284,209 @@ def test_dispatcher_uses_peer_capability_provider() -> None:
 
     assert result == "node-b"
     assert calls == ["node-b"]
+
+
+def test_dispatcher_routes_by_required_compute_type() -> None:
+    from nexus.compute import ComputeRequirements
+
+    cluster = build_cluster_with_leader()
+    calls = []
+
+    capabilities = {
+        "node-a": {
+            "handlers": ["inference"],
+            "compute_type": "cpu",
+            "memory_mb": 16384,
+            "has_gpu": False,
+        },
+        "node-b": {
+            "handlers": ["inference"],
+            "compute_type": "gpu",
+            "memory_mb": 16384,
+            "has_gpu": True,
+        },
+    }
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=lambda node_id, task: (
+            calls.append(node_id) or node_id
+        ),
+        capabilities=lambda node_id: capabilities[node_id],
+    )
+
+    result = dispatcher.dispatch(
+        ComputeTask(
+            name="inference",
+            requirements=ComputeRequirements(
+                compute_type="gpu",
+            ),
+        )
+    )
+
+    assert result == "node-b"
+    assert calls == ["node-b"]
+
+
+def test_dispatcher_routes_by_minimum_memory() -> None:
+    from nexus.compute import ComputeRequirements
+
+    cluster = build_cluster_with_leader()
+    calls = []
+
+    capabilities = {
+        "node-a": {
+            "handlers": ["data_transform"],
+            "compute_type": "cpu",
+            "memory_mb": 2048,
+            "has_gpu": False,
+        },
+        "node-b": {
+            "handlers": ["data_transform"],
+            "compute_type": "cpu",
+            "memory_mb": 16384,
+            "has_gpu": False,
+        },
+    }
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=lambda node_id, task: (
+            calls.append(node_id) or node_id
+        ),
+        capabilities=lambda node_id: capabilities[node_id],
+    )
+
+    result = dispatcher.dispatch(
+        ComputeTask(
+            name="data_transform",
+            requirements=ComputeRequirements(
+                min_memory_mb=4096,
+            ),
+        )
+    )
+
+    assert result == "node-b"
+    assert calls == ["node-b"]
+
+
+def test_dispatcher_routes_gpu_requirement_to_gpu_node() -> None:
+    from nexus.compute import ComputeRequirements
+
+    cluster = build_cluster_with_leader()
+    calls = []
+
+    capabilities = {
+        "node-a": {
+            "handlers": ["inference"],
+            "compute_type": "cpu",
+            "memory_mb": 8192,
+            "has_gpu": False,
+        },
+        "node-b": {
+            "handlers": ["inference"],
+            "compute_type": "gpu",
+            "memory_mb": 8192,
+            "has_gpu": True,
+        },
+    }
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=lambda node_id, task: (
+            calls.append(node_id) or node_id
+        ),
+        capabilities=lambda node_id: capabilities[node_id],
+    )
+
+    result = dispatcher.dispatch(
+        ComputeTask(
+            name="inference",
+            requirements=ComputeRequirements(
+                requires_gpu=True,
+            ),
+        )
+    )
+
+    assert result == "node-b"
+    assert calls == ["node-b"]
+
+
+def test_dispatcher_rejects_when_no_node_satisfies_requirements() -> None:
+    from nexus.compute import ComputeRequirements
+
+    cluster = build_cluster_with_leader()
+
+    capabilities = {
+        "node-a": {
+            "handlers": ["matrix_multiply"],
+            "compute_type": "cpu",
+            "memory_mb": 2048,
+            "has_gpu": False,
+        },
+        "node-b": {
+            "handlers": ["matrix_multiply"],
+            "compute_type": "cpu",
+            "memory_mb": 4096,
+            "has_gpu": False,
+        },
+    }
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=lambda node_id, task: node_id,
+        capabilities=lambda node_id: capabilities[node_id],
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="no online node satisfies task requirements",
+    ):
+        dispatcher.dispatch(
+            ComputeTask(
+                name="matrix_multiply",
+                requirements=ComputeRequirements(
+                    min_memory_mb=8192,
+                ),
+            )
+        )
+
+
+def test_dispatcher_rejects_unknown_memory_for_minimum_requirement() -> None:
+    from nexus.compute import ComputeRequirements
+
+    cluster = build_cluster_with_leader()
+
+    capabilities = {
+        "node-a": {
+            "handlers": ["data_transform"],
+            "compute_type": "cpu",
+            "memory_mb": None,
+            "has_gpu": False,
+        },
+        "node-b": {
+            "handlers": ["data_transform"],
+            "compute_type": "cpu",
+            "memory_mb": None,
+            "has_gpu": False,
+        },
+    }
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=lambda node_id, task: node_id,
+        capabilities=lambda node_id: capabilities[node_id],
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="no online node satisfies task requirements",
+    ):
+        dispatcher.dispatch(
+            ComputeTask(
+                name="data_transform",
+                requirements=ComputeRequirements(
+                    min_memory_mb=4096,
+                ),
+            )
+        )
