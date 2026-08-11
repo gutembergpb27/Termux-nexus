@@ -54,8 +54,17 @@ class PeerCapabilityProvider:
                 "handlers": [],
             }
 
-        return deepcopy(
-            {
-                "handlers": handlers,
-            }
-        )
+        result = {
+            "handlers": list(handlers),
+        }
+
+        if "compute_type" in capabilities:
+            result["compute_type"] = capabilities["compute_type"]
+
+        if "memory_mb" in capabilities:
+            result["memory_mb"] = capabilities["memory_mb"]
+
+        if "has_gpu" in capabilities:
+            result["has_gpu"] = capabilities["has_gpu"]
+
+        return deepcopy(result)

@@ -1,4 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
+
+import pytest
 
 from nexus_protocol import NexusProtocol, ReplayCache
 from nexus_rendezvous import (
@@ -138,3 +140,158 @@ def test_registration_defaults_missing_capabilities_to_empty_handlers():
     assert record["capabilities"] == {
         "handlers": [],
     }
+
+
+def test_registration_preserves_hardware_capabilities():
+    protocol = NexusProtocol("test-secret")
+    peers = {}
+
+    envelope = protocol.create_envelope(
+        sender="NO-HW-01",
+        message_type="REGISTER",
+        payload={
+            "node_id": "NO-HW-01",
+            "role": "FOLLOWER",
+            "web_port": 8084,
+            "tcp_port": 9094,
+            "protocol_version": 1,
+            "capabilities": {
+                "handlers": [
+                    "echo",
+                    "matrix_multiply",
+                ],
+                "compute_type": "cpu",
+                "memory_mb": 16384,
+                "has_gpu": False,
+            },
+        },
+        timestamp=1000.0,
+        nonce="hardware-register-nonce",
+        message_id="hardware-register-message",
+    )
+
+    record = register_peer(
+        envelope=envelope,
+        client_ip="192.168.1.30",
+        protocol=protocol,
+        replay_cache=ReplayCache(),
+        peers=peers,
+        now=1001.0,
+        ttl=60.0,
+    )
+
+    assert record["capabilities"] == {
+        "handlers": [
+            "echo",
+            "matrix_multiply",
+        ],
+        "compute_type": "cpu",
+        "memory_mb": 16384,
+        "has_gpu": False,
+    }
+
+
+def test_heartbeat_updates_hardware_capabilities():
+    protocol = NexusProtocol("test-secret")
+    peers = {}
+
+    register_envelope = protocol.create_envelope(
+        sender="NO-HW-01",
+        message_type="REGISTER",
+        payload={
+            "node_id": "NO-HW-01",
+            "role": "FOLLOWER",
+            "web_port": 8084,
+            "tcp_port": 9094,
+            "protocol_version": 1,
+            "capabilities": {
+                "handlers": ["echo"],
+                "compute_type": "cpu",
+                "memory_mb": 8192,
+                "has_gpu": False,
+            },
+        },
+        timestamp=1000.0,
+        nonce="hardware-register-nonce-2",
+        message_id="hardware-register-message-2",
+    )
+
+    register_peer(
+        envelope=register_envelope,
+        client_ip="192.168.1.30",
+        protocol=protocol,
+        replay_cache=ReplayCache(),
+        peers=peers,
+        now=1001.0,
+        ttl=60.0,
+    )
+
+    heartbeat = protocol.create_envelope(
+        sender="NO-HW-01",
+        message_type="HEARTBEAT",
+        payload={
+            "role": "FOLLOWER",
+            "capabilities": {
+                "handlers": ["echo"],
+                "compute_type": "cpu",
+                "memory_mb": 16384,
+                "has_gpu": False,
+            },
+        },
+        timestamp=1002.0,
+        nonce="hardware-heartbeat-nonce",
+        message_id="hardware-heartbeat-message",
+    )
+
+    record = update_peer_heartbeat(
+        envelope=heartbeat,
+        protocol=protocol,
+        replay_cache=ReplayCache(),
+        peers=peers,
+        now=1003.0,
+        ttl=60.0,
+    )
+
+    assert record["capabilities"]["memory_mb"] == 16384
+    assert record["capabilities"]["compute_type"] == "cpu"
+    assert record["capabilities"]["has_gpu"] is False
+
+
+def test_registration_rejects_negative_hardware_memory():
+    protocol = NexusProtocol("test-secret")
+    peers = {}
+
+    envelope = protocol.create_envelope(
+        sender="NO-HW-BAD",
+        message_type="REGISTER",
+        payload={
+            "node_id": "NO-HW-BAD",
+            "role": "FOLLOWER",
+            "web_port": 8085,
+            "tcp_port": 9095,
+            "protocol_version": 1,
+            "capabilities": {
+                "handlers": ["echo"],
+                "compute_type": "cpu",
+                "memory_mb": -1,
+                "has_gpu": False,
+            },
+        },
+        timestamp=1000.0,
+        nonce="bad-hardware-register-nonce",
+        message_id="bad-hardware-register-message",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="memory",
+    ):
+        register_peer(
+            envelope=envelope,
+            client_ip="192.168.1.31",
+            protocol=protocol,
+            replay_cache=ReplayCache(),
+            peers=peers,
+            now=1001.0,
+            ttl=60.0,
+        )

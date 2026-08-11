@@ -1,4 +1,5 @@
 from nexus.compute.handlers import TaskHandlerRegistry, build_default_task_registry
+from nexus.compute.hardware import HardwareCapabilityDetector
 from nexus_protocol import NexusProtocol, ReplayCache
 from nexus_transport import recv_message, send_message
 from persistence import NexusPersistence
@@ -30,6 +31,7 @@ class NexusDistributedCore:
         self.protocol = NexusProtocol(secret)
         self.compute_replay_cache = ReplayCache()
         self.compute_task_handlers = build_default_task_registry()
+        self.hardware_capability_detector = HardwareCapabilityDetector()
         self.compute_message_ttl = float(
             os.getenv("NEXUS_MESSAGE_TTL", "60.0")
         )
@@ -142,6 +144,18 @@ class NexusDistributedCore:
         result["reason"] = "follower_operational"
         return result
 
+    def hardware_capabilities(self):
+        detector = getattr(
+            self,
+            "hardware_capability_detector",
+            None,
+        )
+
+        if detector is None:
+            detector = HardwareCapabilityDetector()
+
+        return detector.detect()
+
     def compute_capabilities(self):
         registry = getattr(
             self,
@@ -154,8 +168,23 @@ class NexusDistributedCore:
         if registry is not None:
             handlers = list(registry.names())
 
+        hardware = self.hardware_capabilities()
+
         return {
             "handlers": handlers,
+            "compute_type": hardware.get(
+                "compute_type",
+                "cpu",
+            ),
+            "memory_mb": hardware.get(
+                "memory_mb",
+            ),
+            "has_gpu": bool(
+                hardware.get(
+                    "has_gpu",
+                    False,
+                )
+            ),
         }
 
     def build_registration_envelope(
