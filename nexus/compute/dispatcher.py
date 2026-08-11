@@ -47,22 +47,38 @@ class ClusterDispatcher:
 
         return leader in self._cluster.online_nodes()
 
-    def _supports(
+    def _node_capabilities(
         self,
         node_id: str,
-        handler_name: str,
-    ) -> bool:
+    ) -> Mapping[str, Any]:
         provider = self._capabilities
 
         if provider is None:
-            return True
+            return {}
 
         capabilities = provider(node_id)
 
         if not isinstance(capabilities, Mapping):
-            return False
+            return {}
 
-        handlers = capabilities.get("handlers", ())
+        return capabilities
+
+    def _supports_handler(
+        self,
+        node_id: str,
+        handler_name: str,
+    ) -> bool:
+        if self._capabilities is None:
+            return True
+
+        capabilities = self._node_capabilities(
+            node_id
+        )
+
+        handlers = capabilities.get(
+            "handlers",
+            (),
+        )
 
         if not isinstance(
             handlers,
@@ -71,6 +87,67 @@ class ClusterDispatcher:
             return False
 
         return handler_name in handlers
+
+    def _satisfies_requirements(
+        self,
+        node_id: str,
+        task: ComputeTask,
+    ) -> bool:
+        if self._capabilities is None:
+            return True
+
+        capabilities = self._node_capabilities(
+            node_id
+        )
+        requirements = task.requirements
+
+        if requirements.compute_type is not None:
+            if (
+                capabilities.get("compute_type")
+                != requirements.compute_type
+            ):
+                return False
+
+        if requirements.requires_gpu:
+            if capabilities.get("has_gpu") is not True:
+                return False
+
+        if requirements.min_memory_mb is not None:
+            memory_mb = capabilities.get(
+                "memory_mb"
+            )
+
+            if memory_mb is None:
+                return False
+
+            if isinstance(memory_mb, bool):
+                return False
+
+            try:
+                memory_mb = int(memory_mb)
+            except (TypeError, ValueError):
+                return False
+
+            if memory_mb < requirements.min_memory_mb:
+                return False
+
+        return True
+
+    def _is_eligible(
+        self,
+        node_id: str,
+        task: ComputeTask,
+    ) -> bool:
+        return (
+            self._supports_handler(
+                node_id,
+                task.name,
+            )
+            and self._satisfies_requirements(
+                node_id,
+                task,
+            )
+        )
 
     def _resolve_target(
         self,
@@ -86,26 +163,44 @@ class ClusterDispatcher:
                 "cluster leader is offline"
             )
 
-        # Compatibilidade com o comportamento histórico:
-        # sem capability provider, sempre utiliza o líder.
+        # Compatibilidade histórica:
+        # sem capability provider, usa o líder.
         if self._capabilities is None:
             return leader
 
-        # O líder continua sendo o destino preferencial.
-        if self._supports(leader, task.name):
+        # Líder continua sendo preferencial quando
+        # suporta o handler e satisfaz os requisitos.
+        if self._is_eligible(
+            leader,
+            task,
+        ):
             return leader
 
-        # Caso o líder não suporte a operação, procura
-        # deterministicamente outro nó online compatível.
+        # Procura deterministicamente outro nó online.
         for node_id in sorted(online_nodes):
             if node_id == leader:
                 continue
 
-            if self._supports(
+            if self._is_eligible(
                 node_id,
-                task.name,
+                task,
             ):
                 return node_id
+
+        # Distingue ausência do handler de incapacidade
+        # de satisfazer requisitos computacionais.
+        handler_available = any(
+            self._supports_handler(
+                node_id,
+                task.name,
+            )
+            for node_id in online_nodes
+        )
+
+        if handler_available:
+            raise RuntimeError(
+                "no online node satisfies task requirements"
+            )
 
         raise RuntimeError(
             "no online node supports task handler: "
@@ -113,9 +208,10 @@ class ClusterDispatcher:
         )
 
     def dispatch(self, task: ComputeTask) -> Any:
-        """Encaminha a tarefa a um nó online compatível."""
+        """Encaminha a tarefa a um nó online elegível."""
 
         leader = self.leader()
+
         target = self._resolve_target(
             task,
             leader,
