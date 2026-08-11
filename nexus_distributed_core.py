@@ -1,5 +1,6 @@
 from nexus.compute.handlers import TaskHandlerRegistry, build_default_task_registry
 from nexus.compute.hardware import HardwareCapabilityDetector
+from nexus.compute.node_load import NodeLoad
 from nexus_protocol import NexusProtocol, ReplayCache
 from nexus_transport import recv_message, send_message
 from persistence import NexusPersistence
@@ -156,6 +157,18 @@ class NexusDistributedCore:
 
         return detector.detect()
 
+    def compute_node_load(self) -> NodeLoad:
+        registry = getattr(
+            self,
+            "compute_task_handlers",
+            None,
+        )
+
+        if registry is None:
+            return NodeLoad()
+
+        return registry.load_snapshot()
+
     def compute_capabilities(self):
         registry = getattr(
             self,
@@ -240,6 +253,7 @@ class NexusDistributedCore:
             payload={
                 "role": self.role,
                 "capabilities": self.compute_capabilities(),
+                "load": self.compute_node_load().to_dict(),
             },
             timestamp=timestamp,
             nonce=nonce,

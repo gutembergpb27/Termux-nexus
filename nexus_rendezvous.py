@@ -102,6 +102,73 @@ def normalize_capabilities(value):
     return normalized
 
 
+def normalize_node_load(value):
+    if value is None:
+        return None
+
+    if not isinstance(value, dict):
+        raise ValueError("invalid node load")
+
+    counter_names = (
+        "active_tasks",
+        "queued_tasks",
+        "completed_tasks",
+        "failed_tasks",
+    )
+
+    normalized = {}
+
+    for name in counter_names:
+        raw_value = value.get(name, 0)
+
+        if isinstance(raw_value, bool):
+            raise ValueError(
+                f"invalid node load {name}"
+            )
+
+        try:
+            counter = int(raw_value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"invalid node load {name}"
+            ) from exc
+
+        if counter < 0:
+            raise ValueError(
+                f"node load {name} must be greater "
+                "than or equal to zero"
+            )
+
+        normalized[name] = counter
+
+    raw_duration = value.get(
+        "average_duration_ms",
+        0.0,
+    )
+
+    if isinstance(raw_duration, bool):
+        raise ValueError(
+            "invalid node load average duration"
+        )
+
+    try:
+        duration = float(raw_duration)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "invalid node load average duration"
+        ) from exc
+
+    if duration < 0:
+        raise ValueError(
+            "node load average duration must be greater "
+            "than or equal to zero"
+        )
+
+    normalized["average_duration_ms"] = duration
+
+    return normalized
+
+
 def register_peer(
     *,
     envelope: dict[str, Any],
@@ -138,6 +205,10 @@ def register_peer(
     role = str(payload.get("role", "")).strip().upper()
     if role not in {"FOLLOWER", "CANDIDATE", "MASTER"}:
         raise ValueError("invalid role")
+
+    load = normalize_node_load(
+        payload.get("load")
+    )
 
     capabilities = normalize_capabilities(
         payload.get("capabilities")
@@ -213,9 +284,17 @@ def update_peer_heartbeat(
     if role not in {"FOLLOWER", "CANDIDATE", "MASTER"}:
         raise ValueError("invalid role")
 
+    load = normalize_node_load(
+        payload.get("load")
+    )
+
     record = dict(peers[node_id])
     record["role"] = role
     record["capabilities"] = capabilities
+
+    if load is not None:
+        record["load"] = load
+
     record["last_seen"] = float(now)
     peers[node_id] = record
     return record

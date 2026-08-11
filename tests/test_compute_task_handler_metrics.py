@@ -126,3 +126,124 @@ def test_metrics_reject_unknown_handler() -> None:
         match="unknown task handler",
     ):
         registry.metrics("missing")
+
+
+def test_core_node_load_snapshot_aggregates_handler_metrics() -> None:
+    from nexus_distributed_core import NexusDistributedCore
+
+    core = object.__new__(NexusDistributedCore)
+    core.compute_task_handlers = build_default_task_registry()
+
+    core.compute_task_handlers.execute(
+        "echo",
+        {"value": 1},
+    )
+
+    core.compute_task_handlers.execute(
+        "echo",
+        {"value": 2},
+    )
+
+    load = core.compute_node_load()
+
+    assert load.completed_tasks == 2
+    assert load.failed_tasks == 0
+    assert load.active_tasks == 0
+    assert load.queued_tasks == 0
+    assert load.average_duration_ms >= 0.0
+
+
+def test_core_node_load_snapshot_counts_failed_handler_execution() -> None:
+    from nexus_distributed_core import NexusDistributedCore
+
+    core = object.__new__(NexusDistributedCore)
+    core.compute_task_handlers = TaskHandlerRegistry()
+
+    def failing_handler(payload):
+        raise RuntimeError("boom")
+
+    core.compute_task_handlers.register(
+        "failing",
+        failing_handler,
+    )
+
+    core.compute_task_handlers.register(
+        "working",
+        lambda payload: dict(payload),
+    )
+
+    core.compute_task_handlers.execute(
+        "working",
+        {"value": 1},
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="boom",
+    ):
+        core.compute_task_handlers.execute(
+            "failing",
+            {"value": 2},
+        )
+
+    load = core.compute_node_load()
+
+    assert load.completed_tasks == 1
+    assert load.failed_tasks == 1
+    assert load.active_tasks == 0
+    assert load.queued_tasks == 0
+    assert load.average_duration_ms >= 0.0
+
+
+def test_registry_reports_active_execution() -> None:
+    import threading
+
+    registry = TaskHandlerRegistry()
+
+    started = threading.Event()
+    release = threading.Event()
+
+    def blocking_handler(payload):
+        started.set()
+        release.wait(timeout=2)
+        return dict(payload)
+
+    registry.register(
+        "blocking",
+        blocking_handler,
+    )
+
+    result_holder = {}
+
+    def run_handler():
+        result_holder["value"] = registry.execute(
+            "blocking",
+            {"value": 1},
+        )
+
+    thread = threading.Thread(
+        target=run_handler,
+    )
+
+    thread.start()
+
+    assert started.wait(timeout=1)
+
+    snapshot = registry.load_snapshot()
+
+    assert snapshot.active_tasks == 1
+    assert snapshot.queued_tasks == 0
+
+    release.set()
+    thread.join(timeout=2)
+
+    assert thread.is_alive() is False
+
+    final = registry.load_snapshot()
+
+    assert final.active_tasks == 0
+    assert final.completed_tasks == 1
+    assert final.failed_tasks == 0
+    assert result_holder["value"] == {
+        "value": 1,
+    }
