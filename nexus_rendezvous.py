@@ -14,6 +14,35 @@ REPLAY_CACHE = ReplayCache()
 MESSAGE_TTL = 60.0
 
 
+def normalize_capabilities(value):
+    if value is None:
+        return {
+            "handlers": [],
+        }
+
+    if not isinstance(value, dict):
+        raise ValueError("invalid capabilities")
+
+    handlers = value.get("handlers", [])
+
+    if not isinstance(handlers, list):
+        raise ValueError("invalid capabilities handlers")
+
+    normalized_handlers = []
+
+    for handler in handlers:
+        name = str(handler).strip()
+
+        if not name:
+            raise ValueError("invalid capability handler")
+
+        normalized_handlers.append(name)
+
+    return {
+        "handlers": sorted(set(normalized_handlers)),
+    }
+
+
 def register_peer(
     *,
     envelope: dict[str, Any],
@@ -51,6 +80,10 @@ def register_peer(
     if role not in {"FOLLOWER", "CANDIDATE", "MASTER"}:
         raise ValueError("invalid role")
 
+    capabilities = normalize_capabilities(
+        payload.get("capabilities")
+    )
+
     try:
         web_port = int(payload["web_port"])
         tcp_port = int(payload["tcp_port"])
@@ -67,6 +100,7 @@ def register_peer(
         "web_port": web_port,
         "tcp_port": tcp_port,
         "protocol_version": protocol_version,
+        "capabilities": capabilities,
         "ip": client_ip,
         "last_seen": float(now),
     }
@@ -101,12 +135,28 @@ def update_peer_heartbeat(
     if node_id not in peers:
         raise ValueError("peer not registered")
 
-    role = str(payload.get("role", peers[node_id]["role"])).upper()
+    role = str(
+        payload.get(
+            "role",
+            peers[node_id]["role"],
+        )
+    ).upper()
+
+    capabilities = normalize_capabilities(
+        payload.get(
+            "capabilities",
+            peers[node_id].get(
+                "capabilities",
+                {"handlers": []},
+            ),
+        )
+    )
     if role not in {"FOLLOWER", "CANDIDATE", "MASTER"}:
         raise ValueError("invalid role")
 
     record = dict(peers[node_id])
     record["role"] = role
+    record["capabilities"] = capabilities
     record["last_seen"] = float(now)
     peers[node_id] = record
     return record

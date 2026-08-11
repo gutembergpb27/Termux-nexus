@@ -29,6 +29,9 @@ def test_core_builds_authenticated_register_envelope():
         "web_port": 8082,
         "tcp_port": 9092,
         "protocol_version": 1,
+        "capabilities": {
+            "handlers": [],
+        },
     }
 
     verifier = NexusProtocol("test-secret")
@@ -66,7 +69,12 @@ def test_core_builds_authenticated_heartbeat_envelope():
 
     assert envelope["type"] == "HEARTBEAT"
     assert envelope["sender"] == "NO-ARM-01"
-    assert envelope["payload"] == {"role": "FOLLOWER"}
+    assert envelope["payload"] == {
+        "role": "FOLLOWER",
+        "capabilities": {
+            "handlers": [],
+        },
+    }
 
     verifier = NexusProtocol("test-secret")
     assert verifier.verify_envelope(

@@ -142,6 +142,22 @@ class NexusDistributedCore:
         result["reason"] = "follower_operational"
         return result
 
+    def compute_capabilities(self):
+        registry = getattr(
+            self,
+            "compute_task_handlers",
+            None,
+        )
+
+        handlers = []
+
+        if registry is not None:
+            handlers = list(registry.names())
+
+        return {
+            "handlers": handlers,
+        }
+
     def build_registration_envelope(
         self,
         *,
@@ -158,6 +174,7 @@ class NexusDistributedCore:
                 "web_port": self.web_port,
                 "tcp_port": self.tcp_port,
                 "protocol_version": 1,
+                "capabilities": self.compute_capabilities(),
             },
             timestamp=timestamp,
             nonce=nonce,
@@ -191,7 +208,10 @@ class NexusDistributedCore:
         return self.protocol.create_envelope(
             sender=getattr(self, "node_id", "unknown"),
             message_type="HEARTBEAT",
-            payload={"role": self.role},
+            payload={
+                "role": self.role,
+                "capabilities": self.compute_capabilities(),
+            },
             timestamp=timestamp,
             nonce=nonce,
             message_id=message_id,
