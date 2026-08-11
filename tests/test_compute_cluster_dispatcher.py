@@ -106,3 +106,138 @@ def test_dispatcher_tracks_leader_changes() -> None:
     assert dispatcher.dispatch(ComputeTask(name="second")) == "node-b"
 
     assert calls == ["node-a", "node-b"]
+
+
+def test_dispatcher_prefers_capable_leader() -> None:
+    cluster = build_cluster_with_leader()
+    calls = []
+
+    capabilities = {
+        "node-a": {
+            "handlers": ["echo", "matrix_multiply"],
+        },
+        "node-b": {
+            "handlers": ["echo"],
+        },
+    }
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=lambda node_id, task: calls.append(node_id) or node_id,
+        capabilities=lambda node_id: capabilities.get(
+            node_id,
+            {"handlers": []},
+        ),
+    )
+
+    result = dispatcher.dispatch(
+        ComputeTask(name="matrix_multiply")
+    )
+
+    assert result == "node-a"
+    assert calls == ["node-a"]
+
+
+def test_dispatcher_routes_to_capable_follower_when_leader_cannot_execute() -> None:
+    cluster = build_cluster_with_leader()
+    calls = []
+
+    capabilities = {
+        "node-a": {
+            "handlers": ["echo"],
+        },
+        "node-b": {
+            "handlers": ["echo", "matrix_multiply"],
+        },
+    }
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=lambda node_id, task: calls.append(node_id) or node_id,
+        capabilities=lambda node_id: capabilities.get(
+            node_id,
+            {"handlers": []},
+        ),
+    )
+
+    result = dispatcher.dispatch(
+        ComputeTask(name="matrix_multiply")
+    )
+
+    assert result == "node-b"
+    assert calls == ["node-b"]
+
+
+def test_dispatcher_rejects_task_when_no_node_advertises_handler() -> None:
+    cluster = build_cluster_with_leader()
+
+    capabilities = {
+        "node-a": {
+            "handlers": ["echo"],
+        },
+        "node-b": {
+            "handlers": ["data_transform"],
+        },
+    }
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=lambda node_id, task: node_id,
+        capabilities=lambda node_id: capabilities.get(
+            node_id,
+            {"handlers": []},
+        ),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="no online node supports task handler",
+    ):
+        dispatcher.dispatch(
+            ComputeTask(name="matrix_multiply")
+        )
+
+
+def test_dispatcher_ignores_offline_capable_node() -> None:
+    cluster = build_cluster_with_leader()
+
+    capabilities = {
+        "node-a": {
+            "handlers": ["echo"],
+        },
+        "node-b": {
+            "handlers": ["matrix_multiply"],
+        },
+    }
+
+    cluster.remove_node("node-b")
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=lambda node_id, task: node_id,
+        capabilities=lambda node_id: capabilities.get(
+            node_id,
+            {"handlers": []},
+        ),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="no online node supports task handler",
+    ):
+        dispatcher.dispatch(
+            ComputeTask(name="matrix_multiply")
+        )
+
+
+def test_dispatcher_preserves_leader_only_behavior_without_capabilities_provider() -> None:
+    cluster = build_cluster_with_leader()
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=lambda node_id, task: node_id,
+    )
+
+    assert dispatcher.dispatch(
+        ComputeTask(name="anything")
+    ) == "node-a"

@@ -1,8 +1,9 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import pytest
 
 from nexus.compute import (
+    ClusterDispatcher,
     ClusterBackend,
     ComputeRequirements,
     ComputeRuntime,
@@ -173,3 +174,63 @@ def test_runtime_selects_cluster_for_cluster_requirement() -> None:
     assert result.backend == "cluster"
     assert result.requested_backend == "auto"
     assert result.output == {"leader": "node-a"}
+
+
+def test_cluster_backend_routes_to_capable_follower() -> None:
+    cluster = RuntimeCluster()
+    cluster.add_node("node-a")
+    cluster.add_node("node-b")
+    cluster.elect_leader("node-a")
+
+    calls = []
+
+    capabilities = {
+        "node-a": {
+            "handlers": ["echo"],
+        },
+        "node-b": {
+            "handlers": [
+                "echo",
+                "matrix_multiply",
+            ],
+        },
+    }
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=lambda node_id, task: (
+            calls.append(node_id)
+            or {
+                "node_id": node_id,
+                "task": task.name,
+            }
+        ),
+        capabilities=lambda node_id: capabilities.get(
+            node_id,
+            {"handlers": []},
+        ),
+    )
+
+    backend = ClusterBackend(
+        cluster,
+        dispatcher=dispatcher,
+    )
+
+    result = backend.run(
+        ComputeTask(
+            name="matrix_multiply",
+            payload={
+                "left": [[1]],
+                "right": [[2]],
+            },
+        )
+    )
+
+    assert calls == ["node-b"]
+
+    assert result.backend == "cluster"
+    assert result.status == "completed"
+    assert result.output == {
+        "node_id": "node-b",
+        "task": "matrix_multiply",
+    }
