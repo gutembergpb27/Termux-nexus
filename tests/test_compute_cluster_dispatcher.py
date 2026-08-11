@@ -490,3 +490,229 @@ def test_dispatcher_rejects_unknown_memory_for_minimum_requirement() -> None:
                 ),
             )
         )
+
+
+def test_dispatcher_prefers_less_loaded_eligible_node() -> None:
+    from nexus.compute import NodeLoad
+
+    cluster = build_cluster_with_leader()
+    calls = []
+
+    capabilities = {
+        "node-a": {
+            "handlers": ["echo"],
+        },
+        "node-b": {
+            "handlers": ["echo"],
+        },
+    }
+
+    loads = {
+        "node-a": NodeLoad(
+            active_tasks=4,
+            queued_tasks=0,
+            completed_tasks=10,
+            failed_tasks=0,
+            average_duration_ms=10.0,
+        ),
+        "node-b": NodeLoad(
+            active_tasks=1,
+            queued_tasks=0,
+            completed_tasks=10,
+            failed_tasks=0,
+            average_duration_ms=10.0,
+        ),
+    }
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=lambda node_id, task: (
+            calls.append(node_id) or node_id
+        ),
+        capabilities=lambda node_id: capabilities[node_id],
+        load=lambda node_id: loads[node_id],
+    )
+
+    result = dispatcher.dispatch(
+        ComputeTask(name="echo")
+    )
+
+    assert result == "node-b"
+    assert calls == ["node-b"]
+
+
+def test_dispatcher_prefers_leader_when_load_is_equal() -> None:
+    from nexus.compute import NodeLoad
+
+    cluster = build_cluster_with_leader()
+    calls = []
+
+    capabilities = {
+        "node-a": {"handlers": ["echo"]},
+        "node-b": {"handlers": ["echo"]},
+    }
+
+    equal_load = NodeLoad(
+        active_tasks=1,
+        queued_tasks=0,
+        completed_tasks=10,
+        failed_tasks=0,
+        average_duration_ms=10.0,
+    )
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=lambda node_id, task: (
+            calls.append(node_id) or node_id
+        ),
+        capabilities=lambda node_id: capabilities[node_id],
+        load=lambda node_id: equal_load,
+    )
+
+    result = dispatcher.dispatch(
+        ComputeTask(name="echo")
+    )
+
+    assert result == "node-a"
+    assert calls == ["node-a"]
+
+
+def test_dispatcher_prefers_known_low_load_over_unknown_load() -> None:
+    from nexus.compute import NodeLoad
+
+    cluster = build_cluster_with_leader()
+    calls = []
+
+    capabilities = {
+        "node-a": {
+            "handlers": ["echo"],
+        },
+        "node-b": {
+            "handlers": ["echo"],
+        },
+    }
+
+    loads = {
+        "node-a": None,
+        "node-b": NodeLoad(
+            active_tasks=1,
+            queued_tasks=0,
+            completed_tasks=10,
+            failed_tasks=0,
+            average_duration_ms=5.0,
+        ),
+    }
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=lambda node_id, task: (
+            calls.append(node_id) or node_id
+        ),
+        capabilities=lambda node_id: capabilities[node_id],
+        load=lambda node_id: loads[node_id],
+    )
+
+    result = dispatcher.dispatch(
+        ComputeTask(name="echo")
+    )
+
+    assert result == "node-b"
+    assert calls == ["node-b"]
+
+
+def test_dispatcher_uses_queued_tasks_as_load_tiebreaker() -> None:
+    from nexus.compute import NodeLoad
+
+    cluster = build_cluster_with_leader()
+    calls = []
+
+    capabilities = {
+        "node-a": {
+            "handlers": ["echo"],
+        },
+        "node-b": {
+            "handlers": ["echo"],
+        },
+    }
+
+    loads = {
+        "node-a": NodeLoad(
+            active_tasks=1,
+            queued_tasks=3,
+            completed_tasks=10,
+            failed_tasks=0,
+            average_duration_ms=5.0,
+        ),
+        "node-b": NodeLoad(
+            active_tasks=1,
+            queued_tasks=0,
+            completed_tasks=10,
+            failed_tasks=0,
+            average_duration_ms=5.0,
+        ),
+    }
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=lambda node_id, task: (
+            calls.append(node_id) or node_id
+        ),
+        capabilities=lambda node_id: capabilities[node_id],
+        load=lambda node_id: loads[node_id],
+    )
+
+    result = dispatcher.dispatch(
+        ComputeTask(name="echo")
+    )
+
+    assert result == "node-b"
+    assert calls == ["node-b"]
+
+
+def test_dispatcher_uses_average_duration_as_load_tiebreaker() -> None:
+    from nexus.compute import NodeLoad
+
+    cluster = build_cluster_with_leader()
+    calls = []
+
+    capabilities = {
+        "node-a": {
+            "handlers": ["echo"],
+        },
+        "node-b": {
+            "handlers": ["echo"],
+        },
+    }
+
+    loads = {
+        "node-a": NodeLoad(
+            active_tasks=1,
+            queued_tasks=0,
+            completed_tasks=10,
+            failed_tasks=0,
+            average_duration_ms=20.0,
+        ),
+        "node-b": NodeLoad(
+            active_tasks=1,
+            queued_tasks=0,
+            completed_tasks=10,
+            failed_tasks=0,
+            average_duration_ms=5.0,
+        ),
+    }
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=lambda node_id, task: (
+            calls.append(node_id) or node_id
+        ),
+        capabilities=lambda node_id: capabilities[node_id],
+        load=lambda node_id: loads[node_id],
+    )
+
+    result = dispatcher.dispatch(
+        ComputeTask(name="echo")
+    )
+
+    assert result == "node-b"
+    assert calls == ["node-b"]

@@ -5,11 +5,13 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from nexus.compute.node_load import NodeLoad
 from nexus.compute.task import ComputeTask
 from nexus.runtime.cluster import RuntimeCluster
 
 NodeExecutor = Callable[[str, ComputeTask], Any]
 CapabilityProvider = Callable[[str], Mapping[str, Any]]
+LoadProvider = Callable[[str], NodeLoad | None]
 
 
 class ClusterDispatcher:
@@ -20,10 +22,12 @@ class ClusterDispatcher:
         cluster: RuntimeCluster,
         executor: NodeExecutor,
         capabilities: CapabilityProvider | None = None,
+        load: LoadProvider | None = None,
     ) -> None:
         self._cluster = cluster
         self._executor = executor
         self._capabilities = capabilities
+        self._load = load
 
     def leader(self) -> str:
         """Retorna o líder atual ou falha quando não houver eleição."""
@@ -71,9 +75,7 @@ class ClusterDispatcher:
         if self._capabilities is None:
             return True
 
-        capabilities = self._node_capabilities(
-            node_id
-        )
+        capabilities = self._node_capabilities(node_id)
 
         handlers = capabilities.get(
             "handlers",
@@ -96,9 +98,7 @@ class ClusterDispatcher:
         if self._capabilities is None:
             return True
 
-        capabilities = self._node_capabilities(
-            node_id
-        )
+        capabilities = self._node_capabilities(node_id)
         requirements = task.requirements
 
         if requirements.compute_type is not None:
@@ -113,9 +113,7 @@ class ClusterDispatcher:
                 return False
 
         if requirements.min_memory_mb is not None:
-            memory_mb = capabilities.get(
-                "memory_mb"
-            )
+            memory_mb = capabilities.get("memory_mb")
 
             if memory_mb is None:
                 return False
@@ -149,6 +147,41 @@ class ClusterDispatcher:
             )
         )
 
+    def _load_key(
+        self,
+        node_id: str,
+        leader: str,
+    ) -> tuple[Any, ...]:
+        provider = self._load
+
+        if provider is None:
+            return (
+                0,
+                0,
+                0.0,
+                0 if node_id == leader else 1,
+                node_id,
+            )
+
+        load = provider(node_id)
+
+        if load is None:
+            return (
+                float("inf"),
+                float("inf"),
+                float("inf"),
+                0 if node_id == leader else 1,
+                node_id,
+            )
+
+        return (
+            load.active_tasks,
+            load.queued_tasks,
+            load.average_duration_ms,
+            0 if node_id == leader else 1,
+            node_id,
+        )
+
     def _resolve_target(
         self,
         task: ComputeTask,
@@ -168,27 +201,32 @@ class ClusterDispatcher:
         if self._capabilities is None:
             return leader
 
-        # Líder continua sendo preferencial quando
-        # suporta o handler e satisfaz os requisitos.
-        if self._is_eligible(
-            leader,
-            task,
-        ):
-            return leader
-
-        # Procura deterministicamente outro nó online.
-        for node_id in sorted(online_nodes):
-            if node_id == leader:
-                continue
-
+        eligible_nodes = [
+            node_id
+            for node_id in online_nodes
             if self._is_eligible(
                 node_id,
                 task,
-            ):
-                return node_id
+            )
+        ]
 
-        # Distingue ausência do handler de incapacidade
-        # de satisfazer requisitos computacionais.
+        if eligible_nodes:
+            if self._load is None:
+                if leader in eligible_nodes:
+                    return leader
+
+                return sorted(
+                    eligible_nodes
+                )[0]
+
+            return min(
+                eligible_nodes,
+                key=lambda node_id: self._load_key(
+                    node_id,
+                    leader,
+                ),
+            )
+
         handler_available = any(
             self._supports_handler(
                 node_id,
