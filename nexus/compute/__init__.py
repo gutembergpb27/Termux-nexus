@@ -13,6 +13,7 @@ from nexus.compute.handlers import (
 from nexus.compute.health import BackendHealth
 from nexus.compute.local import LocalBackend
 from nexus.compute.metrics import BackendMetrics
+from nexus.compute.peer_capabilities import PeerCapabilityProvider
 from nexus.compute.registry import BackendRegistry
 from nexus.compute.requirements import ComputeRequirements
 from nexus.compute.result import ComputeResult
@@ -26,6 +27,7 @@ __all__ = [
     "BackendCapabilities",
     "BackendHealth",
     "BackendMetrics",
+    "PeerCapabilityProvider",
     "BackendRegistry",
     "BackendScheduler",
     "BackendSelection",
