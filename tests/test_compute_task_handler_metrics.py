@@ -247,3 +247,25 @@ def test_registry_reports_active_execution() -> None:
     assert result_holder["value"] == {
         "value": 1,
     }
+
+
+def test_core_node_load_reports_real_queued_tasks() -> None:
+    from nexus.compute import ComputeTask, TaskQueue
+    from nexus_distributed_core import NexusDistributedCore
+
+    core = object.__new__(NexusDistributedCore)
+    core.compute_task_handlers = build_default_task_registry()
+    core.compute_task_queue = TaskQueue()
+
+    core.compute_task_queue.enqueue(
+        ComputeTask(name="echo")
+    )
+
+    core.compute_task_queue.enqueue(
+        ComputeTask(name="data_transform")
+    )
+
+    load = core.compute_node_load()
+
+    assert load.active_tasks == 0
+    assert load.queued_tasks == 2

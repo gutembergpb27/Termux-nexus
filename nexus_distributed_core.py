@@ -1,6 +1,7 @@
 from nexus.compute.handlers import TaskHandlerRegistry, build_default_task_registry
 from nexus.compute.hardware import HardwareCapabilityDetector
 from nexus.compute.node_load import NodeLoad
+from nexus.compute.task import ComputeTask
 from nexus_protocol import NexusProtocol, ReplayCache
 from nexus_transport import recv_message, send_message
 from persistence import NexusPersistence
@@ -165,9 +166,28 @@ class NexusDistributedCore:
         )
 
         if registry is None:
-            return NodeLoad()
+            load = NodeLoad()
+        else:
+            load = registry.load_snapshot()
 
-        return registry.load_snapshot()
+        queue = getattr(
+            self,
+            "compute_task_queue",
+            None,
+        )
+
+        queued_tasks = 0
+
+        if queue is not None:
+            queued_tasks = queue.pending_count()
+
+        return NodeLoad(
+            active_tasks=load.active_tasks,
+            queued_tasks=queued_tasks,
+            completed_tasks=load.completed_tasks,
+            failed_tasks=load.failed_tasks,
+            average_duration_ms=load.average_duration_ms,
+        )
 
     def compute_capabilities(self):
         registry = getattr(
@@ -325,6 +345,41 @@ class NexusDistributedCore:
             applied,
         )
 
+    def execute_queued_compute_task(
+        self,
+        task: ComputeTask,
+    ):
+        queue = getattr(
+            self,
+            "compute_task_queue",
+            None,
+        )
+
+        if queue is None:
+            raise RuntimeError(
+                "compute task queue is not configured"
+            )
+
+        registry = getattr(
+            self,
+            "compute_task_handlers",
+            None,
+        )
+
+        if registry is None:
+            raise RuntimeError(
+                "compute task handlers are not configured"
+            )
+
+        queue.enqueue(task)
+
+        queued_task = queue.dequeue()
+
+        return registry.execute(
+            queued_task.name,
+            queued_task.payload,
+        )
+
     def handle_compute_task(self, conn, message):
         self.protocol.verify_envelope(
             message,
@@ -358,9 +413,14 @@ class NexusDistributedCore:
                 "compute task payload must be an object"
             )
 
-        output = self.compute_task_handlers.execute(
-            name,
-            task_payload,
+        task = ComputeTask(
+            name=name,
+            payload=task_payload,
+            task_id=task_id,
+        )
+
+        output = self.execute_queued_compute_task(
+            task
         )
 
         response_payload = {

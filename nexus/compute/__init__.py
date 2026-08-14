@@ -23,6 +23,7 @@ from nexus.compute.runtime import ComputeRuntime
 from nexus.compute.scheduler import BackendScheduler
 from nexus.compute.selection import BackendSelection
 from nexus.compute.task import ComputeTask
+from nexus.compute.task_queue import TaskQueue
 from nexus.compute.transport_executor import TransportNodeExecutor
 
 __all__ = [
@@ -42,6 +43,7 @@ __all__ = [
     "ComputeResult",
     "ComputeRuntime",
     "ComputeTask",
+    "TaskQueue",
     "LocalBackend",
     "TransportNodeExecutor",
     "NodeExecutor",
