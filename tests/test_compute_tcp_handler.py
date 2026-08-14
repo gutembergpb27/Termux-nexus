@@ -285,3 +285,162 @@ def test_secure_remote_execution_updates_handler_metrics(
             [43, 50],
         ],
     }
+
+
+def test_secure_compute_handler_returns_failed_result(
+    monkeypatch,
+) -> None:
+    core = build_core()
+    captured = {}
+
+    request = core.protocol.create_envelope(
+        sender="NODE-B",
+        message_type="COMPUTE_TASK",
+        payload={
+            "task_id": "task-failed-result",
+            "name": "data_transform",
+            "task_payload": {
+                "operation": "invalid",
+                "values": [1, 2, 3],
+            },
+        },
+    )
+
+    monkeypatch.setattr(
+        "nexus_distributed_core.send_message",
+        lambda conn, message: captured.update(
+            message=message
+        ),
+    )
+
+    core.handle_compute_task(
+        object(),
+        request,
+    )
+
+    response = captured["message"]
+
+    assert response["type"] == "COMPUTE_RESULT"
+    assert response["payload"]["task_id"] == "task-failed-result"
+    assert response["payload"]["status"] == "failed"
+    assert response["payload"]["node_id"] == "NODE-A"
+    assert (
+        "unsupported data transform operation"
+        in response["payload"]["error"]
+    )
+    assert "output" not in response["payload"]
+
+
+def test_failed_compute_result_is_signed_and_verifiable(
+    monkeypatch,
+) -> None:
+    from nexus_protocol import ReplayCache
+
+    core = build_core()
+    captured = {}
+
+    request = core.protocol.create_envelope(
+        sender="NODE-B",
+        message_type="COMPUTE_TASK",
+        payload={
+            "task_id": "task-failed-signed",
+            "name": "data_transform",
+            "task_payload": {
+                "operation": "invalid",
+                "values": [1, 2, 3],
+            },
+        },
+    )
+
+    monkeypatch.setattr(
+        "nexus_distributed_core.send_message",
+        lambda conn, message: captured.update(
+            message=message
+        ),
+    )
+
+    core.handle_compute_task(
+        object(),
+        request,
+    )
+
+    response = captured["message"]
+
+    assert response["type"] == "COMPUTE_RESULT"
+    assert "signature" in response
+
+    assert core.protocol.verify_envelope(
+        response,
+        ttl=60.0,
+        replay_cache=ReplayCache(),
+    ) is True
+
+    assert response["payload"]["status"] == "failed"
+    assert response["payload"]["task_id"] == "task-failed-signed"
+    assert "error" in response["payload"]
+
+
+def test_secure_compute_handler_returns_timeout_result(
+    monkeypatch,
+) -> None:
+    from nexus.compute.task_completion import (
+        TaskCompletion,
+    )
+
+    core = build_core()
+    captured = {}
+
+    request = core.protocol.create_envelope(
+        sender="NODE-B",
+        message_type="COMPUTE_TASK",
+        payload={
+            "task_id": "task-timeout-result",
+            "name": "echo",
+            "task_payload": {
+                "value": 42,
+            },
+        },
+    )
+
+    monkeypatch.setattr(
+        "nexus_distributed_core.send_message",
+        lambda conn, message: captured.update(
+            message=message
+        ),
+    )
+
+    monkeypatch.setattr(
+        core,
+        "submit_compute_task",
+        lambda task: TaskCompletion.pending(
+            task_id=task.task_id,
+        ),
+    )
+
+    monkeypatch.setattr(
+        core,
+        "wait_for_compute_task",
+        lambda task_id, timeout=None: (
+            (_ for _ in ()).throw(
+                TimeoutError(
+                    "task completion timed out"
+                )
+            )
+        ),
+    )
+
+    core.handle_compute_task(
+        object(),
+        request,
+    )
+
+    response = captured["message"]
+
+    assert response["type"] == "COMPUTE_RESULT"
+    assert response["payload"]["task_id"] == "task-timeout-result"
+    assert response["payload"]["status"] == "timeout"
+    assert response["payload"]["node_id"] == "NODE-A"
+    assert response["payload"]["error"] == (
+        "task completion timed out"
+    )
+    assert "output" not in response["payload"]

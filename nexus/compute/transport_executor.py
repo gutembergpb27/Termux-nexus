@@ -111,9 +111,27 @@ class TransportNodeExecutor:
                 "compute response task id mismatch"
             )
 
-        if payload.get("status") != "completed":
+        status = payload.get("status")
+
+        if status == "failed":
+            error = str(
+                payload.get("error")
+                or "remote compute failed"
+            )
+
+            raise RuntimeError(error)
+
+        if status == "timeout":
+            error = str(
+                payload.get("error")
+                or "remote compute timed out"
+            )
+
+            raise TimeoutError(error)
+
+        if status != "completed":
             raise RuntimeError(
-                f"remote compute failed: {payload.get('status')}"
+                f"remote compute failed: {status}"
             )
 
         return payload.get("output")
