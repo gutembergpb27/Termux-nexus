@@ -2,6 +2,8 @@ from nexus.compute.handlers import TaskHandlerRegistry, build_default_task_regis
 from nexus.compute.hardware import HardwareCapabilityDetector
 from nexus.compute.node_load import NodeLoad
 from nexus.compute.task import ComputeTask
+from nexus.compute.task_queue import TaskQueue
+from nexus.compute.task_worker import TaskWorker
 from nexus_protocol import NexusProtocol, ReplayCache
 from nexus_transport import recv_message, send_message
 from persistence import NexusPersistence
@@ -33,6 +35,11 @@ class NexusDistributedCore:
         self.protocol = NexusProtocol(secret)
         self.compute_replay_cache = ReplayCache()
         self.compute_task_handlers = build_default_task_registry()
+        self.compute_task_queue = TaskQueue()
+        self.compute_task_worker = TaskWorker(
+            queue=self.compute_task_queue,
+            registry=self.compute_task_handlers,
+        )
         self.hardware_capability_detector = HardwareCapabilityDetector()
         self.compute_message_ttl = float(
             os.getenv("NEXUS_MESSAGE_TTL", "60.0")
@@ -343,6 +350,38 @@ class NexusDistributedCore:
             "sync_batch_applied node=%s blocks=%s",
             getattr(self, "node_id", "unknown"),
             applied,
+        )
+
+    def start_compute_worker(self) -> bool:
+        worker = getattr(
+            self,
+            "compute_task_worker",
+            None,
+        )
+
+        if worker is None:
+            raise RuntimeError(
+                "compute task worker is not configured"
+            )
+
+        return worker.start()
+
+    def stop_compute_worker(
+        self,
+        *,
+        timeout: float | None = None,
+    ) -> bool:
+        worker = getattr(
+            self,
+            "compute_task_worker",
+            None,
+        )
+
+        if worker is None:
+            return False
+
+        return worker.stop(
+            timeout=timeout
         )
 
     def execute_queued_compute_task(

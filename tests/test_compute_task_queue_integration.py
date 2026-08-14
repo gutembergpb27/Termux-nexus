@@ -117,3 +117,141 @@ def test_failed_queued_task_leaves_queue_empty() -> None:
     assert load.active_tasks == 0
     assert load.completed_tasks == 0
     assert load.failed_tasks == 1
+
+
+def test_core_initializes_compute_queue_and_worker(monkeypatch, tmp_path) -> None:
+    from nexus.compute import TaskQueue, TaskWorker
+
+    monkeypatch.setenv(
+        "NEXUS_SECRET_KEY",
+        "test-secret",
+    )
+
+    monkeypatch.setenv(
+        "NEXUS_DB_PATH",
+        str(tmp_path / "nexus-worker.db"),
+    )
+
+    monkeypatch.setattr(
+        "nexus_distributed_core.start_web_server",
+        lambda core, port: None,
+    )
+
+    monkeypatch.setattr(
+        "nexus_distributed_core.threading.Thread",
+        lambda *args, **kwargs: type(
+            "FakeThread",
+            (),
+            {
+                "start": lambda self: None,
+            },
+        )(),
+    )
+
+    core = NexusDistributedCore(
+        "NO-WORKER-01",
+        8081,
+        9091,
+        "FOLLOWER",
+    )
+
+    assert isinstance(
+        core.compute_task_queue,
+        TaskQueue,
+    )
+
+    assert isinstance(
+        core.compute_task_worker,
+        TaskWorker,
+    )
+
+
+def test_core_initializes_compute_queue_and_worker(monkeypatch, tmp_path) -> None:
+    from nexus.compute import TaskQueue, TaskWorker
+
+    monkeypatch.setenv(
+        "NEXUS_SECRET_KEY",
+        "test-secret",
+    )
+
+    monkeypatch.setenv(
+        "NEXUS_DB_PATH",
+        str(tmp_path / "nexus-worker.db"),
+    )
+
+    monkeypatch.setattr(
+        "nexus_distributed_core.start_web_server",
+        lambda core, port: None,
+    )
+
+    monkeypatch.setattr(
+        "nexus_distributed_core.threading.Thread",
+        lambda *args, **kwargs: type(
+            "FakeThread",
+            (),
+            {
+                "start": lambda self: None,
+            },
+        )(),
+    )
+
+    core = NexusDistributedCore(
+        "NO-WORKER-01",
+        8081,
+        9091,
+        "FOLLOWER",
+    )
+
+    assert isinstance(
+        core.compute_task_queue,
+        TaskQueue,
+    )
+
+    assert isinstance(
+        core.compute_task_worker,
+        TaskWorker,
+    )
+
+
+def test_core_starts_compute_worker() -> None:
+    core = object.__new__(NexusDistributedCore)
+    core.compute_task_handlers = build_default_task_registry()
+    core.compute_task_queue = TaskQueue()
+
+    from nexus.compute import TaskWorker
+
+    core.compute_task_worker = TaskWorker(
+        queue=core.compute_task_queue,
+        registry=core.compute_task_handlers,
+    )
+
+    assert core.compute_task_worker.running is False
+
+    assert core.start_compute_worker() is True
+    assert core.compute_task_worker.running is True
+
+    assert core.stop_compute_worker(
+        timeout=1.0
+    ) is True
+
+    assert core.compute_task_worker.running is False
+
+
+def test_core_compute_worker_start_is_idempotent() -> None:
+    core = object.__new__(NexusDistributedCore)
+    core.compute_task_handlers = build_default_task_registry()
+    core.compute_task_queue = TaskQueue()
+
+    from nexus.compute import TaskWorker
+
+    core.compute_task_worker = TaskWorker(
+        queue=core.compute_task_queue,
+        registry=core.compute_task_handlers,
+    )
+
+    assert core.start_compute_worker() is True
+    assert core.start_compute_worker() is False
+
+    assert core.stop_compute_worker(
+        timeout=1.0
+    ) is True
