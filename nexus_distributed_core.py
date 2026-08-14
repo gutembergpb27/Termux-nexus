@@ -571,27 +571,45 @@ class NexusDistributedCore:
         if not worker.running:
             worker.start()
 
-        completion = self.wait_for_compute_task(
-            task_id,
-            timeout=self.compute_message_ttl,
+        node_id = getattr(
+            self,
+            "node_id",
+            "unknown",
         )
 
-        if completion.status == "failed":
-            raise RuntimeError(
-                completion.error
-                or "compute task failed"
+        try:
+            completion = self.wait_for_compute_task(
+                task_id,
+                timeout=self.compute_message_ttl,
             )
-
-        response_payload = {
-            "task_id": task_id,
-            "status": "completed",
-            "node_id": getattr(
-                self,
-                "node_id",
-                "unknown",
-            ),
-            "output": completion.result,
-        }
+        except TimeoutError as exc:
+            response_payload = {
+                "task_id": task_id,
+                "status": "timeout",
+                "node_id": node_id,
+                "error": str(
+                    exc
+                    or "task completion timed out"
+                ),
+            }
+        else:
+            if completion.status == "failed":
+                response_payload = {
+                    "task_id": task_id,
+                    "status": "failed",
+                    "node_id": node_id,
+                    "error": (
+                        completion.error
+                        or "compute task failed"
+                    ),
+                }
+            else:
+                response_payload = {
+                    "task_id": task_id,
+                    "status": "completed",
+                    "node_id": node_id,
+                    "output": completion.result,
+                }
 
         response = self.protocol.create_envelope(
             sender=getattr(self, "node_id", "unknown"),

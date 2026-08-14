@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import pytest
 
@@ -299,3 +299,103 @@ def test_transport_executor_rejects_expired_response(
         match="expired",
     ):
         executor("node-a", task)
+
+
+def test_transport_executor_raises_on_failed_compute_result(
+    monkeypatch,
+) -> None:
+    task = ComputeTask(
+        name="remote-job",
+        payload={"value": 42},
+        task_id="task-remote-failed",
+    )
+
+    protocol = build_protocol()
+
+    response = protocol.create_envelope(
+        sender="node-a",
+        message_type="COMPUTE_RESULT",
+        payload={
+            "task_id": task.task_id,
+            "status": "failed",
+            "node_id": "node-a",
+            "error": "remote handler failed",
+        },
+    )
+
+    monkeypatch.setattr(
+        "nexus.compute.transport_executor.recv_message",
+        lambda conn: response,
+    )
+
+    patch_connection(monkeypatch)
+
+    monkeypatch.setattr(
+        "nexus.compute.transport_executor.send_message",
+        lambda conn, message: None,
+    )
+
+    executor = TransportNodeExecutor(
+        build_peers(),
+        protocol=protocol,
+        sender_id="node-client",
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="remote handler failed",
+    ):
+        executor(
+            "node-a",
+            task,
+        )
+
+
+def test_transport_executor_raises_timeout_on_timeout_result(
+    monkeypatch,
+) -> None:
+    task = ComputeTask(
+        name="remote-job",
+        payload={"value": 42},
+        task_id="task-remote-timeout",
+    )
+
+    protocol = build_protocol()
+
+    response = protocol.create_envelope(
+        sender="node-a",
+        message_type="COMPUTE_RESULT",
+        payload={
+            "task_id": task.task_id,
+            "status": "timeout",
+            "node_id": "node-a",
+            "error": "task completion timed out",
+        },
+    )
+
+    monkeypatch.setattr(
+        "nexus.compute.transport_executor.recv_message",
+        lambda conn: response,
+    )
+
+    patch_connection(monkeypatch)
+
+    monkeypatch.setattr(
+        "nexus.compute.transport_executor.send_message",
+        lambda conn, message: None,
+    )
+
+    executor = TransportNodeExecutor(
+        build_peers(),
+        protocol=protocol,
+        sender_id="node-client",
+    )
+
+    with pytest.raises(
+        TimeoutError,
+        match="task completion timed out",
+    ):
+        executor(
+            "node-a",
+            task,
+        )
