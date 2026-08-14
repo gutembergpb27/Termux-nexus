@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from threading import Event, Lock, Thread
-from time import sleep
 
 from nexus.compute.handlers import TaskHandlerRegistry
+from nexus.compute.task_completion import TaskCompletionRegistry
 from nexus.compute.task_queue import TaskQueue
 
 
@@ -17,9 +17,11 @@ class TaskWorker:
         *,
         queue: TaskQueue,
         registry: TaskHandlerRegistry,
+        completions: TaskCompletionRegistry | None = None,
     ) -> None:
         self._queue = queue
         self._registry = registry
+        self._completions = completions
         self._stop_event = Event()
         self._lifecycle_lock = Lock()
         self._thread: Thread | None = None
@@ -40,10 +42,37 @@ class TaskWorker:
 
         task = self._queue.dequeue()
 
-        return self._registry.execute(
-            task.name,
-            task.payload,
-        )
+        try:
+            result = self._registry.execute(
+                task.name,
+                task.payload,
+            )
+        except Exception as exc:
+            if self._completions is not None:
+                completion = self._completions.get(
+                    task.task_id
+                )
+
+                if completion is not None:
+                    self._completions.fail(
+                        task.task_id,
+                        str(exc),
+                    )
+
+            raise
+
+        if self._completions is not None:
+            completion = self._completions.get(
+                task.task_id
+            )
+
+            if completion is not None:
+                self._completions.complete(
+                    task.task_id,
+                    result,
+                )
+
+        return result
 
     def run_until_empty(self) -> list:
         results = []
@@ -64,8 +93,8 @@ class TaskWorker:
             try:
                 self.run_once()
             except Exception:
-                # A falha já é contabilizada pelo TaskHandlerRegistry.
-                # O loop deve continuar processando tarefas seguintes.
+                # A falha já é contabilizada pelo registry
+                # e, quando configurado, pelo completion registry.
                 continue
 
     def start(self) -> bool:
