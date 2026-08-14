@@ -286,3 +286,91 @@ def test_background_worker_continues_after_task_failure() -> None:
 
     assert worker.stop(timeout=1.0) is True
     assert worker.running is False
+
+
+def test_worker_marks_task_completion_completed() -> None:
+    from nexus.compute.task_completion import (
+        TaskCompletionRegistry,
+    )
+
+    queue = TaskQueue()
+    registry = build_default_task_registry()
+    completions = TaskCompletionRegistry()
+
+    task = ComputeTask(
+        name="echo",
+        payload={"value": 42},
+        task_id="task-complete-1",
+    )
+
+    completions.create(task.task_id)
+    queue.enqueue(task)
+
+    worker = TaskWorker(
+        queue=queue,
+        registry=registry,
+        completions=completions,
+    )
+
+    result = worker.run_once()
+
+    assert result == {"value": 42}
+
+    completion = completions.get(
+        "task-complete-1"
+    )
+
+    assert completion is not None
+    assert completion.status == "completed"
+    assert completion.result == {
+        "value": 42,
+    }
+    assert completion.error is None
+
+
+def test_worker_marks_task_completion_failed() -> None:
+    from nexus.compute.task_completion import (
+        TaskCompletionRegistry,
+    )
+
+    queue = TaskQueue()
+    registry = build_default_task_registry()
+    completions = TaskCompletionRegistry()
+
+    task = ComputeTask(
+        name="data_transform",
+        payload={
+            "operation": "invalid",
+            "values": [1, 2, 3],
+        },
+        task_id="task-fail-1",
+    )
+
+    completions.create(task.task_id)
+    queue.enqueue(task)
+
+    worker = TaskWorker(
+        queue=queue,
+        registry=registry,
+        completions=completions,
+    )
+
+    import pytest
+
+    with pytest.raises(
+        ValueError,
+        match="unsupported data transform operation",
+    ):
+        worker.run_once()
+
+    completion = completions.get(
+        "task-fail-1"
+    )
+
+    assert completion is not None
+    assert completion.status == "failed"
+    assert completion.result is None
+    assert (
+        "unsupported data transform operation"
+        in completion.error
+    )

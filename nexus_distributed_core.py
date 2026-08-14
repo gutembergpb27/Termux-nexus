@@ -2,6 +2,7 @@ from nexus.compute.handlers import TaskHandlerRegistry, build_default_task_regis
 from nexus.compute.hardware import HardwareCapabilityDetector
 from nexus.compute.node_load import NodeLoad
 from nexus.compute.task import ComputeTask
+from nexus.compute.task_completion import TaskCompletionRegistry
 from nexus.compute.task_queue import TaskQueue
 from nexus.compute.task_worker import TaskWorker
 from nexus_protocol import NexusProtocol, ReplayCache
@@ -36,9 +37,11 @@ class NexusDistributedCore:
         self.compute_replay_cache = ReplayCache()
         self.compute_task_handlers = build_default_task_registry()
         self.compute_task_queue = TaskQueue()
+        self.compute_task_completions = TaskCompletionRegistry()
         self.compute_task_worker = TaskWorker(
             queue=self.compute_task_queue,
             registry=self.compute_task_handlers,
+            completions=self.compute_task_completions,
         )
         self.hardware_capability_detector = HardwareCapabilityDetector()
         self.compute_message_ttl = float(
@@ -384,6 +387,77 @@ class NexusDistributedCore:
             timeout=timeout
         )
 
+    def submit_compute_task(
+        self,
+        task: ComputeTask,
+    ):
+        queue = getattr(
+            self,
+            "compute_task_queue",
+            None,
+        )
+
+        if queue is None:
+            raise RuntimeError(
+                "compute task queue is not configured"
+            )
+
+        completions = getattr(
+            self,
+            "compute_task_completions",
+            None,
+        )
+
+        if completions is None:
+            raise RuntimeError(
+                "compute task completions are not configured"
+            )
+
+        registry = getattr(
+            self,
+            "compute_task_handlers",
+            None,
+        )
+
+        if registry is None:
+            raise RuntimeError(
+                "compute task handlers are not configured"
+            )
+
+        # Admission validation: reject an unknown handler before
+        # creating a completion or placing the task in the queue.
+        registry.get(task.name)
+
+        completion = completions.create(
+            task.task_id
+        )
+
+        queue.enqueue(task)
+
+        return completion
+
+    def wait_for_compute_task(
+        self,
+        task_id: str,
+        *,
+        timeout: float | None = None,
+    ):
+        completions = getattr(
+            self,
+            "compute_task_completions",
+            None,
+        )
+
+        if completions is None:
+            raise RuntimeError(
+                "compute task completions are not configured"
+            )
+
+        return completions.wait(
+            task_id,
+            timeout=timeout,
+        )
+
     def execute_queued_compute_task(
         self,
         task: ComputeTask,
@@ -398,6 +472,27 @@ class NexusDistributedCore:
             raise RuntimeError(
                 "compute task queue is not configured"
             )
+
+        worker = getattr(
+            self,
+            "compute_task_worker",
+            None,
+        )
+
+        completions = getattr(
+            self,
+            "compute_task_completions",
+            None,
+        )
+
+        if worker is not None and completions is not None:
+            completions.create(
+                task.task_id
+            )
+
+            queue.enqueue(task)
+
+            return worker.run_once()
 
         registry = getattr(
             self,
@@ -458,9 +553,34 @@ class NexusDistributedCore:
             task_id=task_id,
         )
 
-        output = self.execute_queued_compute_task(
+        self.submit_compute_task(
             task
         )
+
+        worker = getattr(
+            self,
+            "compute_task_worker",
+            None,
+        )
+
+        if worker is None:
+            raise RuntimeError(
+                "compute task worker is not configured"
+            )
+
+        if not worker.running:
+            worker.start()
+
+        completion = self.wait_for_compute_task(
+            task_id,
+            timeout=self.compute_message_ttl,
+        )
+
+        if completion.status == "failed":
+            raise RuntimeError(
+                completion.error
+                or "compute task failed"
+            )
 
         response_payload = {
             "task_id": task_id,
@@ -470,7 +590,7 @@ class NexusDistributedCore:
                 "node_id",
                 "unknown",
             ),
-            "output": output,
+            "output": completion.result,
         }
 
         response = self.protocol.create_envelope(

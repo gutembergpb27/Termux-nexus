@@ -5,8 +5,9 @@ import time
 import pytest
 
 from nexus_distributed_core import NexusDistributedCore
-from nexus.compute import TaskQueue
+from nexus.compute import TaskQueue, TaskWorker
 from nexus.compute.handlers import build_default_task_registry
+from nexus.compute.task_completion import TaskCompletionRegistry
 from nexus_protocol import NexusProtocol, ProtocolError, ReplayCache
 
 
@@ -17,6 +18,12 @@ def build_core():
     core.compute_replay_cache = ReplayCache()
     core.compute_task_handlers = build_default_task_registry()
     core.compute_task_queue = TaskQueue()
+    core.compute_task_completions = TaskCompletionRegistry()
+    core.compute_task_worker = TaskWorker(
+        queue=core.compute_task_queue,
+        registry=core.compute_task_handlers,
+        completions=core.compute_task_completions,
+    )
     core.compute_message_ttl = 60.0
     return core
 
