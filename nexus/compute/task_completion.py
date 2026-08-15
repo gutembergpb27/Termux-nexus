@@ -8,6 +8,16 @@ from time import monotonic
 from typing import Any
 
 
+@dataclass(frozen=True, slots=True)
+class TaskCompletionSnapshot:
+    """Snapshot observ?vel das conclus?es mantidas no registry."""
+
+    pending: int = 0
+    completed: int = 0
+    failed: int = 0
+    total: int = 0
+
+
 @dataclass(frozen=True)
 class TaskCompletion:
     """Representa o estado final ou pendente de uma tarefa compute."""
@@ -190,6 +200,29 @@ class TaskCompletionRegistry:
             self._condition.notify_all()
 
         return completion
+
+    def snapshot(
+        self,
+    ) -> TaskCompletionSnapshot:
+        with self._condition:
+            pending = 0
+            completed = 0
+            failed = 0
+
+            for completion in self._items.values():
+                if completion.status == "pending":
+                    pending += 1
+                elif completion.status == "completed":
+                    completed += 1
+                elif completion.status == "failed":
+                    failed += 1
+
+            return TaskCompletionSnapshot(
+                pending=pending,
+                completed=completed,
+                failed=failed,
+                total=len(self._items),
+            )
 
     def cleanup(
         self,
