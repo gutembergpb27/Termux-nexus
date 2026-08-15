@@ -722,3 +722,267 @@ def test_core_cleans_up_finished_task_completions() -> None:
     assert core.compute_task_completions.get(
         "task-cleanup-core"
     ) is None
+
+
+def test_core_configures_compute_completion_retention(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv(
+        "NEXUS_SECRET_KEY",
+        "test-secret",
+    )
+
+    monkeypatch.setenv(
+        "NEXUS_DB_PATH",
+        str(tmp_path / "nexus-retention.db"),
+    )
+
+    monkeypatch.setenv(
+        "NEXUS_COMPLETION_RETENTION_SECONDS",
+        "120.0",
+    )
+
+    monkeypatch.setattr(
+        "nexus_distributed_core.start_web_server",
+        lambda core, port: None,
+    )
+
+    monkeypatch.setattr(
+        "nexus_distributed_core.threading.Thread",
+        lambda *args, **kwargs: type(
+            "FakeThread",
+            (),
+            {
+                "start": lambda self: None,
+            },
+        )(),
+    )
+
+    core = NexusDistributedCore(
+        "NO-RETENTION-01",
+        8081,
+        9091,
+        "FOLLOWER",
+    )
+
+    assert (
+        core.compute_completion_retention_seconds
+        == 120.0
+    )
+
+
+def test_core_rejects_non_positive_completion_retention(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv(
+        "NEXUS_SECRET_KEY",
+        "test-secret",
+    )
+
+    monkeypatch.setenv(
+        "NEXUS_DB_PATH",
+        str(tmp_path / "nexus-retention-invalid.db"),
+    )
+
+    monkeypatch.setenv(
+        "NEXUS_COMPLETION_RETENTION_SECONDS",
+        "0",
+    )
+
+    monkeypatch.setattr(
+        "nexus_distributed_core.start_web_server",
+        lambda core, port: None,
+    )
+
+    monkeypatch.setattr(
+        "nexus_distributed_core.threading.Thread",
+        lambda *args, **kwargs: type(
+            "FakeThread",
+            (),
+            {
+                "start": lambda self: None,
+            },
+        )(),
+    )
+
+    import pytest
+
+    with pytest.raises(
+        ValueError,
+        match="NEXUS_COMPLETION_RETENTION_SECONDS",
+    ):
+        NexusDistributedCore(
+            "NO-RETENTION-BAD",
+            8081,
+            9091,
+            "FOLLOWER",
+        )
+
+
+def test_submit_compute_task_runs_opportunistic_cleanup(
+    monkeypatch,
+) -> None:
+    from nexus.compute import TaskWorker
+    from nexus.compute.task_completion import (
+        TaskCompletionRegistry,
+    )
+
+    core = object.__new__(NexusDistributedCore)
+    core.compute_task_handlers = build_default_task_registry()
+    core.compute_task_queue = TaskQueue()
+    core.compute_task_completions = TaskCompletionRegistry()
+    core.compute_completion_retention_seconds = 300.0
+
+    core.compute_task_worker = TaskWorker(
+        queue=core.compute_task_queue,
+        registry=core.compute_task_handlers,
+        completions=core.compute_task_completions,
+    )
+
+    calls = []
+
+    monkeypatch.setattr(
+        core,
+        "cleanup_compute_completions",
+        lambda *, max_age: (
+            calls.append(max_age)
+            or 0
+        ),
+    )
+
+    task = ComputeTask(
+        name="echo",
+        payload={"value": 42},
+        task_id="task-opportunistic-cleanup",
+    )
+
+    completion = core.submit_compute_task(task)
+
+    assert calls == [300.0]
+
+    assert completion.task_id == (
+        "task-opportunistic-cleanup"
+    )
+    assert completion.status == "pending"
+
+    assert core.compute_task_queue.pending_count() == 1
+
+
+def test_submit_compute_task_runs_opportunistic_cleanup(
+    monkeypatch,
+) -> None:
+    from nexus.compute import TaskWorker
+    from nexus.compute.task_completion import (
+        TaskCompletionRegistry,
+    )
+
+    core = object.__new__(NexusDistributedCore)
+    core.compute_task_handlers = build_default_task_registry()
+    core.compute_task_queue = TaskQueue()
+    core.compute_task_completions = TaskCompletionRegistry()
+    core.compute_completion_retention_seconds = 300.0
+
+    core.compute_task_worker = TaskWorker(
+        queue=core.compute_task_queue,
+        registry=core.compute_task_handlers,
+        completions=core.compute_task_completions,
+    )
+
+    calls = []
+
+    monkeypatch.setattr(
+        core,
+        "cleanup_compute_completions",
+        lambda *, max_age: (
+            calls.append(max_age)
+            or 0
+        ),
+    )
+
+    task = ComputeTask(
+        name="echo",
+        payload={"value": 42},
+        task_id="task-opportunistic-cleanup",
+    )
+
+    completion = core.submit_compute_task(task)
+
+    assert calls == [300.0]
+
+    assert completion.task_id == (
+        "task-opportunistic-cleanup"
+    )
+    assert completion.status == "pending"
+
+    assert core.compute_task_queue.pending_count() == 1
+
+
+def test_submit_compute_task_cleans_old_terminal_but_keeps_pending(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    from nexus.compute import TaskWorker
+    from nexus.compute.task_completion import (
+        TaskCompletionRegistry,
+    )
+
+    now = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: now["value"],
+    )
+
+    core = object.__new__(NexusDistributedCore)
+    core.compute_task_handlers = build_default_task_registry()
+    core.compute_task_queue = TaskQueue()
+    core.compute_task_completions = TaskCompletionRegistry()
+    core.compute_completion_retention_seconds = 5.0
+
+    core.compute_task_worker = TaskWorker(
+        queue=core.compute_task_queue,
+        registry=core.compute_task_handlers,
+        completions=core.compute_task_completions,
+    )
+
+    core.compute_task_completions.create(
+        "task-old-terminal"
+    )
+    core.compute_task_completions.complete(
+        "task-old-terminal",
+        {"value": 1},
+    )
+
+    core.compute_task_completions.create(
+        "task-old-pending"
+    )
+
+    now["value"] = 110.0
+
+    new_task = ComputeTask(
+        name="echo",
+        payload={"value": 42},
+        task_id="task-new",
+    )
+
+    completion = core.submit_compute_task(
+        new_task
+    )
+
+    assert core.compute_task_completions.get(
+        "task-old-terminal"
+    ) is None
+
+    pending = core.compute_task_completions.get(
+        "task-old-pending"
+    )
+
+    assert pending is not None
+    assert pending.status == "pending"
+
+    assert completion.task_id == "task-new"
+    assert completion.status == "pending"

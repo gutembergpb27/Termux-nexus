@@ -51,6 +51,18 @@ class NexusDistributedCore:
             raise ValueError(
                 "NEXUS_MESSAGE_TTL must be greater than zero"
             )
+
+        self.compute_completion_retention_seconds = float(
+            os.getenv(
+                "NEXUS_COMPLETION_RETENTION_SECONDS",
+                "300.0",
+            )
+        )
+        if self.compute_completion_retention_seconds <= 0:
+            raise ValueError(
+                "NEXUS_COMPLETION_RETENTION_SECONDS "
+                "must be greater than zero"
+            )
         self.last_master_heartbeat = time.time()
         self.peers = {}
         
@@ -411,6 +423,17 @@ class NexusDistributedCore:
         self,
         task: ComputeTask,
     ):
+        retention = getattr(
+            self,
+            "compute_completion_retention_seconds",
+            None,
+        )
+
+        if retention is not None:
+            self.cleanup_compute_completions(
+                max_age=retention,
+            )
+
         queue = getattr(
             self,
             "compute_task_queue",
