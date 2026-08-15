@@ -387,6 +387,26 @@ class NexusDistributedCore:
             timeout=timeout
         )
 
+    def cleanup_compute_completions(
+        self,
+        *,
+        max_age: float,
+    ) -> int:
+        completions = getattr(
+            self,
+            "compute_task_completions",
+            None,
+        )
+
+        if completions is None:
+            raise RuntimeError(
+                "compute task completions are not configured"
+            )
+
+        return completions.cleanup(
+            max_age=max_age,
+        )
+
     def submit_compute_task(
         self,
         task: ComputeTask,

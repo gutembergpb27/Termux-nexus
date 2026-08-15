@@ -695,3 +695,30 @@ def test_handle_compute_task_uses_submit_and_wait() -> None:
 
     assert waited
     assert waited[0][0] == "task-submit-wait-1"
+
+
+def test_core_cleans_up_finished_task_completions() -> None:
+    from nexus.compute.task_completion import (
+        TaskCompletionRegistry,
+    )
+
+    core = object.__new__(NexusDistributedCore)
+    core.compute_task_completions = TaskCompletionRegistry()
+
+    core.compute_task_completions.create(
+        "task-cleanup-core"
+    )
+    core.compute_task_completions.complete(
+        "task-cleanup-core",
+        {"value": 42},
+    )
+
+    removed = core.cleanup_compute_completions(
+        max_age=0.0,
+    )
+
+    assert removed == 1
+
+    assert core.compute_task_completions.get(
+        "task-cleanup-core"
+    ) is None

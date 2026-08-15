@@ -1,4 +1,4 @@
-﻿"""Contrato de conclusão de tarefas Nexus Compute."""
+"""Contrato de conclusão de tarefas Nexus Compute."""
 
 from __future__ import annotations
 
@@ -111,6 +111,7 @@ class TaskCompletionRegistry:
 
     def __init__(self) -> None:
         self._items: dict[str, TaskCompletion] = {}
+        self._finished_at: dict[str, float] = {}
         self._lock = RLock()
         self._condition = Condition(self._lock)
 
@@ -161,6 +162,7 @@ class TaskCompletionRegistry:
             )
 
             self._items[key] = completion
+            self._finished_at[key] = monotonic()
             self._condition.notify_all()
 
         return completion
@@ -184,9 +186,47 @@ class TaskCompletionRegistry:
             )
 
             self._items[key] = completion
+            self._finished_at[key] = monotonic()
             self._condition.notify_all()
 
         return completion
+
+    def cleanup(
+        self,
+        *,
+        max_age: float,
+    ) -> int:
+        age = float(max_age)
+
+        if age < 0:
+            raise ValueError(
+                "max age must not be negative"
+            )
+
+        now = monotonic()
+
+        with self._condition:
+            expired = [
+                task_id
+                for task_id, finished_at
+                in self._finished_at.items()
+                if now - finished_at >= age
+            ]
+
+            for task_id in expired:
+                self._items.pop(
+                    task_id,
+                    None,
+                )
+                self._finished_at.pop(
+                    task_id,
+                    None,
+                )
+
+            if expired:
+                self._condition.notify_all()
+
+            return len(expired)
 
     def wait(
         self,
