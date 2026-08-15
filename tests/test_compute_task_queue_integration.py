@@ -986,3 +986,51 @@ def test_submit_compute_task_cleans_old_terminal_but_keeps_pending(
 
     assert completion.task_id == "task-new"
     assert completion.status == "pending"
+
+
+def test_core_reports_compute_completion_snapshot() -> None:
+    from nexus.compute.task_completion import (
+        TaskCompletionRegistry,
+    )
+
+    core = object.__new__(NexusDistributedCore)
+    core.compute_task_completions = TaskCompletionRegistry()
+
+    core.compute_task_completions.create(
+        "task-core-pending"
+    )
+
+    core.compute_task_completions.create(
+        "task-core-completed"
+    )
+    core.compute_task_completions.complete(
+        "task-core-completed",
+        {"value": 42},
+    )
+
+    core.compute_task_completions.create(
+        "task-core-failed"
+    )
+    core.compute_task_completions.fail(
+        "task-core-failed",
+        "boom",
+    )
+
+    snapshot = core.compute_completion_snapshot()
+
+    assert snapshot.pending == 1
+    assert snapshot.completed == 1
+    assert snapshot.failed == 1
+    assert snapshot.total == 3
+
+
+def test_core_completion_snapshot_requires_registry() -> None:
+    core = object.__new__(NexusDistributedCore)
+
+    import pytest
+
+    with pytest.raises(
+        RuntimeError,
+        match="compute task completions are not configured",
+    ):
+        core.compute_completion_snapshot()

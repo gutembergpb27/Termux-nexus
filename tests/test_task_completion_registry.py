@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import pytest
 
@@ -471,3 +471,100 @@ def test_registry_cleanup_removes_terminal_but_keeps_pending(
 
     assert pending is not None
     assert pending.status == "pending"
+
+
+def test_registry_snapshot_reports_completion_counts() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-pending")
+
+    registry.create("task-completed")
+    registry.complete(
+        "task-completed",
+        {"value": 42},
+    )
+
+    registry.create("task-failed")
+    registry.fail(
+        "task-failed",
+        "boom",
+    )
+
+    snapshot = registry.snapshot()
+
+    assert snapshot.pending == 1
+    assert snapshot.completed == 1
+    assert snapshot.failed == 1
+    assert snapshot.total == 3
+
+
+def test_registry_snapshot_is_empty_by_default() -> None:
+    registry = TaskCompletionRegistry()
+
+    snapshot = registry.snapshot()
+
+    assert snapshot.pending == 0
+    assert snapshot.completed == 0
+    assert snapshot.failed == 0
+    assert snapshot.total == 0
+
+
+def test_registry_snapshot_reflects_cleanup(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    now = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: now["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-pending")
+
+    registry.create("task-completed")
+    registry.complete(
+        "task-completed",
+        {"value": 42},
+    )
+
+    registry.create("task-failed")
+    registry.fail(
+        "task-failed",
+        "boom",
+    )
+
+    before = registry.snapshot()
+
+    assert before.pending == 1
+    assert before.completed == 1
+    assert before.failed == 1
+    assert before.total == 3
+
+    now["value"] = 110.0
+
+    assert registry.cleanup(
+        max_age=5.0,
+    ) == 2
+
+    after = registry.snapshot()
+
+    assert after.pending == 1
+    assert after.completed == 0
+    assert after.failed == 0
+    assert after.total == 1
+
+
+def test_registry_snapshot_is_immutable() -> None:
+    registry = TaskCompletionRegistry()
+
+    snapshot = registry.snapshot()
+
+    with pytest.raises(
+        (AttributeError, TypeError),
+    ):
+        snapshot.total = 99

@@ -399,6 +399,22 @@ class NexusDistributedCore:
             timeout=timeout
         )
 
+    def compute_completion_snapshot(
+        self,
+    ):
+        completions = getattr(
+            self,
+            "compute_task_completions",
+            None,
+        )
+
+        if completions is None:
+            raise RuntimeError(
+                "compute task completions are not configured"
+            )
+
+        return completions.snapshot()
+
     def cleanup_compute_completions(
         self,
         *,
