@@ -42,6 +42,16 @@ class TaskWorker:
 
         task = self._queue.dequeue()
 
+        if self._completions is not None:
+            completion = self._completions.get(
+                task.task_id
+            )
+
+            if completion is not None:
+                self._completions.start(
+                    task.task_id
+                )
+
         try:
             result = self._registry.execute(
                 task.name,

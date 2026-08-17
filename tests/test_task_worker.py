@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from nexus.compute import (
     ComputeTask,
@@ -374,3 +374,78 @@ def test_worker_marks_task_completion_failed() -> None:
         "unsupported data transform operation"
         in completion.error
     )
+
+def test_worker_marks_task_running_during_execution() -> None:
+    import threading
+
+    from nexus.compute.handlers import TaskHandlerRegistry
+    from nexus.compute.task import ComputeTask
+    from nexus.compute.task_completion import TaskCompletionRegistry
+    from nexus.compute.task_queue import TaskQueue
+    from nexus.compute.task_worker import TaskWorker
+
+    started = threading.Event()
+    release = threading.Event()
+
+    registry = TaskHandlerRegistry()
+
+    def blocking_handler(payload):
+        started.set()
+        release.wait(timeout=2)
+        return {
+            "value": payload["value"],
+        }
+
+    registry.register(
+        "blocking-running-test",
+        blocking_handler,
+    )
+
+    queue = TaskQueue()
+    completions = TaskCompletionRegistry()
+
+    task = ComputeTask(
+        name="blocking-running-test",
+        payload={"value": 42},
+    )
+
+    completions.create(task.task_id)
+    queue.enqueue(task)
+
+    worker = TaskWorker(
+        queue=queue,
+        registry=registry,
+        completions=completions,
+    )
+
+    thread = threading.Thread(
+        target=worker.run_once,
+    )
+
+    thread.start()
+
+    assert started.wait(timeout=1)
+
+    in_flight = completions.get(
+        task.task_id
+    )
+
+    assert in_flight is not None
+    assert in_flight.status == "running"
+    assert in_flight.result is None
+    assert in_flight.error is None
+
+    release.set()
+    thread.join(timeout=2)
+
+    assert not thread.is_alive()
+
+    final = completions.get(
+        task.task_id
+    )
+
+    assert final is not None
+    assert final.status == "completed"
+    assert final.result == {
+        "value": 42,
+    }

@@ -16,6 +16,41 @@ def test_completion_starts_pending() -> None:
     assert completion.error is None
 
 
+def test_completion_can_represent_running() -> None:
+    completion = TaskCompletion.running(
+        task_id="task-running",
+    )
+
+    assert completion.task_id == "task-running"
+    assert completion.status == "running"
+    assert completion.result is None
+    assert completion.error is None
+
+
+def test_running_completion_rejects_result() -> None:
+    with pytest.raises(
+        ValueError,
+        match="running task must not contain result",
+    ):
+        TaskCompletion(
+            task_id="task-running-result",
+            status="running",
+            result={"value": 1},
+        )
+
+
+def test_running_completion_rejects_error() -> None:
+    with pytest.raises(
+        ValueError,
+        match="running task must not contain error",
+    ):
+        TaskCompletion(
+            task_id="task-running-error",
+            status="running",
+            error="boom",
+        )
+
+
 def test_completion_can_represent_success() -> None:
     completion = TaskCompletion.completed(
         task_id="task-002",

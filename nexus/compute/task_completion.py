@@ -13,6 +13,7 @@ class TaskCompletionSnapshot:
     """Snapshot observ?vel das conclus?es mantidas no registry."""
 
     pending: int = 0
+    running: int = 0
     completed: int = 0
     failed: int = 0
     total: int = 0
@@ -43,6 +44,7 @@ class TaskCompletion:
 
         if self.status not in {
             "pending",
+            "running",
             "completed",
             "failed",
         }:
@@ -78,6 +80,17 @@ class TaskCompletion:
                     "pending task must not contain error"
                 )
 
+        if self.status == "running":
+            if self.result is not None:
+                raise ValueError(
+                    "running task must not contain result"
+                )
+
+            if self.error is not None:
+                raise ValueError(
+                    "running task must not contain error"
+                )
+
     @classmethod
     def pending(
         cls,
@@ -87,6 +100,17 @@ class TaskCompletion:
         return cls(
             task_id=task_id,
             status="pending",
+        )
+
+    @classmethod
+    def running(
+        cls,
+        *,
+        task_id: str,
+    ) -> "TaskCompletion":
+        return cls(
+            task_id=task_id,
+            status="running",
         )
 
     @classmethod
@@ -153,6 +177,34 @@ class TaskCompletionRegistry:
         with self._condition:
             return self._items.get(key)
 
+    def start(
+        self,
+        task_id: str,
+    ) -> TaskCompletion:
+        key = str(task_id).strip()
+
+        with self._condition:
+            if key not in self._items:
+                raise KeyError(
+                    "unknown task completion"
+                )
+
+            current = self._items[key]
+
+            if current.status != "pending":
+                raise ValueError(
+                    "task completion cannot start"
+                )
+
+            completion = TaskCompletion.running(
+                task_id=key,
+            )
+
+            self._items[key] = completion
+            self._condition.notify_all()
+
+        return completion
+
     def complete(
         self,
         task_id: str,
@@ -168,7 +220,10 @@ class TaskCompletionRegistry:
 
             current = self._items[key]
 
-            if current.status != "pending":
+            if current.status not in {
+                "pending",
+                "running",
+            }:
                 raise ValueError(
                     "task completion already terminal"
                 )
@@ -199,7 +254,10 @@ class TaskCompletionRegistry:
 
             current = self._items[key]
 
-            if current.status != "pending":
+            if current.status not in {
+                "pending",
+                "running",
+            }:
                 raise ValueError(
                     "task completion already terminal"
                 )
@@ -220,12 +278,15 @@ class TaskCompletionRegistry:
     ) -> TaskCompletionSnapshot:
         with self._condition:
             pending = 0
+            running = 0
             completed = 0
             failed = 0
 
             for completion in self._items.values():
                 if completion.status == "pending":
                     pending += 1
+                elif completion.status == "running":
+                    running += 1
                 elif completion.status == "completed":
                     completed += 1
                 elif completion.status == "failed":
@@ -233,6 +294,7 @@ class TaskCompletionRegistry:
 
             return TaskCompletionSnapshot(
                 pending=pending,
+                running=running,
                 completed=completed,
                 failed=failed,
                 total=len(self._items),
