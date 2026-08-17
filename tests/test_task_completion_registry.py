@@ -1086,3 +1086,203 @@ def test_registry_running_over_rejects_negative_threshold() -> None:
         registry.running_over(
             -1.0
         )
+
+def test_registry_execution_observability_is_empty_by_default(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: 100.0,
+    )
+
+    registry = TaskCompletionRegistry()
+
+    snapshot = registry.execution_observability(
+        10.0
+    )
+
+    assert snapshot.running_tasks == 0
+    assert snapshot.long_running_tasks == 0
+    assert snapshot.max_running_elapsed == 0.0
+
+
+def test_registry_execution_observability_counts_running_tasks(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-running-a")
+    registry.start("task-running-a")
+
+    clock["value"] = 105.0
+
+    registry.create("task-running-b")
+    registry.start("task-running-b")
+
+    clock["value"] = 110.0
+
+    snapshot = registry.execution_observability(
+        100.0
+    )
+
+    assert snapshot.running_tasks == 2
+    assert snapshot.long_running_tasks == 0
+    assert snapshot.max_running_elapsed == 10.0
+
+
+def test_registry_execution_observability_counts_long_running_tasks(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 10.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-long-a")
+    registry.start("task-long-a")
+
+    clock["value"] = 20.0
+
+    registry.create("task-long-b")
+    registry.start("task-long-b")
+
+    clock["value"] = 40.0
+
+    snapshot = registry.execution_observability(
+        15.0
+    )
+
+    assert snapshot.running_tasks == 2
+    assert snapshot.long_running_tasks == 2
+    assert snapshot.max_running_elapsed == 30.0
+
+
+def test_registry_execution_observability_excludes_exact_threshold(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 50.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-boundary")
+    registry.start("task-boundary")
+
+    clock["value"] = 60.0
+
+    snapshot = registry.execution_observability(
+        10.0
+    )
+
+    assert snapshot.running_tasks == 1
+    assert snapshot.long_running_tasks == 0
+    assert snapshot.max_running_elapsed == 10.0
+
+
+def test_registry_execution_observability_excludes_terminal_tasks(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-terminal")
+    registry.start("task-terminal")
+
+    clock["value"] = 130.0
+
+    registry.complete(
+        "task-terminal",
+        {"ok": True},
+    )
+
+    clock["value"] = 1000.0
+
+    snapshot = registry.execution_observability(
+        1.0
+    )
+
+    assert snapshot.running_tasks == 0
+    assert snapshot.long_running_tasks == 0
+    assert snapshot.max_running_elapsed == 0.0
+
+
+def test_registry_execution_observability_mixes_short_and_long_tasks(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-old")
+    registry.start("task-old")
+
+    clock["value"] = 120.0
+
+    registry.create("task-recent")
+    registry.start("task-recent")
+
+    clock["value"] = 125.0
+
+    snapshot = registry.execution_observability(
+        10.0
+    )
+
+    assert snapshot.running_tasks == 2
+    assert snapshot.long_running_tasks == 1
+    assert snapshot.max_running_elapsed == 25.0
+
+
+def test_registry_execution_observability_rejects_negative_threshold() -> None:
+    registry = TaskCompletionRegistry()
+
+    with pytest.raises(
+        ValueError,
+        match="max_elapsed must be non-negative",
+    ):
+        registry.execution_observability(
+            -1.0
+        )
