@@ -19,6 +19,36 @@ class TaskCompletionSnapshot:
     total: int = 0
 
 
+@dataclass(frozen=True, slots=True)
+class TaskExecutionObservability:
+    """Snapshot agregado da execucao de tarefas compute."""
+
+    running_tasks: int = 0
+    long_running_tasks: int = 0
+    max_running_elapsed: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.running_tasks < 0:
+            raise ValueError(
+                "running_tasks must be non-negative"
+            )
+
+        if self.long_running_tasks < 0:
+            raise ValueError(
+                "long_running_tasks must be non-negative"
+            )
+
+        if self.long_running_tasks > self.running_tasks:
+            raise ValueError(
+                "long_running_tasks must not exceed running_tasks"
+            )
+
+        if self.max_running_elapsed < 0:
+            raise ValueError(
+                "max_running_elapsed must be non-negative"
+            )
+
+
 @dataclass(frozen=True)
 class TaskCompletion:
     """Representa o estado final ou pendente de uma tarefa compute."""
@@ -346,6 +376,55 @@ class TaskCompletionRegistry:
                     result[task_id] = elapsed
 
             return result
+
+    def execution_observability(
+        self,
+        max_elapsed: float,
+    ) -> TaskExecutionObservability:
+        """Retorna observabilidade agregada das tarefas running."""
+        threshold = float(max_elapsed)
+
+        if threshold < 0:
+            raise ValueError(
+                "max_elapsed must be non-negative"
+            )
+
+        with self._condition:
+            now = monotonic()
+
+            running_tasks = 0
+            long_running_tasks = 0
+            max_running_elapsed = 0.0
+
+            for task_id, completion in self._items.items():
+                if completion.status != "running":
+                    continue
+
+                started_at = self._started_at.get(
+                    task_id
+                )
+
+                if started_at is None:
+                    continue
+
+                elapsed = max(
+                    0.0,
+                    now - started_at,
+                )
+
+                running_tasks += 1
+
+                if elapsed > max_running_elapsed:
+                    max_running_elapsed = elapsed
+
+                if elapsed > threshold:
+                    long_running_tasks += 1
+
+            return TaskExecutionObservability(
+                running_tasks=running_tasks,
+                long_running_tasks=long_running_tasks,
+                max_running_elapsed=max_running_elapsed,
+            )
 
     def snapshot(
         self,
