@@ -670,3 +670,131 @@ def test_registry_snapshot_is_immutable() -> None:
         (AttributeError, TypeError),
     ):
         snapshot.total = 99
+
+
+def test_registry_wait_does_not_treat_running_as_terminal() -> None:
+    import threading
+    import time
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-running-wait")
+    registry.start("task-running-wait")
+
+    def complete_later():
+        time.sleep(0.02)
+        registry.complete(
+            "task-running-wait",
+            {"value": 42},
+        )
+
+    thread = threading.Thread(
+        target=complete_later,
+    )
+    thread.start()
+
+    completion = registry.wait(
+        "task-running-wait",
+        timeout=1.0,
+    )
+
+    thread.join(timeout=1.0)
+
+    assert completion.status == "completed"
+    assert completion.result == {
+        "value": 42,
+    }
+
+
+def test_registry_wait_times_out_for_running_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-running-timeout")
+    registry.start("task-running-timeout")
+
+    with pytest.raises(
+        TimeoutError,
+        match="task completion timed out",
+    ):
+        registry.wait(
+            "task-running-timeout",
+            timeout=0.01,
+        )
+
+    completion = registry.get(
+        "task-running-timeout"
+    )
+
+    assert completion is not None
+    assert completion.status == "running"
+
+
+def test_registry_cleanup_never_removes_running_tasks(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    now = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: now["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-running-cleanup")
+    registry.start("task-running-cleanup")
+
+    now["value"] = 1000.0
+
+    removed = registry.cleanup(
+        max_age=1.0,
+    )
+
+    assert removed == 0
+
+    completion = registry.get(
+        "task-running-cleanup"
+    )
+
+    assert completion is not None
+    assert completion.status == "running"
+
+
+
+
+def test_registry_running_task_can_reach_only_one_terminal_state() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-running-terminal")
+    registry.start("task-running-terminal")
+
+    completed = registry.complete(
+        "task-running-terminal",
+        {"value": 1},
+    )
+
+    assert completed.status == "completed"
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.fail(
+            "task-running-terminal",
+            "late failure",
+        )
+
+    current = registry.get(
+        "task-running-terminal"
+    )
+
+    assert current == completed
+    assert current is not None
+    assert current.status == "completed"
+    assert current.result == {
+        "value": 1,
+    }
+    assert current.error is None
