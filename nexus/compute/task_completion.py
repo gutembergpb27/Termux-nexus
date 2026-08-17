@@ -166,6 +166,13 @@ class TaskCompletionRegistry:
                     "unknown task completion"
                 )
 
+            current = self._items[key]
+
+            if current.status != "pending":
+                raise ValueError(
+                    "task completion already terminal"
+                )
+
             completion = TaskCompletion.completed(
                 task_id=key,
                 result=result,
@@ -188,6 +195,13 @@ class TaskCompletionRegistry:
             if key not in self._items:
                 raise KeyError(
                     "unknown task completion"
+                )
+
+            current = self._items[key]
+
+            if current.status != "pending":
+                raise ValueError(
+                    "task completion already terminal"
                 )
 
             completion = TaskCompletion.failed(
