@@ -13,6 +13,7 @@ from nexus.compute.handlers import (
 from nexus.compute.health import BackendHealth
 from nexus.compute.local import LocalBackend
 from nexus.compute.metrics import BackendMetrics
+from nexus.compute.observability import ComputeExecutionObservability
 from nexus.compute.node_load import NodeLoad
 from nexus.compute.peer_capabilities import PeerCapabilityProvider
 from nexus.compute.peer_load import PeerLoadProvider
@@ -40,6 +41,7 @@ __all__ = [
     "ClusterBackend",
     "ClusterDispatcher",
     "ComputeBackend",
+    "ComputeExecutionObservability",
     "ComputeRequirements",
     "ComputeResult",
     "ComputeRuntime",
