@@ -34,6 +34,79 @@ def test_registry_rejects_duplicate_task_id() -> None:
         registry.create("task-001")
 
 
+def test_registry_marks_pending_task_running() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-running-1")
+
+    completion = registry.start(
+        "task-running-1"
+    )
+
+    assert completion == TaskCompletion.running(
+        task_id="task-running-1",
+    )
+
+    assert registry.get(
+        "task-running-1"
+    ) == completion
+
+
+def test_registry_rejects_start_for_unknown_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    with pytest.raises(
+        KeyError,
+        match="unknown task completion",
+    ):
+        registry.start("missing")
+
+
+def test_registry_rejects_repeated_start() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-running-2")
+    registry.start("task-running-2")
+
+    with pytest.raises(
+        ValueError,
+        match="cannot start",
+    ):
+        registry.start("task-running-2")
+
+
+def test_registry_completes_running_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-running-3")
+    registry.start("task-running-3")
+
+    completion = registry.complete(
+        "task-running-3",
+        {"value": 42},
+    )
+
+    assert completion.status == "completed"
+    assert completion.result == {
+        "value": 42,
+    }
+
+
+def test_registry_fails_running_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-running-4")
+    registry.start("task-running-4")
+
+    completion = registry.fail(
+        "task-running-4",
+        "handler failed",
+    )
+
+    assert completion.status == "failed"
+    assert completion.error == "handler failed"
+
+
 def test_registry_marks_task_completed() -> None:
     registry = TaskCompletionRegistry()
 
@@ -569,6 +642,23 @@ def test_registry_snapshot_reflects_cleanup(
     assert after.completed == 0
     assert after.failed == 0
     assert after.total == 1
+
+
+def test_registry_snapshot_reports_running_tasks() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-pending")
+
+    registry.create("task-running")
+    registry.start("task-running")
+
+    snapshot = registry.snapshot()
+
+    assert snapshot.pending == 1
+    assert snapshot.running == 1
+    assert snapshot.completed == 0
+    assert snapshot.failed == 0
+    assert snapshot.total == 2
 
 
 def test_registry_snapshot_is_immutable() -> None:
