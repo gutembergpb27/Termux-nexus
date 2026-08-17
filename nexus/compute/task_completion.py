@@ -145,6 +145,7 @@ class TaskCompletionRegistry:
 
     def __init__(self) -> None:
         self._items: dict[str, TaskCompletion] = {}
+        self._started_at: dict[str, float] = {}
         self._finished_at: dict[str, float] = {}
         self._lock = RLock()
         self._condition = Condition(self._lock)
@@ -201,6 +202,7 @@ class TaskCompletionRegistry:
             )
 
             self._items[key] = completion
+            self._started_at[key] = monotonic()
             self._condition.notify_all()
 
         return completion
@@ -328,6 +330,11 @@ class TaskCompletionRegistry:
                     None,
                 )
                 self._finished_at.pop(
+                    task_id,
+                    None,
+                )
+
+                self._started_at.pop(
                     task_id,
                     None,
                 )
