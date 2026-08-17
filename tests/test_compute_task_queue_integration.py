@@ -178,51 +178,6 @@ def test_core_initializes_compute_queue_and_worker(monkeypatch, tmp_path) -> Non
     )
 
 
-def test_core_initializes_compute_queue_and_worker(monkeypatch, tmp_path) -> None:
-    from nexus.compute import TaskQueue, TaskWorker
-
-    monkeypatch.setenv(
-        "NEXUS_SECRET_KEY",
-        "test-secret",
-    )
-
-    monkeypatch.setenv(
-        "NEXUS_DB_PATH",
-        str(tmp_path / "nexus-worker.db"),
-    )
-
-    monkeypatch.setattr(
-        "nexus_distributed_core.start_web_server",
-        lambda core, port: None,
-    )
-
-    monkeypatch.setattr(
-        "nexus_distributed_core.threading.Thread",
-        lambda *args, **kwargs: type(
-            "FakeThread",
-            (),
-            {
-                "start": lambda self: None,
-            },
-        )(),
-    )
-
-    core = NexusDistributedCore(
-        "NO-WORKER-01",
-        8081,
-        9091,
-        "FOLLOWER",
-    )
-
-    assert isinstance(
-        core.compute_task_queue,
-        TaskQueue,
-    )
-
-    assert isinstance(
-        core.compute_task_worker,
-        TaskWorker,
-    )
 
 
 def test_core_starts_compute_worker() -> None:
@@ -355,43 +310,6 @@ def test_core_creates_completion_for_queued_task() -> None:
     }
 
 
-def test_core_creates_completion_for_queued_task() -> None:
-    from nexus.compute.task_completion import (
-        TaskCompletionRegistry,
-    )
-
-    core = object.__new__(NexusDistributedCore)
-    core.compute_task_handlers = build_default_task_registry()
-    core.compute_task_queue = TaskQueue()
-    core.compute_task_completions = TaskCompletionRegistry()
-
-    from nexus.compute import TaskWorker
-
-    core.compute_task_worker = TaskWorker(
-        queue=core.compute_task_queue,
-        registry=core.compute_task_handlers,
-        completions=core.compute_task_completions,
-    )
-
-    task = ComputeTask(
-        name="echo",
-        payload={"value": 42},
-        task_id="task-core-completion-1",
-    )
-
-    result = core.execute_queued_compute_task(task)
-
-    assert result == {"value": 42}
-
-    completion = core.compute_task_completions.get(
-        "task-core-completion-1"
-    )
-
-    assert completion is not None
-    assert completion.status == "completed"
-    assert completion.result == {
-        "value": 42,
-    }
 
 
 def test_core_rejects_duplicate_task_completion_id() -> None:
@@ -529,50 +447,6 @@ def test_core_waits_for_task_completion_result() -> None:
     ) is True
 
 
-def test_core_waits_for_task_completion_result() -> None:
-    from nexus.compute.task_completion import (
-        TaskCompletionRegistry,
-    )
-    from nexus.compute import TaskWorker
-
-    core = object.__new__(NexusDistributedCore)
-    core.compute_task_handlers = build_default_task_registry()
-    core.compute_task_queue = TaskQueue()
-    core.compute_task_completions = TaskCompletionRegistry()
-
-    core.compute_task_worker = TaskWorker(
-        queue=core.compute_task_queue,
-        registry=core.compute_task_handlers,
-        completions=core.compute_task_completions,
-    )
-
-    task = ComputeTask(
-        name="echo",
-        payload={"value": 42},
-        task_id="task-wait-core-1",
-    )
-
-    core.compute_task_completions.create(
-        task.task_id
-    )
-
-    core.compute_task_queue.enqueue(task)
-
-    assert core.compute_task_worker.start() is True
-
-    completion = core.wait_for_compute_task(
-        task.task_id,
-        timeout=1.0,
-    )
-
-    assert completion.status == "completed"
-    assert completion.result == {
-        "value": 42,
-    }
-
-    assert core.compute_task_worker.stop(
-        timeout=1.0
-    ) is True
 
 
 def test_core_submits_compute_task_as_pending() -> None:
@@ -870,53 +744,6 @@ def test_submit_compute_task_runs_opportunistic_cleanup(
     assert core.compute_task_queue.pending_count() == 1
 
 
-def test_submit_compute_task_runs_opportunistic_cleanup(
-    monkeypatch,
-) -> None:
-    from nexus.compute import TaskWorker
-    from nexus.compute.task_completion import (
-        TaskCompletionRegistry,
-    )
-
-    core = object.__new__(NexusDistributedCore)
-    core.compute_task_handlers = build_default_task_registry()
-    core.compute_task_queue = TaskQueue()
-    core.compute_task_completions = TaskCompletionRegistry()
-    core.compute_completion_retention_seconds = 300.0
-
-    core.compute_task_worker = TaskWorker(
-        queue=core.compute_task_queue,
-        registry=core.compute_task_handlers,
-        completions=core.compute_task_completions,
-    )
-
-    calls = []
-
-    monkeypatch.setattr(
-        core,
-        "cleanup_compute_completions",
-        lambda *, max_age: (
-            calls.append(max_age)
-            or 0
-        ),
-    )
-
-    task = ComputeTask(
-        name="echo",
-        payload={"value": 42},
-        task_id="task-opportunistic-cleanup",
-    )
-
-    completion = core.submit_compute_task(task)
-
-    assert calls == [300.0]
-
-    assert completion.task_id == (
-        "task-opportunistic-cleanup"
-    )
-    assert completion.status == "pending"
-
-    assert core.compute_task_queue.pending_count() == 1
 
 
 def test_submit_compute_task_cleans_old_terminal_but_keeps_pending(
