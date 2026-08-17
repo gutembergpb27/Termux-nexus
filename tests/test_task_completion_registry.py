@@ -833,3 +833,116 @@ def test_registry_cleanup_does_not_remove_running_start_time(
     assert registry.cleanup(max_age=0) == 0
     assert registry.get("task-running-start") is not None
     assert registry._started_at["task-running-start"] == 100.0
+
+def test_registry_execution_elapsed_is_none_for_pending() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-elapsed-pending")
+
+    assert (
+        registry.execution_elapsed(
+            "task-elapsed-pending"
+        )
+        is None
+    )
+
+
+def test_registry_execution_elapsed_tracks_running_task(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-elapsed-running")
+    registry.start("task-elapsed-running")
+
+    clock["value"] = 112.5
+
+    assert registry.execution_elapsed(
+        "task-elapsed-running"
+    ) == 12.5
+
+
+def test_registry_execution_elapsed_freezes_after_completion(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-elapsed-completed")
+    registry.start("task-elapsed-completed")
+
+    clock["value"] = 107.25
+
+    registry.complete(
+        "task-elapsed-completed",
+        {"value": 42},
+    )
+
+    clock["value"] = 500.0
+
+    assert registry.execution_elapsed(
+        "task-elapsed-completed"
+    ) == 7.25
+
+
+def test_registry_execution_elapsed_freezes_after_failure(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 50.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-elapsed-failed")
+    registry.start("task-elapsed-failed")
+
+    clock["value"] = 55.5
+
+    registry.fail(
+        "task-elapsed-failed",
+        "handler failed",
+    )
+
+    clock["value"] = 999.0
+
+    assert registry.execution_elapsed(
+        "task-elapsed-failed"
+    ) == 5.5
+
+
+def test_registry_execution_elapsed_rejects_unknown_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    with pytest.raises(
+        KeyError,
+        match="unknown task completion",
+    ):
+        registry.execution_elapsed(
+            "task-elapsed-unknown"
+        )

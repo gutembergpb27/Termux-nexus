@@ -275,6 +275,41 @@ class TaskCompletionRegistry:
 
         return completion
 
+    def execution_elapsed(
+        self,
+        task_id: str,
+    ) -> float | None:
+        """Retorna o tempo de execucao observado da tarefa."""
+        key = str(task_id).strip()
+
+        with self._condition:
+            if key not in self._items:
+                raise KeyError(
+                    "unknown task completion"
+                )
+
+            started_at = self._started_at.get(
+                key
+            )
+
+            if started_at is None:
+                return None
+
+            finished_at = self._finished_at.get(
+                key
+            )
+
+            if finished_at is not None:
+                return max(
+                    0.0,
+                    finished_at - started_at,
+                )
+
+            return max(
+                0.0,
+                monotonic() - started_at,
+            )
+
     def snapshot(
         self,
     ) -> TaskCompletionSnapshot:
