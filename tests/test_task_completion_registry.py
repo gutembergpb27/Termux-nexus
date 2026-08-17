@@ -102,6 +102,106 @@ def test_registry_rejects_failure_for_unknown_task() -> None:
         )
 
 
+def test_registry_rejects_repeated_completion() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-terminal-1")
+
+    registry.complete(
+        "task-terminal-1",
+        {"value": 1},
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.complete(
+            "task-terminal-1",
+            {"value": 2},
+        )
+
+
+def test_registry_rejects_repeated_failure() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-terminal-2")
+
+    registry.fail(
+        "task-terminal-2",
+        "first failure",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.fail(
+            "task-terminal-2",
+            "second failure",
+        )
+
+
+def test_registry_rejects_failure_after_completion() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-terminal-3")
+
+    registry.complete(
+        "task-terminal-3",
+        {"value": 42},
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.fail(
+            "task-terminal-3",
+            "late failure",
+        )
+
+    completion = registry.get(
+        "task-terminal-3"
+    )
+
+    assert completion is not None
+    assert completion.status == "completed"
+    assert completion.result == {
+        "value": 42,
+    }
+    assert completion.error is None
+
+
+def test_registry_rejects_completion_after_failure() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-terminal-4")
+
+    registry.fail(
+        "task-terminal-4",
+        "handler failed",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.complete(
+            "task-terminal-4",
+            {"value": 42},
+        )
+
+    completion = registry.get(
+        "task-terminal-4"
+    )
+
+    assert completion is not None
+    assert completion.status == "failed"
+    assert completion.result is None
+    assert completion.error == "handler failed"
+
+
 def test_registry_wait_returns_completed_task() -> None:
     import threading
     import time
