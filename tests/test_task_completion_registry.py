@@ -798,3 +798,38 @@ def test_registry_running_task_can_reach_only_one_terminal_state() -> None:
         "value": 1,
     }
     assert current.error is None
+
+def test_registry_records_running_start_time(
+    monkeypatch,
+) -> None:
+    registry = TaskCompletionRegistry()
+
+    values = iter([100.0])
+    monkeypatch.setattr(
+        "nexus.compute.task_completion.monotonic",
+        lambda: next(values),
+    )
+
+    registry.create("task-start-time")
+    registry.start("task-start-time")
+
+    assert registry._started_at["task-start-time"] == 100.0
+
+
+def test_registry_cleanup_does_not_remove_running_start_time(
+    monkeypatch,
+) -> None:
+    registry = TaskCompletionRegistry()
+
+    values = iter([100.0, 200.0])
+    monkeypatch.setattr(
+        "nexus.compute.task_completion.monotonic",
+        lambda: next(values),
+    )
+
+    registry.create("task-running-start")
+    registry.start("task-running-start")
+
+    assert registry.cleanup(max_age=0) == 0
+    assert registry.get("task-running-start") is not None
+    assert registry._started_at["task-running-start"] == 100.0
