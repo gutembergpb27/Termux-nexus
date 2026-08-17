@@ -310,6 +310,43 @@ class TaskCompletionRegistry:
                 monotonic() - started_at,
             )
 
+    def running_over(
+        self,
+        max_elapsed: float,
+    ) -> dict[str, float]:
+        """Retorna tarefas running acima do limite informado."""
+        threshold = float(max_elapsed)
+
+        if threshold < 0:
+            raise ValueError(
+                "max_elapsed must be non-negative"
+            )
+
+        with self._condition:
+            now = monotonic()
+            result: dict[str, float] = {}
+
+            for task_id, completion in self._items.items():
+                if completion.status != "running":
+                    continue
+
+                started_at = self._started_at.get(
+                    task_id
+                )
+
+                if started_at is None:
+                    continue
+
+                elapsed = max(
+                    0.0,
+                    now - started_at,
+                )
+
+                if elapsed > threshold:
+                    result[task_id] = elapsed
+
+            return result
+
     def snapshot(
         self,
     ) -> TaskCompletionSnapshot:
