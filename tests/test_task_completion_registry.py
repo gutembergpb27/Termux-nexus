@@ -946,3 +946,143 @@ def test_registry_execution_elapsed_rejects_unknown_task() -> None:
         registry.execution_elapsed(
             "task-elapsed-unknown"
         )
+
+def test_registry_running_over_is_empty_without_running_tasks(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: 100.0,
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-pending")
+
+    assert registry.running_over(
+        10.0
+    ) == {}
+
+
+def test_registry_running_over_reports_task_above_threshold(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-long-running")
+    registry.start("task-long-running")
+
+    clock["value"] = 125.0
+
+    assert registry.running_over(
+        20.0
+    ) == {
+        "task-long-running": 25.0,
+    }
+
+
+def test_registry_running_over_excludes_task_below_threshold(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 10.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-short-running")
+    registry.start("task-short-running")
+
+    clock["value"] = 14.0
+
+    assert registry.running_over(
+        5.0
+    ) == {}
+
+
+def test_registry_running_over_excludes_exact_threshold(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 50.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-boundary")
+    registry.start("task-boundary")
+
+    clock["value"] = 60.0
+
+    assert registry.running_over(
+        10.0
+    ) == {}
+
+
+def test_registry_running_over_excludes_terminal_tasks(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-completed")
+    registry.start("task-completed")
+
+    clock["value"] = 130.0
+
+    registry.complete(
+        "task-completed",
+        {"ok": True},
+    )
+
+    clock["value"] = 1000.0
+
+    assert registry.running_over(
+        1.0
+    ) == {}
+
+
+def test_registry_running_over_rejects_negative_threshold() -> None:
+    registry = TaskCompletionRegistry()
+
+    with pytest.raises(
+        ValueError,
+        match="max_elapsed must be non-negative",
+    ):
+        registry.running_over(
+            -1.0
+        )
