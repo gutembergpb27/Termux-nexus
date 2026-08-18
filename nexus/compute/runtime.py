@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from nexus.compute.cancellation import CancellationToken
 from nexus.compute.backend import ComputeBackend
 from nexus.compute.local import LocalBackend
 from nexus.compute.observability import ComputeExecutionObservability
@@ -38,6 +39,22 @@ class ComputeRuntime:
                 self.registry.register(backend)
 
         self.scheduler = BackendScheduler(self.registry)
+
+    def cancellation_token(
+        self,
+        task_id: str,
+    ) -> CancellationToken:
+        """Retorna um token cooperativo para uma tarefa conhecida."""
+
+        if self.completions.get(task_id) is None:
+            raise KeyError(
+                "unknown task completion"
+            )
+
+        return CancellationToken(
+            task_id=task_id,
+            completions=self.completions,
+        )
 
     def cancel(
         self,
