@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import time
 from dataclasses import dataclass
 from threading import RLock
@@ -107,6 +108,8 @@ class TaskHandlerRegistry:
         self,
         name: str,
         payload: Mapping[str, Any],
+        *,
+        cancellation_token: Any | None = None,
     ) -> Any:
         normalized = self._normalize_name(name)
         handler = self.get(normalized)
@@ -117,7 +120,22 @@ class TaskHandlerRegistry:
         started = time.perf_counter()
 
         try:
-            result = handler(payload)
+            signature = inspect.signature(
+                handler
+            )
+
+            accepts_token = (
+                "cancellation_token"
+                in signature.parameters
+            )
+
+            if accepts_token:
+                result = handler(
+                    payload,
+                    cancellation_token=cancellation_token,
+                )
+            else:
+                result = handler(payload)
         except Exception as exc:
             duration = time.perf_counter() - started
 

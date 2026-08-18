@@ -2,6 +2,10 @@
 
 from nexus.compute.backend import ComputeBackend
 from nexus.compute.capabilities import BackendCapabilities
+from nexus.compute.cancellation import (
+    CancellationToken,
+    TaskCancelledError,
+)
 from nexus.compute.cluster import ClusterBackend
 from nexus.compute.dispatcher import ClusterDispatcher, NodeExecutor
 from nexus.compute.handlers import (
@@ -30,6 +34,8 @@ from nexus.compute.transport_executor import TransportNodeExecutor
 
 __all__ = [
     "BackendCapabilities",
+    "CancellationToken",
+    "TaskCancelledError",
     "BackendHealth",
     "BackendMetrics",
     "NodeLoad",

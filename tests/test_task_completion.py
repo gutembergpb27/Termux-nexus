@@ -131,3 +131,50 @@ def test_cancelled_completion_rejects_error() -> None:
             status="cancelled",
             error="boom",
         )
+
+
+def test_cancellation_token_reports_cancelled_state() -> None:
+    from nexus.compute.cancellation import CancellationToken
+    from nexus.compute.task_completion import TaskCompletionRegistry
+
+    completions = TaskCompletionRegistry()
+
+    completions.create("token-state")
+
+    token = CancellationToken(
+        task_id="token-state",
+        completions=completions,
+    )
+
+    assert token.cancelled is False
+
+    completions.cancel("token-state")
+
+    assert token.cancelled is True
+
+
+def test_cancellation_token_raises_after_cancel() -> None:
+    import pytest
+
+    from nexus.compute.cancellation import (
+        CancellationToken,
+        TaskCancelledError,
+    )
+    from nexus.compute.task_completion import TaskCompletionRegistry
+
+    completions = TaskCompletionRegistry()
+
+    completions.create("token-raise")
+
+    token = CancellationToken(
+        task_id="token-raise",
+        completions=completions,
+    )
+
+    completions.cancel("token-raise")
+
+    with pytest.raises(
+        TaskCancelledError,
+        match="task cancelled",
+    ):
+        token.raise_if_cancelled()

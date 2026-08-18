@@ -187,3 +187,58 @@ def test_matrix_multiply_rejects_incompatible_dimensions() -> None:
                 "right": [[1, 2]],
             },
         )
+
+
+def test_registry_passes_cancellation_token_to_opt_in_handler() -> None:
+    from nexus.compute.cancellation import CancellationToken
+    from nexus.compute.handlers import TaskHandlerRegistry
+    from nexus.compute.task_completion import TaskCompletionRegistry
+
+    registry = TaskHandlerRegistry()
+    completions = TaskCompletionRegistry()
+
+    completions.create("task-token-pass")
+
+    token = CancellationToken(
+        task_id="task-token-pass",
+        completions=completions,
+    )
+
+    received = []
+
+    def handler(payload, *, cancellation_token):
+        received.append(cancellation_token)
+        return payload["value"]
+
+    registry.register(
+        "token-aware",
+        handler,
+    )
+
+    result = registry.execute(
+        "token-aware",
+        {"value": 42},
+        cancellation_token=token,
+    )
+
+    assert result == 42
+    assert received == [token]
+
+
+def test_registry_keeps_legacy_handler_signature() -> None:
+    from nexus.compute.handlers import TaskHandlerRegistry
+
+    registry = TaskHandlerRegistry()
+
+    registry.register(
+        "legacy-token-test",
+        lambda payload: payload["value"],
+    )
+
+    result = registry.execute(
+        "legacy-token-test",
+        {"value": 42},
+        cancellation_token=object(),
+    )
+
+    assert result == 42
