@@ -265,3 +265,18 @@ def test_compute_runtime_rejects_token_for_unknown_task() -> None:
         runtime.cancellation_token(
             "runtime-token-missing"
         )
+
+
+def test_compute_runtime_token_accepts_deadline() -> None:
+    runtime = ComputeRuntime()
+
+    runtime.completions.create(
+        "runtime-deadline"
+    )
+
+    token = runtime.cancellation_token(
+        "runtime-deadline",
+        deadline=123.0,
+    )
+
+    assert token.deadline == 123.0

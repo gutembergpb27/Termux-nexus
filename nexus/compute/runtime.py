@@ -43,6 +43,8 @@ class ComputeRuntime:
     def cancellation_token(
         self,
         task_id: str,
+        *,
+        deadline: float | None = None,
     ) -> CancellationToken:
         """Retorna um token cooperativo para uma tarefa conhecida."""
 
@@ -54,6 +56,7 @@ class ComputeRuntime:
         return CancellationToken(
             task_id=task_id,
             completions=self.completions,
+            deadline=deadline,
         )
 
     def cancel(
