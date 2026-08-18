@@ -673,3 +673,95 @@ def test_worker_handler_can_cooperatively_observe_cancellation() -> None:
 
     assert completion is not None
     assert completion.status == "cancelled"
+
+
+def test_worker_handler_stops_when_deadline_expires(
+    monkeypatch,
+) -> None:
+    import threading
+
+    from nexus.compute.cancellation import (
+        CancellationToken,
+        TaskDeadlineExceededError,
+    )
+    from nexus.compute.handlers import TaskHandlerRegistry
+    from nexus.compute.task import ComputeTask
+    from nexus.compute.task_completion import TaskCompletionRegistry
+    from nexus.compute.task_queue import TaskQueue
+    from nexus.compute.task_worker import TaskWorker
+
+    registry = TaskHandlerRegistry()
+    queue = TaskQueue()
+    completions = TaskCompletionRegistry()
+
+    task = ComputeTask(
+        name="deadline-aware",
+    )
+
+    completions.create(task.task_id)
+
+    calls = []
+
+    def deadline_handler(
+        payload,
+        *,
+        cancellation_token,
+    ):
+        calls.append("started")
+        cancellation_token.raise_if_cancelled()
+        return "unreachable"
+
+    registry.register(
+        "deadline-aware",
+        deadline_handler,
+    )
+
+    queue.enqueue(task)
+
+    worker = TaskWorker(
+        queue=queue,
+        registry=registry,
+        completions=completions,
+    )
+
+    monkeypatch.setattr(
+        "nexus.compute.cancellation.monotonic",
+        lambda: 100.0,
+    )
+
+    token = CancellationToken(
+        task_id=task.task_id,
+        completions=completions,
+        deadline=99.0,
+    )
+
+    original_execute = registry.execute
+
+    def execute_with_deadline(
+        name,
+        payload,
+        *,
+        cancellation_token=None,
+    ):
+        return original_execute(
+            name,
+            payload,
+            cancellation_token=token,
+        )
+
+    monkeypatch.setattr(
+        registry,
+        "execute",
+        execute_with_deadline,
+    )
+
+    try:
+        worker.run_once()
+    except TaskDeadlineExceededError:
+        pass
+    else:
+        raise AssertionError(
+            "expected TaskDeadlineExceededError"
+        )
+
+    assert calls == ["started"]

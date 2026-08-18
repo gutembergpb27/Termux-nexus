@@ -178,3 +178,76 @@ def test_cancellation_token_raises_after_cancel() -> None:
         match="task cancelled",
     ):
         token.raise_if_cancelled()
+
+
+def test_cancellation_token_reports_not_expired_without_deadline() -> None:
+    from nexus.compute.cancellation import CancellationToken
+    from nexus.compute.task_completion import TaskCompletionRegistry
+
+    completions = TaskCompletionRegistry()
+
+    completions.create("deadline-none")
+
+    token = CancellationToken(
+        task_id="deadline-none",
+        completions=completions,
+    )
+
+    assert token.expired is False
+
+
+def test_cancellation_token_reports_expired_deadline(
+    monkeypatch,
+) -> None:
+    from nexus.compute.cancellation import CancellationToken
+    from nexus.compute.task_completion import TaskCompletionRegistry
+
+    completions = TaskCompletionRegistry()
+
+    completions.create("deadline-expired")
+
+    monkeypatch.setattr(
+        "nexus.compute.cancellation.monotonic",
+        lambda: 100.0,
+    )
+
+    token = CancellationToken(
+        task_id="deadline-expired",
+        completions=completions,
+        deadline=99.0,
+    )
+
+    assert token.expired is True
+
+
+def test_cancellation_token_raises_deadline_exceeded(
+    monkeypatch,
+) -> None:
+    import pytest
+
+    from nexus.compute.cancellation import (
+        CancellationToken,
+        TaskDeadlineExceededError,
+    )
+    from nexus.compute.task_completion import TaskCompletionRegistry
+
+    completions = TaskCompletionRegistry()
+
+    completions.create("deadline-raise")
+
+    monkeypatch.setattr(
+        "nexus.compute.cancellation.monotonic",
+        lambda: 100.0,
+    )
+
+    token = CancellationToken(
+        task_id="deadline-raise",
+        completions=completions,
+        deadline=100.0,
+    )
+
+    with pytest.raises(
+        TaskDeadlineExceededError,
+        match="task deadline exceeded",
+    ):
+        token.raise_if_cancelled()
