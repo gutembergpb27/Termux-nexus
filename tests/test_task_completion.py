@@ -96,3 +96,38 @@ def test_completion_is_immutable() -> None:
         (AttributeError, TypeError),
     ):
         completion.status = "completed"
+
+
+def test_completion_can_represent_cancellation() -> None:
+    completion = TaskCompletion.cancelled(
+        task_id="task-cancelled",
+    )
+
+    assert completion.task_id == "task-cancelled"
+    assert completion.status == "cancelled"
+    assert completion.result is None
+    assert completion.error is None
+
+
+def test_cancelled_completion_rejects_result() -> None:
+    with pytest.raises(
+        ValueError,
+        match="cancelled task must not contain result",
+    ):
+        TaskCompletion(
+            task_id="task-cancelled-result",
+            status="cancelled",
+            result={"value": 1},
+        )
+
+
+def test_cancelled_completion_rejects_error() -> None:
+    with pytest.raises(
+        ValueError,
+        match="cancelled task must not contain error",
+    ):
+        TaskCompletion(
+            task_id="task-cancelled-error",
+            status="cancelled",
+            error="boom",
+        )

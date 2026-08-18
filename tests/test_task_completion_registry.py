@@ -1286,3 +1286,232 @@ def test_registry_execution_observability_rejects_negative_threshold() -> None:
         registry.execution_observability(
             -1.0
         )
+
+
+def test_registry_cancels_pending_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-cancel-pending")
+
+    completion = registry.cancel(
+        "task-cancel-pending"
+    )
+
+    assert completion.status == "cancelled"
+    assert completion.result is None
+    assert completion.error is None
+    assert registry.get(
+        "task-cancel-pending"
+    ) == completion
+
+
+def test_registry_cancels_running_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-cancel-running")
+    registry.start("task-cancel-running")
+
+    completion = registry.cancel(
+        "task-cancel-running"
+    )
+
+    assert completion.status == "cancelled"
+    assert completion.result is None
+    assert completion.error is None
+
+
+def test_registry_rejects_cancel_for_unknown_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    with pytest.raises(
+        KeyError,
+        match="unknown task completion",
+    ):
+        registry.cancel("missing")
+
+
+def test_registry_rejects_cancel_after_completion() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-cancel-completed")
+    registry.complete(
+        "task-cancel-completed",
+        {"value": 42},
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.cancel(
+            "task-cancel-completed"
+        )
+
+
+def test_registry_rejects_cancel_after_failure() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-cancel-failed")
+    registry.fail(
+        "task-cancel-failed",
+        "boom",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.cancel(
+            "task-cancel-failed"
+        )
+
+
+def test_registry_rejects_repeated_cancel() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-cancel-repeat")
+    registry.cancel("task-cancel-repeat")
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.cancel(
+            "task-cancel-repeat"
+        )
+
+
+def test_registry_wait_returns_cancelled_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-cancel-wait")
+    registry.cancel("task-cancel-wait")
+
+    completion = registry.wait(
+        "task-cancel-wait",
+        timeout=0.01,
+    )
+
+    assert completion.status == "cancelled"
+
+
+def test_registry_snapshot_reports_cancelled_tasks() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-cancel-snapshot")
+    registry.cancel(
+        "task-cancel-snapshot"
+    )
+
+    snapshot = registry.snapshot()
+
+    assert snapshot.cancelled == 1
+    assert snapshot.total == 1
+
+
+def test_registry_rejects_complete_after_cancel() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-cancel-then-complete")
+    registry.cancel("task-cancel-then-complete")
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.complete(
+            "task-cancel-then-complete",
+            {"value": 42},
+        )
+
+
+def test_registry_rejects_fail_after_cancel() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-cancel-then-fail")
+    registry.cancel("task-cancel-then-fail")
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.fail(
+            "task-cancel-then-fail",
+            "boom",
+        )
+
+
+def test_registry_cancelled_running_elapsed_is_frozen(
+    monkeypatch,
+) -> None:
+    registry = TaskCompletionRegistry()
+
+    values = iter([
+        100.0,
+        125.0,
+    ])
+
+    monkeypatch.setattr(
+        "nexus.compute.task_completion.monotonic",
+        lambda: next(values),
+    )
+
+    registry.create("task-cancel-elapsed")
+    registry.start("task-cancel-elapsed")
+    registry.cancel("task-cancel-elapsed")
+
+    assert (
+        registry.execution_elapsed(
+            "task-cancel-elapsed"
+        )
+        == 25.0
+    )
+
+
+def test_registry_cancelled_task_is_not_running_over(
+    monkeypatch,
+) -> None:
+    registry = TaskCompletionRegistry()
+
+    values = iter([
+        100.0,
+        200.0,
+        300.0,
+    ])
+
+    monkeypatch.setattr(
+        "nexus.compute.task_completion.monotonic",
+        lambda: next(values),
+    )
+
+    registry.create("task-cancel-running-over")
+    registry.start("task-cancel-running-over")
+    registry.cancel("task-cancel-running-over")
+
+    assert registry.running_over(
+        max_elapsed=0,
+    ) == {}
+
+
+def test_registry_cleanup_removes_cancelled_task(
+    monkeypatch,
+) -> None:
+    registry = TaskCompletionRegistry()
+
+    values = iter([
+        100.0,
+        200.0,
+    ])
+
+    monkeypatch.setattr(
+        "nexus.compute.task_completion.monotonic",
+        lambda: next(values),
+    )
+
+    registry.create("task-cancel-cleanup")
+    registry.cancel("task-cancel-cleanup")
+
+    assert registry.cleanup(max_age=0) == 1
+    assert registry.get(
+        "task-cancel-cleanup"
+    ) is None
