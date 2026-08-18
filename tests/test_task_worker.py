@@ -449,3 +449,144 @@ def test_worker_marks_task_running_during_execution() -> None:
     assert final.result == {
         "value": 42,
     }
+
+
+def test_worker_preserves_cancelled_when_running_handler_returns() -> None:
+    import threading
+
+    from nexus.compute.handlers import TaskHandlerRegistry
+    from nexus.compute.task import ComputeTask
+    from nexus.compute.task_completion import TaskCompletionRegistry
+    from nexus.compute.task_queue import TaskQueue
+    from nexus.compute.task_worker import TaskWorker
+
+    started = threading.Event()
+    release = threading.Event()
+
+    registry = TaskHandlerRegistry()
+
+    def blocking_handler(payload):
+        started.set()
+        release.wait(timeout=2)
+        return {"value": payload["value"]}
+
+    registry.register(
+        "cancel-running-return",
+        blocking_handler,
+    )
+
+    queue = TaskQueue()
+    completions = TaskCompletionRegistry()
+
+    task = ComputeTask(
+        name="cancel-running-return",
+        payload={"value": 42},
+    )
+
+    completions.create(task.task_id)
+    queue.enqueue(task)
+
+    worker = TaskWorker(
+        queue=queue,
+        registry=registry,
+        completions=completions,
+    )
+
+    thread = threading.Thread(
+        target=worker.run_once,
+    )
+
+    thread.start()
+
+    assert started.wait(timeout=1)
+
+    completions.cancel(task.task_id)
+
+    cancelled = completions.get(task.task_id)
+
+    assert cancelled is not None
+    assert cancelled.status == "cancelled"
+
+    release.set()
+    thread.join(timeout=2)
+
+    assert not thread.is_alive()
+
+    final = completions.get(task.task_id)
+
+    assert final is not None
+    assert final.status == "cancelled"
+    assert final.result is None
+    assert final.error is None
+
+
+def test_worker_preserves_cancelled_when_running_handler_fails() -> None:
+    import threading
+
+    from nexus.compute.handlers import TaskHandlerRegistry
+    from nexus.compute.task import ComputeTask
+    from nexus.compute.task_completion import TaskCompletionRegistry
+    from nexus.compute.task_queue import TaskQueue
+    from nexus.compute.task_worker import TaskWorker
+
+    started = threading.Event()
+    release = threading.Event()
+
+    registry = TaskHandlerRegistry()
+
+    def blocking_handler(payload):
+        started.set()
+        release.wait(timeout=2)
+        raise RuntimeError("late failure")
+
+    registry.register(
+        "cancel-running-failure",
+        blocking_handler,
+    )
+
+    queue = TaskQueue()
+    completions = TaskCompletionRegistry()
+
+    task = ComputeTask(
+        name="cancel-running-failure",
+    )
+
+    completions.create(task.task_id)
+    queue.enqueue(task)
+
+    worker = TaskWorker(
+        queue=queue,
+        registry=registry,
+        completions=completions,
+    )
+
+    captured = []
+
+    def run_worker():
+        try:
+            worker.run_once()
+        except RuntimeError as exc:
+            captured.append(str(exc))
+
+    thread = threading.Thread(
+        target=run_worker,
+    )
+
+    thread.start()
+
+    assert started.wait(timeout=1)
+
+    completions.cancel(task.task_id)
+
+    release.set()
+    thread.join(timeout=2)
+
+    assert not thread.is_alive()
+    assert captured == ["late failure"]
+
+    final = completions.get(task.task_id)
+
+    assert final is not None
+    assert final.status == "cancelled"
+    assert final.result is None
+    assert final.error is None

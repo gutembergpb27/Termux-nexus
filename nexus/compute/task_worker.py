@@ -63,7 +63,10 @@ class TaskWorker:
                     task.task_id
                 )
 
-                if completion is not None:
+                if (
+                    completion is not None
+                    and completion.status != "cancelled"
+                ):
                     self._completions.fail(
                         task.task_id,
                         str(exc),
@@ -76,7 +79,10 @@ class TaskWorker:
                 task.task_id
             )
 
-            if completion is not None:
+            if (
+                completion is not None
+                and completion.status != "cancelled"
+            ):
                 self._completions.complete(
                     task.task_id,
                     result,
