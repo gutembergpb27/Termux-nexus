@@ -16,6 +16,7 @@ class TaskCompletionSnapshot:
     running: int = 0
     completed: int = 0
     failed: int = 0
+    cancelled: int = 0
     total: int = 0
 
 
@@ -77,6 +78,7 @@ class TaskCompletion:
             "running",
             "completed",
             "failed",
+            "cancelled",
         }:
             raise ValueError(
                 "invalid task completion status"
@@ -121,6 +123,17 @@ class TaskCompletion:
                     "running task must not contain error"
                 )
 
+        if self.status == "cancelled":
+            if self.result is not None:
+                raise ValueError(
+                    "cancelled task must not contain result"
+                )
+
+            if self.error is not None:
+                raise ValueError(
+                    "cancelled task must not contain error"
+                )
+
     @classmethod
     def pending(
         cls,
@@ -141,6 +154,17 @@ class TaskCompletion:
         return cls(
             task_id=task_id,
             status="running",
+        )
+
+    @classmethod
+    def cancelled(
+        cls,
+        *,
+        task_id: str,
+    ) -> "TaskCompletion":
+        return cls(
+            task_id=task_id,
+            status="cancelled",
         )
 
     @classmethod
@@ -305,6 +329,38 @@ class TaskCompletionRegistry:
 
         return completion
 
+    def cancel(
+        self,
+        task_id: str,
+    ) -> TaskCompletion:
+        key = str(task_id).strip()
+
+        with self._condition:
+            if key not in self._items:
+                raise KeyError(
+                    "unknown task completion"
+                )
+
+            current = self._items[key]
+
+            if current.status not in {
+                "pending",
+                "running",
+            }:
+                raise ValueError(
+                    "task completion already terminal"
+                )
+
+            completion = TaskCompletion.cancelled(
+                task_id=key,
+            )
+
+            self._items[key] = completion
+            self._finished_at[key] = monotonic()
+            self._condition.notify_all()
+
+        return completion
+
     def execution_elapsed(
         self,
         task_id: str,
@@ -434,6 +490,7 @@ class TaskCompletionRegistry:
             running = 0
             completed = 0
             failed = 0
+            cancelled = 0
 
             for completion in self._items.values():
                 if completion.status == "pending":
@@ -444,12 +501,15 @@ class TaskCompletionRegistry:
                     completed += 1
                 elif completion.status == "failed":
                     failed += 1
+                elif completion.status == "cancelled":
+                    cancelled += 1
 
             return TaskCompletionSnapshot(
                 pending=pending,
                 running=running,
                 completed=completed,
                 failed=failed,
+                cancelled=cancelled,
                 total=len(self._items),
             )
 
@@ -521,6 +581,7 @@ class TaskCompletionRegistry:
                 if completion.status in {
                     "completed",
                     "failed",
+                    "cancelled",
                 }:
                     return completion
 
