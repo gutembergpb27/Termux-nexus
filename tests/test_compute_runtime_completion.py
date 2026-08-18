@@ -218,3 +218,50 @@ def test_compute_runtime_rejects_unknown_cancellation() -> None:
         runtime.cancel(
             "runtime-cancel-missing"
         )
+
+
+def test_compute_runtime_returns_cancellation_token() -> None:
+    runtime = ComputeRuntime()
+
+    runtime.completions.create(
+        "runtime-token"
+    )
+
+    token = runtime.cancellation_token(
+        "runtime-token"
+    )
+
+    assert token.task_id == "runtime-token"
+    assert token.cancelled is False
+
+
+def test_compute_runtime_token_observes_cancellation() -> None:
+    runtime = ComputeRuntime()
+
+    runtime.completions.create(
+        "runtime-token-cancel"
+    )
+
+    token = runtime.cancellation_token(
+        "runtime-token-cancel"
+    )
+
+    runtime.cancel(
+        "runtime-token-cancel"
+    )
+
+    assert token.cancelled is True
+
+
+def test_compute_runtime_rejects_token_for_unknown_task() -> None:
+    import pytest
+
+    runtime = ComputeRuntime()
+
+    with pytest.raises(
+        KeyError,
+        match="unknown task completion",
+    ):
+        runtime.cancellation_token(
+            "runtime-token-missing"
+        )
