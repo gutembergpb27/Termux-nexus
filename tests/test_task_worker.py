@@ -590,3 +590,86 @@ def test_worker_preserves_cancelled_when_running_handler_fails() -> None:
     assert final.status == "cancelled"
     assert final.result is None
     assert final.error is None
+
+
+def test_worker_handler_can_cooperatively_observe_cancellation() -> None:
+    import threading
+    import time
+
+    from nexus.compute.cancellation import TaskCancelledError
+    from nexus.compute.handlers import TaskHandlerRegistry
+    from nexus.compute.task import ComputeTask
+    from nexus.compute.task_completion import TaskCompletionRegistry
+    from nexus.compute.task_queue import TaskQueue
+    from nexus.compute.task_worker import TaskWorker
+
+    started = threading.Event()
+
+    registry = TaskHandlerRegistry()
+
+    def cooperative_handler(
+        payload,
+        *,
+        cancellation_token,
+    ):
+        started.set()
+
+        deadline = time.time() + 2.0
+
+        while time.time() < deadline:
+            cancellation_token.raise_if_cancelled()
+            time.sleep(0.01)
+
+        return payload["value"]
+
+    registry.register(
+        "cooperative-cancel",
+        cooperative_handler,
+    )
+
+    queue = TaskQueue()
+    completions = TaskCompletionRegistry()
+
+    task = ComputeTask(
+        name="cooperative-cancel",
+        payload={"value": 42},
+    )
+
+    completions.create(task.task_id)
+    queue.enqueue(task)
+
+    worker = TaskWorker(
+        queue=queue,
+        registry=registry,
+        completions=completions,
+    )
+
+    captured = []
+
+    def run():
+        try:
+            worker.run_once()
+        except TaskCancelledError:
+            captured.append("cancelled")
+
+    thread = threading.Thread(
+        target=run,
+    )
+
+    thread.start()
+
+    assert started.wait(timeout=1)
+
+    completions.cancel(task.task_id)
+
+    thread.join(timeout=1)
+
+    assert not thread.is_alive()
+    assert captured == ["cancelled"]
+
+    completion = completions.get(
+        task.task_id
+    )
+
+    assert completion is not None
+    assert completion.status == "cancelled"

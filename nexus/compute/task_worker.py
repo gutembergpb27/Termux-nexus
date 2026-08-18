@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from threading import Event, Lock, Thread
 
+from nexus.compute.cancellation import CancellationToken
 from nexus.compute.handlers import TaskHandlerRegistry
 from nexus.compute.task_completion import TaskCompletionRegistry
 from nexus.compute.task_queue import TaskQueue
@@ -53,9 +54,18 @@ class TaskWorker:
                 )
 
         try:
+            token = None
+
+            if self._completions is not None:
+                token = CancellationToken(
+                    task_id=task.task_id,
+                    completions=self._completions,
+                )
+
             result = self._registry.execute(
                 task.name,
                 task.payload,
+                cancellation_token=token,
             )
         except Exception as exc:
             if self._completions is not None:
