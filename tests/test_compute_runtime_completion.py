@@ -166,3 +166,55 @@ def test_compute_runtime_failed_run_is_terminal() -> None:
         match="already exists",
     ):
         runtime.run(task)
+
+
+def test_compute_runtime_cancels_pending_task() -> None:
+    runtime = ComputeRuntime()
+
+    runtime.completions.create(
+        "runtime-cancel-pending"
+    )
+
+    completion = runtime.cancel(
+        "runtime-cancel-pending"
+    )
+
+    assert completion.status == "cancelled"
+
+    stored = runtime.completions.get(
+        "runtime-cancel-pending"
+    )
+
+    assert stored == completion
+
+
+def test_compute_runtime_cancels_running_task() -> None:
+    runtime = ComputeRuntime()
+
+    runtime.completions.create(
+        "runtime-cancel-running"
+    )
+
+    runtime.completions.start(
+        "runtime-cancel-running"
+    )
+
+    completion = runtime.cancel(
+        "runtime-cancel-running"
+    )
+
+    assert completion.status == "cancelled"
+
+
+def test_compute_runtime_rejects_unknown_cancellation() -> None:
+    runtime = ComputeRuntime()
+
+    import pytest
+
+    with pytest.raises(
+        KeyError,
+        match="unknown task completion",
+    ):
+        runtime.cancel(
+            "runtime-cancel-missing"
+        )

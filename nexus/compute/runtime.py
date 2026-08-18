@@ -39,6 +39,16 @@ class ComputeRuntime:
 
         self.scheduler = BackendScheduler(self.registry)
 
+    def cancel(
+        self,
+        task_id: str,
+    ):
+        """Cancela logicamente uma tarefa pending ou running."""
+
+        return self.completions.cancel(
+            task_id
+        )
+
     def run(
         self,
         task: ComputeTask,
