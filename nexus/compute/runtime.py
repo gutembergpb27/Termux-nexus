@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from time import monotonic
+
 from dataclasses import replace
 
 from nexus.compute.cancellation import CancellationToken
@@ -45,6 +47,7 @@ class ComputeRuntime:
         task_id: str,
         *,
         deadline: float | None = None,
+        timeout: float | None = None,
     ) -> CancellationToken:
         """Retorna um token cooperativo para uma tarefa conhecida."""
 
@@ -52,6 +55,19 @@ class ComputeRuntime:
             raise KeyError(
                 "unknown task completion"
             )
+
+        if deadline is not None and timeout is not None:
+            raise ValueError(
+                "deadline and timeout are mutually exclusive"
+            )
+
+        if timeout is not None:
+            if timeout < 0:
+                raise ValueError(
+                    "timeout must be non-negative"
+                )
+
+            deadline = monotonic() + timeout
 
         return CancellationToken(
             task_id=task_id,
