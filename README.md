@@ -6,10 +6,10 @@
 
 **Runtime · Cluster · Replication · Diagnostics · Observability**
 
-![Version](https://img.shields.io/badge/version-2500.0.0rc1-2563eb)
+![Version](https://img.shields.io/badge/version-2600.0.0--alpha.1-2563eb)
 ![Python](https://img.shields.io/badge/python-3.14%2B-3776ab)
 ![Status](https://img.shields.io/badge/status-release%20candidate-f59e0b)
-![Tests](https://img.shields.io/badge/tests-193%20passed-16a34a)
+![Tests](https://img.shields.io/badge/tests-534%20passed-16a34a)
 
 </div>
 
@@ -24,7 +24,7 @@ The platform combines runtime lifecycle management, cluster orchestration,
 state replication, diagnostics, health inspection and observability through
 a modular Python architecture.
 
-> Current release: **v2500.0.0rc1**
+> Current release candidate: **v2600.0.0-alpha.1**
 
 ---
 
@@ -106,7 +106,7 @@ nexus version
 ```
 
 ```text
-Nexus Runtime Platform v2500.0.0rc1
+Nexus Runtime Platform v2600.0.0-alpha.1
 ```
 
 ### Local diagnostics
@@ -274,9 +274,9 @@ nexus peers --url http://127.0.0.1:8500/peers
 
 ## Release status
 
-### v2500.0.0 RC1
+### v2600.0.0 Alpha 1
 
-The v2500 release candidate consolidates:
+The v2600 audited release candidate consolidates:
 
 - unified Nexus CLI;
 - runtime diagnostics;
@@ -288,7 +288,20 @@ The v2500 release candidate consolidates:
 - state replication;
 - metrics, telemetry, logging and tracing;
 - automated regression validation;
-- Windows and Android Termux validation.
+- Windows and Android Termux validation;
+- cooperative task cancellation;
+- cooperative task deadlines;
+- relative task timeouts;
+- Compute runtime operational health;
+- durable task-completion state;
+- atomic completion-state storage;
+- automatic completion recovery during ComputeRuntime startup.
+
+The v2600 Alpha 1 release candidate is frozen at:
+
+- tag: `v2600.0.0-alpha.1`;
+- commit: `c238311dd8185eb69c00a718a09846d9ba64a1b0`;
+- validated suite: `534 passed, 1 xfailed`.
 
 This release candidate is intended for technical evaluation, controlled
 experimentation and continued architecture validation.
@@ -308,7 +321,7 @@ python -m pytest -q
 Current validated result:
 
 ```text
-193 passed, 1 xfailed
+534 passed, 1 xfailed
 ```
 
 Repository consistency checks:
@@ -345,7 +358,8 @@ timeline
     v2300 : Operational CLI and diagnostics
     v2400 : Runtime integration and observability
     v2500 RC1 : Unified runtime and cluster architecture
-    Future : Stabilization, packaging and interoperability
+    v2600 Alpha 1 : Compute lifecycle, durable state and startup recovery
+    Future : v2700 architecture and continued stabilization
 ```
 
 Future work may include:
