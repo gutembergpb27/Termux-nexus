@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+
+from dataclasses import asdict, dataclass
 from threading import Condition, RLock
 from time import monotonic
 from typing import Any
@@ -481,6 +483,103 @@ class TaskCompletionRegistry:
                 long_running_tasks=long_running_tasks,
                 max_running_elapsed=max_running_elapsed,
             )
+
+    def export_state(self) -> dict[str, Any]:
+        """Exporta o estado logico do registry em formato versionado."""
+
+        with self._condition:
+            return {
+                "schema_version": 1,
+                "items": [
+                    asdict(completion)
+                    for completion in self._items.values()
+                ],
+            }
+
+    @classmethod
+    def restore_state(
+        cls,
+        state: Mapping[str, Any],
+    ) -> "TaskCompletionRegistry":
+        """Restaura um registry a partir de estado previamente exportado."""
+
+        if not isinstance(state, Mapping):
+            raise TypeError(
+                "completion state must be a mapping"
+            )
+
+        if state.get("schema_version") != 1:
+            raise ValueError(
+                "unsupported completion state schema"
+            )
+
+        items = state.get("items")
+
+        if not isinstance(items, list):
+            raise ValueError(
+                "completion state items must be a list"
+            )
+
+        registry = cls()
+        seen: set[str] = set()
+
+        with registry._condition:
+            for raw in items:
+                if not isinstance(raw, Mapping):
+                    raise ValueError(
+                        "completion state item must be a mapping"
+                    )
+
+                record = dict(raw)
+
+                task_id = str(
+                    record.get("task_id", "")
+                ).strip()
+
+                if not task_id:
+                    raise ValueError(
+                        "completion state task id must not be empty"
+                    )
+
+                if task_id in seen:
+                    raise ValueError(
+                        "duplicate task completion in state"
+                    )
+
+                seen.add(task_id)
+
+                status = record.get("status")
+
+                # Uma execucao running nao sobrevive comprovadamente
+                # ao restart do processo. Recuperamos como failed.
+                if status == "running":
+                    completion = TaskCompletion.failed(
+                        task_id=task_id,
+                        error=(
+                            "task interrupted by runtime restart"
+                        ),
+                    )
+                else:
+                    completion = TaskCompletion(
+                        **record
+                    )
+
+                registry._items[
+                    completion.task_id
+                ] = completion
+
+                if completion.status in {
+                    "completed",
+                    "failed",
+                    "cancelled",
+                }:
+                    registry._finished_at[
+                        completion.task_id
+                    ] = monotonic()
+
+            registry._condition.notify_all()
+
+        return registry
 
     def snapshot(
         self,

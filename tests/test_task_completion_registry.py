@@ -1515,3 +1515,200 @@ def test_registry_cleanup_removes_cancelled_task(
     assert registry.get(
         "task-cancel-cleanup"
     ) is None
+
+
+def test_registry_exports_versioned_state() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("export-pending")
+
+    state = registry.export_state()
+
+    assert state["schema_version"] == 1
+    assert state["items"] == [
+        {
+            "task_id": "export-pending",
+            "status": "pending",
+            "result": None,
+            "error": None,
+        }
+    ]
+
+
+def test_registry_restores_completion_states() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("restore-pending")
+
+    registry.create("restore-completed")
+    registry.complete(
+        "restore-completed",
+        {"value": 42},
+    )
+
+    registry.create("restore-failed")
+    registry.fail(
+        "restore-failed",
+        "boom",
+    )
+
+    registry.create("restore-cancelled")
+    registry.cancel(
+        "restore-cancelled"
+    )
+
+    restored = TaskCompletionRegistry.restore_state(
+        registry.export_state()
+    )
+
+    assert restored.get(
+        "restore-pending"
+    ).status == "pending"
+
+    completed = restored.get(
+        "restore-completed"
+    )
+    assert completed.status == "completed"
+    assert completed.result == {"value": 42}
+
+    failed = restored.get(
+        "restore-failed"
+    )
+    assert failed.status == "failed"
+    assert failed.error == "boom"
+
+    cancelled = restored.get(
+        "restore-cancelled"
+    )
+    assert cancelled.status == "cancelled"
+
+
+def test_registry_restore_converts_running_to_failed() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("restore-running")
+    registry.start("restore-running")
+
+    restored = TaskCompletionRegistry.restore_state(
+        registry.export_state()
+    )
+
+    completion = restored.get(
+        "restore-running"
+    )
+
+    assert completion is not None
+    assert completion.status == "failed"
+    assert completion.error == (
+        "task interrupted by runtime restart"
+    )
+
+
+def test_registry_restored_state_has_correct_snapshot() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("snapshot-pending")
+
+    registry.create("snapshot-completed")
+    registry.complete(
+        "snapshot-completed",
+        42,
+    )
+
+    registry.create("snapshot-cancelled")
+    registry.cancel(
+        "snapshot-cancelled"
+    )
+
+    restored = TaskCompletionRegistry.restore_state(
+        registry.export_state()
+    )
+
+    snapshot = restored.snapshot()
+
+    assert snapshot.pending == 1
+    assert snapshot.completed == 1
+    assert snapshot.cancelled == 1
+    assert snapshot.total == 3
+
+
+def test_registry_restore_rejects_unknown_schema() -> None:
+    import pytest
+
+    with pytest.raises(
+        ValueError,
+        match="unsupported completion state schema",
+    ):
+        TaskCompletionRegistry.restore_state(
+            {
+                "schema_version": 999,
+                "items": [],
+            }
+        )
+
+
+def test_registry_restore_rejects_invalid_items() -> None:
+    import pytest
+
+    with pytest.raises(
+        ValueError,
+        match="items must be a list",
+    ):
+        TaskCompletionRegistry.restore_state(
+            {
+                "schema_version": 1,
+                "items": {},
+            }
+        )
+
+
+def test_registry_restore_rejects_duplicate_task_ids() -> None:
+    import pytest
+
+    state = {
+        "schema_version": 1,
+        "items": [
+            {
+                "task_id": "duplicate",
+                "status": "pending",
+                "result": None,
+                "error": None,
+            },
+            {
+                "task_id": "duplicate",
+                "status": "pending",
+                "result": None,
+                "error": None,
+            },
+        ],
+    }
+
+    with pytest.raises(
+        ValueError,
+        match="duplicate task completion",
+    ):
+        TaskCompletionRegistry.restore_state(
+            state
+        )
+
+
+def test_registry_restored_terminal_task_remains_terminal() -> None:
+    import pytest
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("terminal-restored")
+    registry.cancel("terminal-restored")
+
+    restored = TaskCompletionRegistry.restore_state(
+        registry.export_state()
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="terminal",
+    ):
+        restored.complete(
+            "terminal-restored",
+            "late-result",
+        )
