@@ -415,3 +415,190 @@ def test_compute_runtime_health_reports_task_states() -> None:
     assert health["failed"] == 1
     assert health["cancelled"] == 1
     assert health["total"] == 5
+
+
+def test_compute_runtime_starts_empty_without_completion_store() -> None:
+    runtime = ComputeRuntime()
+
+    assert runtime.completions.snapshot().total == 0
+
+
+def test_compute_runtime_recovers_completions_from_store(
+    tmp_path,
+) -> None:
+    from nexus.compute import TaskCompletionStore
+    from nexus.compute.task_completion import TaskCompletionRegistry
+
+    path = tmp_path / "runtime-state.json"
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("recovered-pending")
+
+    registry.create("recovered-completed")
+    registry.complete(
+        "recovered-completed",
+        {"value": 42},
+    )
+
+    store = TaskCompletionStore(path)
+
+    store.save(registry)
+
+    runtime = ComputeRuntime(
+        completion_store=store,
+    )
+
+    assert (
+        runtime.completions.get(
+            "recovered-pending"
+        ).status
+        == "pending"
+    )
+
+    completed = runtime.completions.get(
+        "recovered-completed"
+    )
+
+    assert completed.status == "completed"
+    assert completed.result == {
+        "value": 42
+    }
+
+
+def test_compute_runtime_recovery_marks_running_as_failed(
+    tmp_path,
+) -> None:
+    from nexus.compute import TaskCompletionStore
+    from nexus.compute.task_completion import TaskCompletionRegistry
+
+    path = tmp_path / "runtime-running.json"
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("recovered-running")
+    registry.start("recovered-running")
+
+    store = TaskCompletionStore(path)
+    store.save(registry)
+
+    runtime = ComputeRuntime(
+        completion_store=store,
+    )
+
+    completion = runtime.completions.get(
+        "recovered-running"
+    )
+
+    assert completion is not None
+    assert completion.status == "failed"
+    assert completion.error == (
+        "task interrupted by runtime restart"
+    )
+
+
+def test_compute_runtime_missing_store_file_starts_empty(
+    tmp_path,
+) -> None:
+    from nexus.compute import TaskCompletionStore
+
+    store = TaskCompletionStore(
+        tmp_path / "missing-runtime.json"
+    )
+
+    runtime = ComputeRuntime(
+        completion_store=store,
+    )
+
+    assert runtime.completions.snapshot().total == 0
+
+
+def test_compute_runtime_rejects_corrupt_store_on_startup(
+    tmp_path,
+) -> None:
+    import pytest
+
+    from nexus.compute import TaskCompletionStore
+
+    path = tmp_path / "corrupt-runtime.json"
+
+    path.write_text(
+        "{invalid-json",
+        encoding="utf-8",
+    )
+
+    store = TaskCompletionStore(path)
+
+    with pytest.raises(
+        ValueError,
+        match="invalid task completion state JSON",
+    ):
+        ComputeRuntime(
+            completion_store=store,
+        )
+
+
+def test_compute_runtime_persist_saves_current_state(
+    tmp_path,
+) -> None:
+    from nexus.compute import TaskCompletionStore
+
+    path = tmp_path / "persist-runtime.json"
+
+    store = TaskCompletionStore(path)
+
+    runtime = ComputeRuntime(
+        completion_store=store,
+    )
+
+    runtime.completions.create(
+        "persisted-task"
+    )
+
+    runtime.persist()
+
+    recovered = ComputeRuntime(
+        completion_store=store,
+    )
+
+    assert recovered.completions.get(
+        "persisted-task"
+    ).status == "pending"
+
+
+def test_compute_runtime_persist_requires_store() -> None:
+    import pytest
+
+    runtime = ComputeRuntime()
+
+    with pytest.raises(
+        RuntimeError,
+        match="completion store is not configured",
+    ):
+        runtime.persist()
+
+
+def test_compute_runtime_health_reflects_recovered_state(
+    tmp_path,
+) -> None:
+    from nexus.compute import TaskCompletionStore
+    from nexus.compute.task_completion import TaskCompletionRegistry
+
+    path = tmp_path / "health-recovery.json"
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("health-recovered")
+
+    store = TaskCompletionStore(path)
+    store.save(registry)
+
+    runtime = ComputeRuntime(
+        completion_store=store,
+    )
+
+    health = runtime.health()
+
+    assert health["healthy"] is True
+    assert health["pending"] == 1
+    assert health["total"] == 1

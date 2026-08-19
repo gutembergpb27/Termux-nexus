@@ -7,6 +7,7 @@ from time import monotonic
 from dataclasses import replace
 
 from nexus.compute.cancellation import CancellationToken
+from nexus.compute.completion_store import TaskCompletionStore
 from nexus.compute.backend import ComputeBackend
 from nexus.compute.local import LocalBackend
 from nexus.compute.observability import ComputeExecutionObservability
@@ -26,9 +27,24 @@ class ComputeRuntime:
         *,
         additional_backends: tuple[ComputeBackend, ...] = (),
         completions: TaskCompletionRegistry | None = None,
+        completion_store: TaskCompletionStore | None = None,
     ) -> None:
         self.registry = registry or BackendRegistry()
-        self.completions = completions or TaskCompletionRegistry()
+
+        if completions is not None and completion_store is not None:
+            raise ValueError(
+                "completions and completion_store are mutually exclusive"
+            )
+
+        self._completion_store = completion_store
+
+        if completion_store is not None:
+            self.completions = completion_store.load()
+        elif completions is not None:
+            self.completions = completions
+        else:
+            self.completions = TaskCompletionRegistry()
+
         self.observability = ComputeExecutionObservability(
             self.completions
         )
@@ -41,6 +57,18 @@ class ComputeRuntime:
                 self.registry.register(backend)
 
         self.scheduler = BackendScheduler(self.registry)
+
+    def persist(self) -> None:
+        """Persiste explicitamente o estado atual de completions."""
+
+        if self._completion_store is None:
+            raise RuntimeError(
+                "completion store is not configured"
+            )
+
+        self._completion_store.save(
+            self.completions
+        )
 
     def health(self) -> dict[str, object]:
         """Retorna um snapshot operacional do subsistema Compute."""
