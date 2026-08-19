@@ -7,6 +7,7 @@ from nexus.compute.cancellation import (
     TaskCancelledError,
     TaskDeadlineExceededError,
 )
+from nexus.compute.completion_store import TaskCompletionStore
 from nexus.compute.cluster import ClusterBackend
 from nexus.compute.dispatcher import ClusterDispatcher, NodeExecutor
 from nexus.compute.handlers import (
@@ -37,6 +38,7 @@ __all__ = [
     "BackendCapabilities",
     "CancellationToken",
     "TaskCancelledError",
+    "TaskCompletionStore",
     "TaskDeadlineExceededError",
     "BackendHealth",
     "BackendMetrics",
