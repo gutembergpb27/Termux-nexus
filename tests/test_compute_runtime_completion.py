@@ -363,3 +363,55 @@ def test_compute_runtime_rejects_deadline_and_timeout_together() -> None:
             deadline=100.0,
             timeout=5.0,
         )
+
+
+def test_compute_runtime_health_reports_empty_runtime() -> None:
+    runtime = ComputeRuntime()
+
+    health = runtime.health()
+
+    assert health == {
+        "healthy": True,
+        "pending": 0,
+        "running": 0,
+        "completed": 0,
+        "failed": 0,
+        "cancelled": 0,
+        "total": 0,
+    }
+
+
+def test_compute_runtime_health_reports_task_states() -> None:
+    runtime = ComputeRuntime()
+
+    runtime.completions.create("health-pending")
+
+    runtime.completions.create("health-running")
+    runtime.completions.start("health-running")
+
+    runtime.completions.create("health-completed")
+    runtime.completions.complete(
+        "health-completed",
+        {"ok": True},
+    )
+
+    runtime.completions.create("health-failed")
+    runtime.completions.fail(
+        "health-failed",
+        "boom",
+    )
+
+    runtime.completions.create("health-cancelled")
+    runtime.completions.cancel(
+        "health-cancelled"
+    )
+
+    health = runtime.health()
+
+    assert health["healthy"] is True
+    assert health["pending"] == 1
+    assert health["running"] == 1
+    assert health["completed"] == 1
+    assert health["failed"] == 1
+    assert health["cancelled"] == 1
+    assert health["total"] == 5

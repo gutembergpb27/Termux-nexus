@@ -42,6 +42,21 @@ class ComputeRuntime:
 
         self.scheduler = BackendScheduler(self.registry)
 
+    def health(self) -> dict[str, object]:
+        """Retorna um snapshot operacional do subsistema Compute."""
+
+        snapshot = self.completions.snapshot()
+
+        return {
+            "healthy": True,
+            "pending": snapshot.pending,
+            "running": snapshot.running,
+            "completed": snapshot.completed,
+            "failed": snapshot.failed,
+            "cancelled": snapshot.cancelled,
+            "total": snapshot.total,
+        }
+
     def cancellation_token(
         self,
         task_id: str,
