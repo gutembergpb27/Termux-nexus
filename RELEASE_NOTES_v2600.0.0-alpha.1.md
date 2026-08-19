@@ -1,4 +1,4 @@
-﻿# Nexus Runtime Platform v2600.0.0-alpha.1
+# Nexus Runtime Platform v2600.0.0-alpha.1
 
 ## Status
 
@@ -89,4 +89,3 @@ The next architecture cycle is v2700.
 v2600.0.0-alpha.1 is an Alpha release candidate intended for technical evaluation and engineering validation.
 
 It must not be represented as a production-stable release.
-
