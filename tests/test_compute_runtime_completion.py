@@ -280,3 +280,86 @@ def test_compute_runtime_token_accepts_deadline() -> None:
     )
 
     assert token.deadline == 123.0
+
+
+def test_compute_runtime_token_accepts_relative_timeout(
+    monkeypatch,
+) -> None:
+    runtime = ComputeRuntime()
+
+    runtime.completions.create(
+        "runtime-timeout"
+    )
+
+    monkeypatch.setattr(
+        "nexus.compute.runtime.monotonic",
+        lambda: 100.0,
+    )
+
+    token = runtime.cancellation_token(
+        "runtime-timeout",
+        timeout=5.0,
+    )
+
+    assert token.deadline == 105.0
+
+
+def test_compute_runtime_token_accepts_zero_timeout(
+    monkeypatch,
+) -> None:
+    runtime = ComputeRuntime()
+
+    runtime.completions.create(
+        "runtime-timeout-zero"
+    )
+
+    monkeypatch.setattr(
+        "nexus.compute.runtime.monotonic",
+        lambda: 100.0,
+    )
+
+    token = runtime.cancellation_token(
+        "runtime-timeout-zero",
+        timeout=0.0,
+    )
+
+    assert token.deadline == 100.0
+
+
+def test_compute_runtime_rejects_negative_timeout() -> None:
+    import pytest
+
+    runtime = ComputeRuntime()
+
+    runtime.completions.create(
+        "runtime-timeout-negative"
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="timeout must be non-negative",
+    ):
+        runtime.cancellation_token(
+            "runtime-timeout-negative",
+            timeout=-1.0,
+        )
+
+
+def test_compute_runtime_rejects_deadline_and_timeout_together() -> None:
+    import pytest
+
+    runtime = ComputeRuntime()
+
+    runtime.completions.create(
+        "runtime-timeout-conflict"
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="mutually exclusive",
+    ):
+        runtime.cancellation_token(
+            "runtime-timeout-conflict",
+            deadline=100.0,
+            timeout=5.0,
+        )
