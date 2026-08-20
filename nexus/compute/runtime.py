@@ -149,7 +149,40 @@ class ComputeRuntime:
         *,
         backend: str = "auto",
         retry: RetryPolicy | None = None,
+        idempotent: bool = False,
     ) -> ComputeResult:
+        existing = self.completions.get(
+            task.task_id
+        )
+
+        if existing is not None:
+            if not idempotent:
+                raise ValueError(
+                    f"task completion already exists: {task.task_id}"
+                )
+
+            if existing.status == "completed":
+                if not isinstance(existing.result, ComputeResult):
+                    raise RuntimeError(
+                        "completed task does not contain a ComputeResult"
+                    )
+
+                return existing.result
+
+            if existing.status == "failed":
+                raise RuntimeError(
+                    existing.error or "task execution previously failed"
+                )
+
+            if existing.status == "cancelled":
+                raise RuntimeError(
+                    existing.error or "task execution was cancelled"
+                )
+
+            raise RuntimeError(
+                f"task execution already in progress: {task.task_id}"
+            )
+
         self.completions.create(
             task.task_id
         )
