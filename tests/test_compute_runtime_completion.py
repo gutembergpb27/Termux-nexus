@@ -602,3 +602,194 @@ def test_compute_runtime_health_reflects_recovered_state(
     assert health["healthy"] is True
     assert health["pending"] == 1
     assert health["total"] == 1
+
+def test_compute_runtime_auto_persists_successful_run(
+    tmp_path,
+) -> None:
+    from nexus.compute import (
+        ComputeRuntime,
+        ComputeTask,
+        TaskCompletionStore,
+    )
+
+    path = tmp_path / "auto-persist-success.json"
+
+    runtime = ComputeRuntime(
+        completion_store=TaskCompletionStore(path),
+    )
+
+    task = ComputeTask(
+        name="auto-persist-success",
+        payload={"value": 42},
+    )
+
+    result = runtime.run(task)
+
+    assert path.exists()
+
+    recovered = ComputeRuntime(
+        completion_store=TaskCompletionStore(path),
+    )
+
+    completion = recovered.completions.get(
+        task.task_id
+    )
+
+    assert completion is not None
+    assert completion.status == "completed"
+
+    assert completion.result == {
+        "task_id": result.task_id,
+        "backend": result.backend,
+        "status": result.status,
+        "output": result.output,
+        "duration_seconds": result.duration_seconds,
+        "requested_backend": result.requested_backend,
+        "selection_reason": result.selection_reason,
+    }
+
+def test_compute_runtime_auto_persists_failed_run(
+    tmp_path,
+) -> None:
+    from nexus.compute import (
+        ComputeRuntime,
+        ComputeTask,
+        TaskCompletionStore,
+    )
+
+    path = tmp_path / "auto-persist-failed.json"
+
+    runtime = ComputeRuntime(
+        completion_store=TaskCompletionStore(path),
+    )
+
+    task = ComputeTask(
+        name="auto-persist-failed",
+    )
+
+    try:
+        runtime.run(
+            task,
+            backend="missing-backend",
+        )
+    except KeyError:
+        pass
+    else:
+        raise AssertionError(
+            "expected backend selection failure"
+        )
+
+    assert path.exists()
+
+    recovered = ComputeRuntime(
+        completion_store=TaskCompletionStore(path),
+    )
+
+    completion = recovered.completions.get(
+        task.task_id
+    )
+
+    assert completion is not None
+    assert completion.status == "failed"
+    assert completion.error is not None
+
+
+def test_compute_runtime_auto_persists_cancelled_task(
+    tmp_path,
+) -> None:
+    from nexus.compute import (
+        ComputeRuntime,
+        TaskCompletionStore,
+    )
+
+    path = tmp_path / "auto-persist-cancelled.json"
+
+    runtime = ComputeRuntime(
+        completion_store=TaskCompletionStore(path),
+    )
+
+    runtime.completions.create(
+        "auto-persist-cancelled"
+    )
+
+    runtime.cancel(
+        "auto-persist-cancelled"
+    )
+
+    assert path.exists()
+
+    recovered = ComputeRuntime(
+        completion_store=TaskCompletionStore(path),
+    )
+
+    completion = recovered.completions.get(
+        "auto-persist-cancelled"
+    )
+
+    assert completion is not None
+    assert completion.status == "cancelled"
+
+def test_compute_runtime_auto_persists_transition_sequence(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from nexus.compute import (
+        ComputeRuntime,
+        ComputeTask,
+        TaskCompletionStore,
+    )
+
+    path = tmp_path / "auto-persist-sequence.json"
+
+    store = TaskCompletionStore(path)
+
+    observed_statuses = []
+
+    original_save = store.save
+
+    def recording_save(registry) -> None:
+        completion = next(
+            iter(
+                registry.export_state()["items"]
+            )
+        )
+
+        observed_statuses.append(
+            completion["status"]
+        )
+
+        original_save(registry)
+
+    monkeypatch.setattr(
+        store,
+        "save",
+        recording_save,
+    )
+
+    runtime = ComputeRuntime(
+        completion_store=store,
+    )
+
+    task = ComputeTask(
+        name="auto-persist-sequence",
+        payload={"value": 42},
+    )
+
+    runtime.run(task)
+
+    assert observed_statuses == [
+        "pending",
+        "running",
+        "completed",
+    ]
+
+    recovered = ComputeRuntime(
+        completion_store=TaskCompletionStore(path),
+    )
+
+    completion = recovered.completions.get(
+        task.task_id
+    )
+
+    assert completion is not None
+    assert completion.status == "completed"
