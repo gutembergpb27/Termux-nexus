@@ -13,6 +13,7 @@ from nexus.compute.local import LocalBackend
 from nexus.compute.observability import ComputeExecutionObservability
 from nexus.compute.registry import BackendRegistry
 from nexus.compute.result import ComputeResult
+from nexus.compute.retry import RetryPolicy
 from nexus.compute.scheduler import BackendScheduler
 from nexus.compute.task import ComputeTask
 from nexus.compute.task_completion import TaskCompletionRegistry
@@ -147,6 +148,7 @@ class ComputeRuntime:
         task: ComputeTask,
         *,
         backend: str = "auto",
+        retry: RetryPolicy | None = None,
     ) -> ComputeResult:
         self.completions.create(
             task.task_id
@@ -160,37 +162,47 @@ class ComputeRuntime:
 
         self._persist_if_configured()
 
-        try:
-            selection = self.scheduler.select(
-                backend,
-                requirements=task.requirements,
-            )
+        policy = retry or RetryPolicy()
 
-            result = self.registry.get(
-                selection.selected
-            ).run(task)
+        for attempt in range(1, policy.max_attempts + 1):
+            try:
+                selection = self.scheduler.select(
+                    backend,
+                    requirements=task.requirements,
+                )
 
-            normalized = replace(
-                result,
-                requested_backend=selection.requested,
-                selection_reason=selection.reason,
-            )
+                result = self.registry.get(
+                    selection.selected
+                ).run(task)
 
-        except Exception as exc:
-            self.completions.fail(
+                normalized = replace(
+                    result,
+                    requested_backend=selection.requested,
+                    selection_reason=selection.reason,
+                )
+
+            except Exception as exc:
+                if attempt < policy.max_attempts:
+                    continue
+
+                self.completions.fail(
+                    task.task_id,
+                    str(exc),
+                )
+
+                self._persist_if_configured()
+
+                raise
+
+            self.completions.complete(
                 task.task_id,
-                str(exc),
+                normalized,
             )
 
             self._persist_if_configured()
 
-            raise
+            return normalized
 
-        self.completions.complete(
-            task.task_id,
-            normalized,
+        raise RuntimeError(
+            "retry execution completed without terminal result"
         )
-
-        self._persist_if_configured()
-
-        return normalized

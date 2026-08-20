@@ -26,6 +26,7 @@ from nexus.compute.peer_load import PeerLoadProvider
 from nexus.compute.registry import BackendRegistry
 from nexus.compute.requirements import ComputeRequirements
 from nexus.compute.result import ComputeResult
+from nexus.compute.retry import RetryPolicy
 from nexus.compute.runtime import ComputeRuntime
 from nexus.compute.scheduler import BackendScheduler
 from nexus.compute.selection import BackendSelection
@@ -54,6 +55,7 @@ __all__ = [
     "ComputeExecutionObservability",
     "ComputeRequirements",
     "ComputeResult",
+    "RetryPolicy",
     "ComputeRuntime",
     "ComputeTask",
     "TaskQueue",
