@@ -58,6 +58,16 @@ class ComputeRuntime:
 
         self.scheduler = BackendScheduler(self.registry)
 
+    def _persist_if_configured(self) -> None:
+        """Persiste completions quando um store estiver configurado."""
+
+        if self._completion_store is None:
+            return
+
+        self._completion_store.save(
+            self.completions
+        )
+
     def persist(self) -> None:
         """Persiste explicitamente o estado atual de completions."""
 
@@ -124,9 +134,13 @@ class ComputeRuntime:
     ):
         """Cancela logicamente uma tarefa pending ou running."""
 
-        return self.completions.cancel(
+        completion = self.completions.cancel(
             task_id
         )
+
+        self._persist_if_configured()
+
+        return completion
 
     def run(
         self,
@@ -138,9 +152,13 @@ class ComputeRuntime:
             task.task_id
         )
 
+        self._persist_if_configured()
+
         self.completions.start(
             task.task_id
         )
+
+        self._persist_if_configured()
 
         try:
             selection = self.scheduler.select(
@@ -163,11 +181,16 @@ class ComputeRuntime:
                 task.task_id,
                 str(exc),
             )
+
+            self._persist_if_configured()
+
             raise
 
         self.completions.complete(
             task.task_id,
             normalized,
         )
+
+        self._persist_if_configured()
 
         return normalized
