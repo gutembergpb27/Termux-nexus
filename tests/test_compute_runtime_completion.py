@@ -793,3 +793,295 @@ def test_compute_runtime_auto_persists_transition_sequence(
 
     assert completion is not None
     assert completion.status == "completed"
+
+
+def test_retry_policy_defaults_to_single_attempt() -> None:
+    from nexus.compute import RetryPolicy
+
+    policy = RetryPolicy()
+
+    assert policy.max_attempts == 1
+
+
+def test_retry_policy_rejects_zero_attempts() -> None:
+    from nexus.compute import RetryPolicy
+
+    with pytest.raises(
+        ValueError,
+        match="greater than or equal to 1",
+    ):
+        RetryPolicy(max_attempts=0)
+
+
+def test_retry_policy_rejects_boolean_attempts() -> None:
+    from nexus.compute import RetryPolicy
+
+    with pytest.raises(
+        TypeError,
+        match="must be an integer",
+    ):
+        RetryPolicy(max_attempts=True)
+
+
+def test_compute_runtime_retry_succeeds_before_limit() -> None:
+    from nexus.compute import RetryPolicy
+    from nexus.compute.backend import ComputeBackend
+    from nexus.compute.capabilities import BackendCapabilities
+    from nexus.compute.result import ComputeResult
+
+    class FlakyBackend(ComputeBackend):
+        name = "flaky"
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.calls = 0
+
+        def capabilities(self) -> BackendCapabilities:
+            return BackendCapabilities(compute_type="cpu")
+
+        def run(self, task):
+            self.calls += 1
+
+            if self.calls < 3:
+                raise RuntimeError("transient failure")
+
+            return ComputeResult(
+                task_id=task.task_id,
+                backend=self.name,
+                status="completed",
+                output={"attempt": self.calls},
+                duration_seconds=0.0,
+            )
+
+    backend = FlakyBackend()
+
+    runtime = ComputeRuntime(
+        additional_backends=(backend,),
+    )
+
+    task = ComputeTask(
+        name="runtime-retry-success",
+    )
+
+    result = runtime.run(
+        task,
+        backend="flaky",
+        retry=RetryPolicy(max_attempts=3),
+    )
+
+    assert backend.calls == 3
+    assert result.output == {"attempt": 3}
+
+    completion = runtime.completions.get(
+        task.task_id
+    )
+
+    assert completion is not None
+    assert completion.status == "completed"
+    assert completion.result == result
+
+
+def test_compute_runtime_retry_fails_only_after_limit() -> None:
+    from nexus.compute import RetryPolicy
+    from nexus.compute.backend import ComputeBackend
+    from nexus.compute.capabilities import BackendCapabilities
+
+    class AlwaysFailingBackend(ComputeBackend):
+        name = "always-failing"
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.calls = 0
+
+        def capabilities(self) -> BackendCapabilities:
+            return BackendCapabilities(compute_type="cpu")
+
+        def run(self, task):
+            self.calls += 1
+            raise RuntimeError("persistent failure")
+
+    backend = AlwaysFailingBackend()
+
+    runtime = ComputeRuntime(
+        additional_backends=(backend,),
+    )
+
+    task = ComputeTask(
+        name="runtime-retry-failure",
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="persistent failure",
+    ):
+        runtime.run(
+            task,
+            backend="always-failing",
+            retry=RetryPolicy(max_attempts=3),
+        )
+
+    assert backend.calls == 3
+
+    completion = runtime.completions.get(
+        task.task_id
+    )
+
+    assert completion is not None
+    assert completion.status == "failed"
+    assert completion.error == "persistent failure"
+
+
+def test_compute_runtime_default_retry_preserves_single_attempt() -> None:
+    from nexus.compute.backend import ComputeBackend
+    from nexus.compute.capabilities import BackendCapabilities
+
+    class FailingBackend(ComputeBackend):
+        name = "single-attempt"
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.calls = 0
+
+        def capabilities(self) -> BackendCapabilities:
+            return BackendCapabilities(compute_type="cpu")
+
+        def run(self, task):
+            self.calls += 1
+            raise RuntimeError("single failure")
+
+    backend = FailingBackend()
+
+    runtime = ComputeRuntime(
+        additional_backends=(backend,),
+    )
+
+    task = ComputeTask(
+        name="runtime-default-retry",
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="single failure",
+    ):
+        runtime.run(
+            task,
+            backend="single-attempt",
+        )
+
+    assert backend.calls == 1
+
+
+def test_compute_runtime_retry_keeps_single_logical_completion() -> None:
+    from nexus.compute import RetryPolicy
+    from nexus.compute.backend import ComputeBackend
+    from nexus.compute.capabilities import BackendCapabilities
+    from nexus.compute.result import ComputeResult
+
+    class RetryBackend(ComputeBackend):
+        name = "retry-idempotency"
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.calls = 0
+
+        def capabilities(self) -> BackendCapabilities:
+            return BackendCapabilities(compute_type="cpu")
+
+        def run(self, task):
+            self.calls += 1
+
+            if self.calls == 1:
+                raise RuntimeError("retry once")
+
+            return ComputeResult(
+                task_id=task.task_id,
+                backend=self.name,
+                status="completed",
+                output={"ok": True},
+                duration_seconds=0.0,
+            )
+
+    backend = RetryBackend()
+
+    runtime = ComputeRuntime(
+        additional_backends=(backend,),
+    )
+
+    task = ComputeTask(
+        name="runtime-retry-idempotency",
+        task_id="retry-single-logical-completion",
+    )
+
+    runtime.run(
+        task,
+        backend="retry-idempotency",
+        retry=RetryPolicy(max_attempts=2),
+    )
+
+    snapshot = runtime.completions.snapshot()
+
+    assert backend.calls == 2
+    assert snapshot.total == 1
+    assert snapshot.completed == 1
+    assert snapshot.failed == 0
+
+
+def test_compute_runtime_retry_persists_only_terminal_failure_after_exhaustion(
+    tmp_path,
+) -> None:
+    from nexus.compute import (
+        RetryPolicy,
+        TaskCompletionStore,
+    )
+    from nexus.compute.backend import ComputeBackend
+    from nexus.compute.capabilities import BackendCapabilities
+
+    class PersistFailBackend(ComputeBackend):
+        name = "persist-retry-failure"
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.calls = 0
+
+        def capabilities(self) -> BackendCapabilities:
+            return BackendCapabilities(compute_type="cpu")
+
+        def run(self, task):
+            self.calls += 1
+            raise RuntimeError("retry exhausted")
+
+    backend = PersistFailBackend()
+    path = tmp_path / "retry-failure.json"
+
+    runtime = ComputeRuntime(
+        additional_backends=(backend,),
+        completion_store=TaskCompletionStore(path),
+    )
+
+    task = ComputeTask(
+        name="runtime-retry-persist-failure",
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="retry exhausted",
+    ):
+        runtime.run(
+            task,
+            backend="persist-retry-failure",
+            retry=RetryPolicy(max_attempts=2),
+        )
+
+    assert backend.calls == 2
+
+    recovered = ComputeRuntime(
+        completion_store=TaskCompletionStore(path),
+    )
+
+    completion = recovered.completions.get(
+        task.task_id
+    )
+
+    assert completion is not None
+    assert completion.status == "failed"
+    assert completion.error == "retry exhausted"
