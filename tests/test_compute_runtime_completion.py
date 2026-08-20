@@ -1264,3 +1264,245 @@ def test_compute_runtime_idempotent_running_task_is_not_reentered() -> None:
             task,
             idempotent=True,
         )
+
+def test_compute_runtime_aborts_before_backend_when_pending_persistence_fails(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    import pytest
+
+    from nexus.compute import (
+        ComputeRuntime,
+        ComputeTask,
+        TaskCompletionStore,
+    )
+
+    path = tmp_path / "pending-persistence-failure.json"
+    store = TaskCompletionStore(path)
+
+    runtime = ComputeRuntime(
+        completion_store=store,
+    )
+
+    task = ComputeTask(
+        name="pending-persistence-failure",
+    )
+
+    def fail_save(registry) -> None:
+        raise OSError("persistence failed")
+
+    monkeypatch.setattr(
+        store,
+        "save",
+        fail_save,
+    )
+
+    with pytest.raises(
+        OSError,
+        match="persistence failed",
+    ):
+        runtime.run(task)
+
+    completion = runtime.completions.get(
+        task.task_id
+    )
+
+    assert completion is not None
+    assert completion.status == "pending"
+
+
+def test_compute_runtime_aborts_before_backend_when_running_persistence_fails(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    import pytest
+
+    from nexus.compute import (
+        ComputeRuntime,
+        ComputeTask,
+        TaskCompletionStore,
+    )
+
+    path = tmp_path / "running-persistence-failure.json"
+    store = TaskCompletionStore(path)
+
+    runtime = ComputeRuntime(
+        completion_store=store,
+    )
+
+    task = ComputeTask(
+        name="running-persistence-failure",
+    )
+
+    original_save = store.save
+    saves = 0
+
+    def fail_running_save(registry) -> None:
+        nonlocal saves
+        saves += 1
+
+        if saves == 2:
+            raise OSError("running persistence failed")
+
+        original_save(registry)
+
+    monkeypatch.setattr(
+        store,
+        "save",
+        fail_running_save,
+    )
+
+    with pytest.raises(
+        OSError,
+        match="running persistence failed",
+    ):
+        runtime.run(task)
+
+    completion = runtime.completions.get(
+        task.task_id
+    )
+
+    assert completion is not None
+    assert completion.status == "running"
+
+    recovered = ComputeRuntime(
+        completion_store=TaskCompletionStore(path),
+    )
+
+    recovered_completion = recovered.completions.get(
+        task.task_id
+    )
+
+    assert recovered_completion is not None
+    assert recovered_completion.status == "pending"
+
+
+def test_compute_runtime_propagates_terminal_persistence_failure(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    import pytest
+
+    from nexus.compute import (
+        ComputeRuntime,
+        ComputeTask,
+        TaskCompletionStore,
+    )
+
+    path = tmp_path / "terminal-persistence-failure.json"
+    store = TaskCompletionStore(path)
+
+    runtime = ComputeRuntime(
+        completion_store=store,
+    )
+
+    task = ComputeTask(
+        name="terminal-persistence-failure",
+        payload={"value": 42},
+    )
+
+    original_save = store.save
+    saves = 0
+
+    def fail_terminal_save(registry) -> None:
+        nonlocal saves
+        saves += 1
+
+        if saves == 3:
+            raise OSError("terminal persistence failed")
+
+        original_save(registry)
+
+    monkeypatch.setattr(
+        store,
+        "save",
+        fail_terminal_save,
+    )
+
+    with pytest.raises(
+        OSError,
+        match="terminal persistence failed",
+    ):
+        runtime.run(task)
+
+    completion = runtime.completions.get(
+        task.task_id
+    )
+
+    assert completion is not None
+    assert completion.status == "completed"
+
+    recovered = ComputeRuntime(
+        completion_store=TaskCompletionStore(path),
+    )
+
+    recovered_completion = recovered.completions.get(
+        task.task_id
+    )
+
+    assert recovered_completion is not None
+    assert recovered_completion.status == "failed"
+    assert (
+        recovered_completion.error
+        == "task interrupted by runtime restart"
+    )
+
+
+def test_compute_runtime_cancel_propagates_persistence_failure(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    import pytest
+
+    from nexus.compute import (
+        ComputeRuntime,
+        TaskCompletionStore,
+    )
+
+    path = tmp_path / "cancel-persistence-failure.json"
+    store = TaskCompletionStore(path)
+
+    runtime = ComputeRuntime(
+        completion_store=store,
+    )
+
+    runtime.completions.create(
+        "cancel-persistence-failure"
+    )
+
+    store.save(runtime.completions)
+
+    def fail_save(registry) -> None:
+        raise OSError("cancel persistence failed")
+
+    monkeypatch.setattr(
+        store,
+        "save",
+        fail_save,
+    )
+
+    with pytest.raises(
+        OSError,
+        match="cancel persistence failed",
+    ):
+        runtime.cancel(
+            "cancel-persistence-failure"
+        )
+
+    completion = runtime.completions.get(
+        "cancel-persistence-failure"
+    )
+
+    assert completion is not None
+    assert completion.status == "cancelled"
+
+    recovered = ComputeRuntime(
+        completion_store=TaskCompletionStore(path),
+    )
+
+    recovered_completion = recovered.completions.get(
+        "cancel-persistence-failure"
+    )
+
+    assert recovered_completion is not None
+    assert recovered_completion.status == "pending"
