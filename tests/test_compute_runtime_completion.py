@@ -1085,3 +1085,182 @@ def test_compute_runtime_retry_persists_only_terminal_failure_after_exhaustion(
     assert completion is not None
     assert completion.status == "failed"
     assert completion.error == "retry exhausted"
+
+def test_compute_runtime_idempotent_run_returns_existing_success() -> None:
+    runtime = ComputeRuntime()
+
+    task = ComputeTask(
+        name="runtime-idempotent-success",
+        task_id="runtime-idempotent-success-id",
+    )
+
+    first = runtime.run(task)
+
+    second = runtime.run(
+        task,
+        idempotent=True,
+    )
+
+    assert second == first
+
+    snapshot = runtime.completions.snapshot()
+
+    assert snapshot.total == 1
+    assert snapshot.completed == 1
+    assert snapshot.failed == 0
+
+
+def test_compute_runtime_idempotent_run_does_not_execute_backend_twice() -> None:
+    from nexus.compute.backend import ComputeBackend
+    from nexus.compute.capabilities import BackendCapabilities
+    from nexus.compute.result import ComputeResult
+
+    class CountingBackend(ComputeBackend):
+        name = "idempotent-counting"
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.calls = 0
+
+        def capabilities(self) -> BackendCapabilities:
+            return BackendCapabilities(
+                compute_type="cpu"
+            )
+
+        def run(self, task):
+            self.calls += 1
+
+            return ComputeResult(
+                task_id=task.task_id,
+                backend=self.name,
+                status="completed",
+                output={"calls": self.calls},
+                duration_seconds=0.0,
+            )
+
+    backend = CountingBackend()
+
+    runtime = ComputeRuntime(
+        additional_backends=(backend,),
+    )
+
+    task = ComputeTask(
+        name="runtime-idempotent-no-duplicate",
+        task_id="runtime-idempotent-no-duplicate-id",
+    )
+
+    first = runtime.run(
+        task,
+        backend="idempotent-counting",
+    )
+
+    second = runtime.run(
+        task,
+        backend="idempotent-counting",
+        idempotent=True,
+    )
+
+    assert backend.calls == 1
+    assert second == first
+
+
+def test_compute_runtime_default_duplicate_behavior_is_preserved() -> None:
+    runtime = ComputeRuntime()
+
+    task = ComputeTask(
+        name="runtime-idempotent-default",
+        task_id="runtime-idempotent-default-id",
+    )
+
+    runtime.run(task)
+
+    with pytest.raises(
+        ValueError,
+        match="already exists",
+    ):
+        runtime.run(task)
+
+
+def test_compute_runtime_idempotent_failed_task_does_not_reexecute() -> None:
+    runtime = ComputeRuntime()
+
+    task = ComputeTask(
+        name="runtime-idempotent-failed",
+        task_id="runtime-idempotent-failed-id",
+    )
+
+    with pytest.raises(KeyError):
+        runtime.run(
+            task,
+            backend="missing-idempotent-backend",
+        )
+
+    completion = runtime.completions.get(
+        task.task_id
+    )
+
+    assert completion is not None
+    assert completion.status == "failed"
+
+    with pytest.raises(RuntimeError):
+        runtime.run(
+            task,
+            idempotent=True,
+        )
+
+    snapshot = runtime.completions.snapshot()
+
+    assert snapshot.total == 1
+    assert snapshot.failed == 1
+
+
+def test_compute_runtime_idempotent_cancelled_task_is_terminal() -> None:
+    runtime = ComputeRuntime()
+
+    task = ComputeTask(
+        name="runtime-idempotent-cancelled",
+        task_id="runtime-idempotent-cancelled-id",
+    )
+
+    runtime.completions.create(
+        task.task_id
+    )
+
+    runtime.cancel(
+        task.task_id
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="cancel",
+    ):
+        runtime.run(
+            task,
+            idempotent=True,
+        )
+
+
+def test_compute_runtime_idempotent_running_task_is_not_reentered() -> None:
+    runtime = ComputeRuntime()
+
+    task = ComputeTask(
+        name="runtime-idempotent-running",
+        task_id="runtime-idempotent-running-id",
+    )
+
+    runtime.completions.create(
+        task.task_id
+    )
+
+    runtime.completions.start(
+        task.task_id
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="already in progress",
+    ):
+        runtime.run(
+            task,
+            idempotent=True,
+        )
