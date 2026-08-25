@@ -1506,3 +1506,164 @@ def test_compute_runtime_cancel_propagates_persistence_failure(
 
     assert recovered_completion is not None
     assert recovered_completion.status == "pending"
+
+
+def test_compute_runtime_restart_recovery_converges_after_repeated_restart(
+    tmp_path,
+) -> None:
+    from nexus.compute import (
+        ComputeRuntime,
+        TaskCompletionStore,
+    )
+    from nexus.compute.task_completion import (
+        TaskCompletionRegistry,
+    )
+
+    path = tmp_path / "deterministic-restart.json"
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("restart-pending")
+
+    registry.create("restart-running")
+    registry.start("restart-running")
+
+    registry.create("restart-completed")
+    registry.complete(
+        "restart-completed",
+        {"value": 42},
+    )
+
+    registry.create("restart-failed")
+    registry.fail(
+        "restart-failed",
+        "original failure",
+    )
+
+    registry.create("restart-cancelled")
+    registry.cancel(
+        "restart-cancelled",
+    )
+
+    store = TaskCompletionStore(path)
+    store.save(registry)
+
+    first_runtime = ComputeRuntime(
+        completion_store=store,
+    )
+
+    first_state = (
+        first_runtime.completions.export_state()
+    )
+
+    first_runtime.persist()
+
+    second_runtime = ComputeRuntime(
+        completion_store=store,
+    )
+
+    second_state = (
+        second_runtime.completions.export_state()
+    )
+
+    assert second_state == first_state
+
+    assert (
+        second_runtime.completions.get(
+            "restart-pending"
+        ).status
+        == "pending"
+    )
+
+    running = second_runtime.completions.get(
+        "restart-running"
+    )
+
+    assert running is not None
+    assert running.status == "failed"
+    assert (
+        running.error
+        == "task interrupted by runtime restart"
+    )
+
+    completed = second_runtime.completions.get(
+        "restart-completed"
+    )
+
+    assert completed is not None
+    assert completed.status == "completed"
+    assert completed.result == {"value": 42}
+
+    failed = second_runtime.completions.get(
+        "restart-failed"
+    )
+
+    assert failed is not None
+    assert failed.status == "failed"
+    assert failed.error == "original failure"
+
+    cancelled = second_runtime.completions.get(
+        "restart-cancelled"
+    )
+
+    assert cancelled is not None
+    assert cancelled.status == "cancelled"
+
+
+def test_compute_runtime_restart_recovery_is_idempotent_for_interrupted_running(
+    tmp_path,
+) -> None:
+    from nexus.compute import (
+        ComputeRuntime,
+        TaskCompletionStore,
+    )
+    from nexus.compute.task_completion import (
+        TaskCompletionRegistry,
+    )
+
+    path = tmp_path / "running-restart-convergence.json"
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("interrupted-running")
+    registry.start("interrupted-running")
+
+    store = TaskCompletionStore(path)
+    store.save(registry)
+
+    first_runtime = ComputeRuntime(
+        completion_store=store,
+    )
+
+    first = first_runtime.completions.get(
+        "interrupted-running"
+    )
+
+    assert first is not None
+    assert first.status == "failed"
+    assert (
+        first.error
+        == "task interrupted by runtime restart"
+    )
+
+    first_runtime.persist()
+
+    second_runtime = ComputeRuntime(
+        completion_store=store,
+    )
+
+    second = second_runtime.completions.get(
+        "interrupted-running"
+    )
+
+    assert second is not None
+    assert second.status == "failed"
+    assert (
+        second.error
+        == "task interrupted by runtime restart"
+    )
+
+    assert (
+        second_runtime.completions.export_state()
+        == first_runtime.completions.export_state()
+    )
