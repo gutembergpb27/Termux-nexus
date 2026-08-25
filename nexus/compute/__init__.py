@@ -35,6 +35,11 @@ from nexus.compute.task_queue import TaskQueue
 from nexus.compute.task_worker import TaskWorker
 from nexus.compute.transport_executor import TransportNodeExecutor
 
+from nexus.compute.task_ownership import (
+    TaskOwnership,
+    TaskOwnershipRegistry,
+)
+
 __all__ = [
     "BackendCapabilities",
     "CancellationToken",
@@ -67,4 +72,6 @@ __all__ = [
     "TaskHandlerRegistry",
     "TaskHandlerMetrics",
     "build_default_task_registry",
+    "TaskOwnership",
+    "TaskOwnershipRegistry",
 ]

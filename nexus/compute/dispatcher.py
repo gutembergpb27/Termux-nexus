@@ -7,6 +7,7 @@ from typing import Any
 
 from nexus.compute.node_load import NodeLoad
 from nexus.compute.task import ComputeTask
+from nexus.compute.task_ownership import TaskOwnershipRegistry
 from nexus.runtime.cluster import RuntimeCluster
 
 NodeExecutor = Callable[[str, ComputeTask], Any]
@@ -23,11 +24,15 @@ class ClusterDispatcher:
         executor: NodeExecutor,
         capabilities: CapabilityProvider | None = None,
         load: LoadProvider | None = None,
+        ownership: TaskOwnershipRegistry | None = None,
     ) -> None:
         self._cluster = cluster
         self._executor = executor
         self._capabilities = capabilities
         self._load = load
+        self._ownership = (
+            ownership or TaskOwnershipRegistry()
+        )
 
     def leader(self) -> str:
         """Retorna o líder atual ou falha quando não houver eleição."""
@@ -245,6 +250,28 @@ class ClusterDispatcher:
             f"{task.name}"
         )
 
+    def _execute_owned(
+        self,
+        target: str,
+        task: ComputeTask,
+    ) -> Any:
+        """Execute a task while holding exclusive node ownership."""
+        self._ownership.claim(
+            task.task_id,
+            target,
+        )
+
+        try:
+            return self._executor(
+                target,
+                task,
+            )
+        finally:
+            self._ownership.release(
+                task.task_id,
+                target,
+            )
+
     def dispatch(self, task: ComputeTask) -> Any:
         """Encaminha a tarefa a um nó online elegível."""
 
@@ -255,7 +282,7 @@ class ClusterDispatcher:
             leader,
         )
 
-        return self._executor(
+        return self._execute_owned(
             target,
             task,
         )
@@ -280,7 +307,7 @@ class ClusterDispatcher:
             leader,
         )
 
-        return self._executor(
+        return self._execute_owned(
             target,
             task,
         )
