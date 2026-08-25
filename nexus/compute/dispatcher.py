@@ -256,7 +256,7 @@ class ClusterDispatcher:
         task: ComputeTask,
     ) -> Any:
         """Execute a task while holding exclusive node ownership."""
-        self._ownership.claim(
+        ownership = self._ownership.claim(
             task.task_id,
             target,
         )
@@ -270,6 +270,7 @@ class ClusterDispatcher:
             self._ownership.release(
                 task.task_id,
                 target,
+                ownership.generation,
             )
 
     def dispatch(self, task: ComputeTask) -> Any:
