@@ -8,10 +8,11 @@ from threading import RLock
 
 @dataclass(frozen=True, slots=True)
 class TaskOwnership:
-    """Identifies the node currently owning a logical task execution."""
+    """Identifies one generation of distributed task ownership."""
 
     task_id: str
     node_id: str
+    generation: int
 
     def __post_init__(self) -> None:
         task_id = str(self.task_id).strip()
@@ -23,15 +24,25 @@ class TaskOwnership:
         if not node_id:
             raise ValueError("node id must not be empty")
 
+        if (
+            isinstance(self.generation, bool)
+            or not isinstance(self.generation, int)
+            or self.generation < 1
+        ):
+            raise ValueError(
+                "ownership generation must be a positive integer"
+            )
+
         object.__setattr__(self, "task_id", task_id)
         object.__setattr__(self, "node_id", node_id)
 
 
 class TaskOwnershipRegistry:
-    """Tracks exclusive in-flight ownership of distributed tasks."""
+    """Tracks exclusive, generation-fenced distributed ownership."""
 
     def __init__(self) -> None:
         self._items: dict[str, TaskOwnership] = {}
+        self._generations: dict[str, int] = {}
         self._lock = RLock()
 
     def claim(
@@ -39,64 +50,82 @@ class TaskOwnershipRegistry:
         task_id: str,
         node_id: str,
     ) -> TaskOwnership:
-        ownership = TaskOwnership(
-            task_id=task_id,
-            node_id=node_id,
-        )
+        key = str(task_id).strip()
+        owner = str(node_id).strip()
+
+        if not key:
+            raise ValueError("task id must not be empty")
+
+        if not owner:
+            raise ValueError("node id must not be empty")
 
         with self._lock:
-            existing = self._items.get(
-                ownership.task_id
-            )
+            existing = self._items.get(key)
 
             if existing is not None:
                 raise RuntimeError(
                     "task already owned: "
-                    f"{ownership.task_id} -> "
-                    f"{existing.node_id}"
+                    f"{key} -> {existing.node_id}"
                 )
 
-            self._items[
-                ownership.task_id
-            ] = ownership
+            generation = self._generations.get(key, 0) + 1
+
+            ownership = TaskOwnership(
+                task_id=key,
+                node_id=owner,
+                generation=generation,
+            )
+
+            self._generations[key] = generation
+            self._items[key] = ownership
 
             return ownership
+
+    def ownership(
+        self,
+        task_id: str,
+    ) -> TaskOwnership | None:
+        key = str(task_id).strip()
+
+        if not key:
+            raise ValueError("task id must not be empty")
+
+        with self._lock:
+            return self._items.get(key)
 
     def owner(
         self,
         task_id: str,
     ) -> str | None:
-        key = str(task_id).strip()
+        ownership = self.ownership(task_id)
 
-        if not key:
-            raise ValueError(
-                "task id must not be empty"
-            )
+        if ownership is None:
+            return None
 
-        with self._lock:
-            ownership = self._items.get(key)
-
-            if ownership is None:
-                return None
-
-            return ownership.node_id
+        return ownership.node_id
 
     def release(
         self,
         task_id: str,
         node_id: str,
+        generation: int,
     ) -> None:
         key = str(task_id).strip()
         owner = str(node_id).strip()
 
         if not key:
-            raise ValueError(
-                "task id must not be empty"
-            )
+            raise ValueError("task id must not be empty")
 
         if not owner:
+            raise ValueError("node id must not be empty")
+
+        if (
+            isinstance(generation, bool)
+            or not isinstance(generation, int)
+            or generation < 1
+        ):
             raise ValueError(
-                "node id must not be empty"
+                "ownership generation must be a positive integer"
             )
 
         with self._lock:
@@ -112,6 +141,13 @@ class TaskOwnershipRegistry:
                     "task ownership mismatch: "
                     f"{key} is owned by "
                     f"{existing.node_id}, not {owner}"
+                )
+
+            if existing.generation != generation:
+                raise RuntimeError(
+                    "stale task ownership generation: "
+                    f"{key} expected "
+                    f"{existing.generation}, got {generation}"
                 )
 
             del self._items[key]

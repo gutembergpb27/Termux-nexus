@@ -20,11 +20,13 @@ def test_task_ownership_registry_claims_and_releases_owner() -> None:
 
     assert claim.task_id == "task-1"
     assert claim.node_id == "node-a"
+    assert claim.generation == 1
     assert ownership.owner("task-1") == "node-a"
 
     ownership.release(
         "task-1",
         "node-a",
+        claim.generation,
     )
 
     assert ownership.owner("task-1") is None
@@ -53,7 +55,7 @@ def test_task_ownership_registry_rejects_duplicate_claim() -> None:
 def test_task_ownership_registry_rejects_release_by_non_owner() -> None:
     ownership = TaskOwnershipRegistry()
 
-    ownership.claim(
+    claim = ownership.claim(
         "task-1",
         "node-a",
     )
@@ -65,6 +67,7 @@ def test_task_ownership_registry_rejects_release_by_non_owner() -> None:
         ownership.release(
             "task-1",
             "node-b",
+            claim.generation,
         )
 
     assert ownership.owner("task-1") == "node-a"
@@ -209,3 +212,111 @@ def test_dispatcher_can_reassign_task_after_previous_owner_releases() -> None:
     ]
 
     assert ownership.owner(task.task_id) is None
+
+
+def test_task_ownership_generation_increases_after_reclaim() -> None:
+    ownership = TaskOwnershipRegistry()
+
+    first = ownership.claim(
+        "task-generation",
+        "node-a",
+    )
+
+    ownership.release(
+        first.task_id,
+        first.node_id,
+        first.generation,
+    )
+
+    second = ownership.claim(
+        "task-generation",
+        "node-a",
+    )
+
+    assert first.generation == 1
+    assert second.generation == 2
+    assert second.generation > first.generation
+
+
+def test_stale_release_cannot_clear_newer_ownership_generation() -> None:
+    ownership = TaskOwnershipRegistry()
+
+    first = ownership.claim(
+        "task-fencing",
+        "node-a",
+    )
+
+    ownership.release(
+        first.task_id,
+        first.node_id,
+        first.generation,
+    )
+
+    second = ownership.claim(
+        "task-fencing",
+        "node-a",
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="stale task ownership generation",
+    ):
+        ownership.release(
+            first.task_id,
+            first.node_id,
+            first.generation,
+        )
+
+    current = ownership.ownership(
+        "task-fencing"
+    )
+
+    assert current == second
+
+    ownership.release(
+        second.task_id,
+        second.node_id,
+        second.generation,
+    )
+
+    assert ownership.owner("task-fencing") is None
+
+
+def test_stale_generation_is_rejected_even_for_same_node() -> None:
+    ownership = TaskOwnershipRegistry()
+
+    first = ownership.claim(
+        "same-node-generation",
+        "node-a",
+    )
+
+    ownership.release(
+        first.task_id,
+        first.node_id,
+        first.generation,
+    )
+
+    second = ownership.claim(
+        "same-node-generation",
+        "node-a",
+    )
+
+    assert first.node_id == second.node_id
+    assert first.generation != second.generation
+
+    with pytest.raises(
+        RuntimeError,
+        match="stale task ownership generation",
+    ):
+        ownership.release(
+            "same-node-generation",
+            "node-a",
+            first.generation,
+        )
+
+    assert (
+        ownership.ownership(
+            "same-node-generation"
+        )
+        == second
+    )
