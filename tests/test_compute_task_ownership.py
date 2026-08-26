@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from threading import Event, Thread
+
 import pytest
+
 
 from nexus.compute import (
     ClusterDispatcher,
@@ -458,4 +461,110 @@ def test_dispatcher_reclaims_orphaned_owner_before_new_dispatch(
             "node-b",
         ).generation
         == 3
+    )
+def test_stale_execution_cannot_produce_protected_side_effect():
+    cluster = RuntimeCluster()
+
+    cluster.add_node("node-a")
+    cluster.add_node("node-b")
+    cluster.elect_leader("node-a")
+
+    ownership = TaskOwnershipRegistry()
+
+    task = ComputeTask(
+        task_id="stale-side-effect-contract",
+        name="side-effect",
+    )
+
+    first_started = Event()
+    allow_first_finish = Event()
+
+    effects = []
+    errors = {}
+
+    def executor(node_id, current_task):
+        if node_id == "node-a":
+            first_started.set()
+
+            if not allow_first_finish.wait(timeout=5):
+                raise RuntimeError(
+                    "timeout waiting for recoordination"
+                )
+
+            dispatcher.assert_execution_current(
+                current_task.task_id,
+                node_id,
+            )
+
+            effects.append(
+                (
+                    "STALE_EFFECT",
+                    node_id,
+                    current_task.task_id,
+                )
+            )
+
+            return "stale"
+
+        effects.append(
+            (
+                "CURRENT_EFFECT",
+                node_id,
+                current_task.task_id,
+            )
+        )
+
+        return "current"
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=executor,
+        ownership=ownership,
+    )
+
+    def first_run():
+        try:
+            dispatcher.dispatch(task)
+        except Exception as exc:
+            errors["first"] = exc
+
+    thread = Thread(target=first_run)
+    thread.start()
+
+    if not first_started.wait(timeout=5):
+        raise AssertionError(
+            "generation #1 did not start"
+        )
+
+    cluster.remove_node("node-a")
+    cluster.elect_leader("node-b")
+
+    second_result = dispatcher.dispatch(task)
+
+    allow_first_finish.set()
+
+    thread.join(timeout=5)
+
+    if thread.is_alive():
+        raise AssertionError(
+            "generation #1 did not finish"
+        )
+
+    assert second_result == "current"
+
+    assert any(
+        effect[0] == "CURRENT_EFFECT"
+        for effect in effects
+    )
+
+    # CONTRATO 6:
+    #
+    # Depois da perda de ownership, a execucao stale
+    # nao deve conseguir produzir um efeito protegido.
+    #
+    # Hoje esta assercao falha, materializando o gap.
+
+    assert not any(
+        effect[0] == "STALE_EFFECT"
+        for effect in effects
     )

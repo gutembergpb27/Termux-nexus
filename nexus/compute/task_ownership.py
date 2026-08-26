@@ -176,6 +176,53 @@ class TaskOwnershipRegistry:
 
             return reclaimed
 
+    def assert_current(
+        self,
+        task_id: str,
+        node_id: str,
+        generation: int,
+    ) -> None:
+        """Require an ownership generation to still be authoritative."""
+        key = str(task_id).strip()
+        owner = str(node_id).strip()
+
+        if not key:
+            raise ValueError("task id must not be empty")
+
+        if not owner:
+            raise ValueError("node id must not be empty")
+
+        if (
+            isinstance(generation, bool)
+            or not isinstance(generation, int)
+            or generation < 1
+        ):
+            raise ValueError(
+                "ownership generation must be a positive integer"
+            )
+
+        with self._lock:
+            existing = self._items.get(key)
+
+            if existing is None:
+                raise RuntimeError(
+                    f"task is not owned: {key}"
+                )
+
+            if existing.node_id != owner:
+                raise RuntimeError(
+                    "task ownership mismatch: "
+                    f"{key} is owned by "
+                    f"{existing.node_id}, not {owner}"
+                )
+
+            if existing.generation != generation:
+                raise RuntimeError(
+                    "stale task ownership generation: "
+                    f"{key} expected "
+                    f"{existing.generation}, got {generation}"
+                )
+
     def snapshot(
         self,
     ) -> dict[str, str]:

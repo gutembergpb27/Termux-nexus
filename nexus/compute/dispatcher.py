@@ -1,4 +1,4 @@
-﻿"""Dispatcher oficial para tarefas distribuídas do Nexus Compute."""
+"""Dispatcher oficial para tarefas distribuídas do Nexus Compute."""
 
 from __future__ import annotations
 
@@ -33,6 +33,7 @@ class ClusterDispatcher:
         self._ownership = (
             ownership or TaskOwnershipRegistry()
         )
+        self._execution_authority = {}
 
     def leader(self) -> str:
         """Retorna o líder atual ou falha quando não houver eleição."""
@@ -250,6 +251,33 @@ class ClusterDispatcher:
             f"{task.name}"
         )
 
+    def assert_execution_current(
+        self,
+        task_id: str,
+        node_id: str,
+    ) -> None:
+        """Require the active execution generation to remain authoritative."""
+        key = (
+            str(task_id).strip(),
+            str(node_id).strip(),
+        )
+
+        generation = self._execution_authority.get(
+            key
+        )
+
+        if generation is None:
+            raise RuntimeError(
+                "task execution has no active ownership authority: "
+                f"{key[0]} -> {key[1]}"
+            )
+
+        self._ownership.assert_current(
+            key[0],
+            key[1],
+            generation,
+        )
+
     def _execute_owned(
         self,
         target: str,
@@ -261,12 +289,26 @@ class ClusterDispatcher:
             target,
         )
 
+        authority_key = (
+            task.task_id,
+            target,
+        )
+
+        self._execution_authority[
+            authority_key
+        ] = ownership.generation
+
         try:
             return self._executor(
                 target,
                 task,
             )
         finally:
+            self._execution_authority.pop(
+                authority_key,
+                None,
+            )
+
             self._ownership.release(
                 task.task_id,
                 target,
