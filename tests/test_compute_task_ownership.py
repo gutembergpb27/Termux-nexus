@@ -568,3 +568,146 @@ def test_stale_execution_cannot_produce_protected_side_effect():
         effect[0] == "STALE_EFFECT"
         for effect in effects
     )
+
+
+def test_terminal_state_converges_after_ownership_recoordination():
+    from threading import Event, Thread
+
+    from nexus.compute import (
+        ClusterBackend,
+        ClusterDispatcher,
+        ComputeRuntime,
+        ComputeTask,
+        TaskOwnershipRegistry,
+    )
+    from nexus.runtime.cluster import RuntimeCluster
+
+    task_id = "terminal-state-convergence-contract"
+
+    cluster = RuntimeCluster()
+
+    cluster.add_node("node-a")
+    cluster.add_node("node-b")
+    cluster.elect_leader("node-a")
+
+    ownership = TaskOwnershipRegistry()
+
+    first_started = Event()
+    allow_first_finish = Event()
+
+    def executor(node_id, task):
+        if node_id == "node-a":
+            first_started.set()
+
+            if not allow_first_finish.wait(timeout=5):
+                raise RuntimeError(
+                    "timeout waiting for recoordination"
+                )
+
+            return {
+                "winner": "stale",
+                "node": node_id,
+            }
+
+        return {
+            "winner": "current",
+            "node": node_id,
+        }
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=executor,
+        ownership=ownership,
+    )
+
+    backend = ClusterBackend(
+        cluster,
+        dispatcher=dispatcher,
+    )
+
+    runtime_a = ComputeRuntime(
+        additional_backends=(backend,),
+    )
+
+    runtime_b = ComputeRuntime(
+        additional_backends=(backend,),
+    )
+
+    task_a = ComputeTask(
+        task_id=task_id,
+        name="terminal-state-convergence",
+    )
+
+    task_b = ComputeTask(
+        task_id=task_id,
+        name="terminal-state-convergence",
+    )
+
+    old_error = {}
+
+    def run_old_generation():
+        try:
+            runtime_a.run(
+                task_a,
+                backend="cluster",
+            )
+        except Exception as exc:
+            old_error["error"] = exc
+
+    thread = Thread(
+        target=run_old_generation,
+        name="terminal-state-old-generation",
+    )
+
+    thread.start()
+
+    if not first_started.wait(timeout=5):
+        raise AssertionError(
+            "old generation did not start"
+        )
+
+    cluster.remove_node("node-a")
+    cluster.elect_leader("node-b")
+
+    current_result = runtime_b.run(
+        task_b,
+        backend="cluster",
+    )
+
+    allow_first_finish.set()
+
+    thread.join(timeout=5)
+
+    if thread.is_alive():
+        raise AssertionError(
+            "old generation did not finish"
+        )
+
+    old_completion = runtime_a.completions.get(
+        task_id
+    )
+
+    current_completion = runtime_b.completions.get(
+        task_id
+    )
+
+    assert current_result.status == "completed"
+
+    assert current_completion is not None
+    assert current_completion.status == "completed"
+
+    assert old_completion is not None
+
+    # CONTRATO 7:
+    #
+    # A geracao stale nao deve produzir uma decisao terminal
+    # concorrente que contradiga a decisao terminal vencedora.
+    #
+    # A decisao autoritativa para este task_id e "completed".
+    #
+    # Hoje o runtime antigo termina como "failed",
+    # materializando divergencia terminal distribuida.
+
+    assert old_completion.status == "completed"
+
+    assert old_completion.result == current_completion.result
