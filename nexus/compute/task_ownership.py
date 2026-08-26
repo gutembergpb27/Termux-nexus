@@ -152,6 +152,30 @@ class TaskOwnershipRegistry:
 
             del self._items[key]
 
+    def reclaim_orphaned(
+        self,
+        *,
+        online_nodes: set[str],
+    ) -> tuple[TaskOwnership, ...]:
+        """Revoke ownership held by nodes outside online membership."""
+        online = {
+            str(node_id).strip()
+            for node_id in online_nodes
+            if str(node_id).strip()
+        }
+
+        with self._lock:
+            reclaimed = tuple(
+                ownership
+                for ownership in self._items.values()
+                if ownership.node_id not in online
+            )
+
+            for ownership in reclaimed:
+                del self._items[ownership.task_id]
+
+            return reclaimed
+
     def snapshot(
         self,
     ) -> dict[str, str]:
