@@ -278,6 +278,12 @@ class ClusterDispatcher:
 
         leader = self.leader()
 
+        self._ownership.reclaim_orphaned(
+            online_nodes=set(
+                self._cluster.online_nodes()
+            ),
+        )
+
         target = self._resolve_target(
             task,
             leader,
