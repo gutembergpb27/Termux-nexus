@@ -6,6 +6,10 @@ from dataclasses import dataclass
 from threading import RLock
 
 
+class StaleTaskOwnershipError(RuntimeError):
+    """Raised when an execution no longer owns its task generation."""
+
+
 @dataclass(frozen=True, slots=True)
 class TaskOwnership:
     """Identifies one generation of distributed task ownership."""
@@ -132,19 +136,19 @@ class TaskOwnershipRegistry:
             existing = self._items.get(key)
 
             if existing is None:
-                raise RuntimeError(
+                raise StaleTaskOwnershipError(
                     f"task is not owned: {key}"
                 )
 
             if existing.node_id != owner:
-                raise RuntimeError(
+                raise StaleTaskOwnershipError(
                     "task ownership mismatch: "
                     f"{key} is owned by "
                     f"{existing.node_id}, not {owner}"
                 )
 
             if existing.generation != generation:
-                raise RuntimeError(
+                raise StaleTaskOwnershipError(
                     "stale task ownership generation: "
                     f"{key} expected "
                     f"{existing.generation}, got {generation}"
@@ -205,19 +209,19 @@ class TaskOwnershipRegistry:
             existing = self._items.get(key)
 
             if existing is None:
-                raise RuntimeError(
+                raise StaleTaskOwnershipError(
                     f"task is not owned: {key}"
                 )
 
             if existing.node_id != owner:
-                raise RuntimeError(
+                raise StaleTaskOwnershipError(
                     "task ownership mismatch: "
                     f"{key} is owned by "
                     f"{existing.node_id}, not {owner}"
                 )
 
             if existing.generation != generation:
-                raise RuntimeError(
+                raise StaleTaskOwnershipError(
                     "stale task ownership generation: "
                     f"{key} expected "
                     f"{existing.generation}, got {generation}"

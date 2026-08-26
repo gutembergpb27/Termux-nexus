@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from threading import RLock
+
 from collections.abc import Callable
 from time import perf_counter
 from typing import Any
@@ -12,6 +14,7 @@ from nexus.compute.health import BackendHealth
 from nexus.compute.metrics import BackendMetrics
 from nexus.compute.result import ComputeResult
 from nexus.compute.task import ComputeTask
+from nexus.compute.task_ownership import StaleTaskOwnershipError
 from nexus.runtime.cluster import RuntimeCluster
 
 ClusterDispatcher = Callable[[ComputeTask, str], Any]
@@ -29,6 +32,8 @@ class ClusterBackend(ComputeBackend):
     ) -> None:
         self._cluster = cluster
         self._dispatcher = dispatcher
+        self._terminal_results: dict[str, ComputeResult] = {}
+        self._terminal_lock = RLock()
         self._completed_runs = 0
         self._failed_runs = 0
         self._active_runs = 0
@@ -89,6 +94,30 @@ class ClusterBackend(ComputeBackend):
             total_duration_seconds=self._total_duration_seconds,
         )
 
+    def _terminal_result(
+        self,
+        task_id: str,
+    ) -> ComputeResult | None:
+        key = str(task_id).strip()
+
+        with self._terminal_lock:
+            return self._terminal_results.get(key)
+
+    def _publish_terminal_result(
+        self,
+        result: ComputeResult,
+    ) -> ComputeResult:
+        key = str(result.task_id).strip()
+
+        with self._terminal_lock:
+            existing = self._terminal_results.get(key)
+
+            if existing is not None:
+                return existing
+
+            self._terminal_results[key] = result
+            return result
+
     def run(self, task: ComputeTask) -> ComputeResult:
         health = self.health()
 
@@ -113,18 +142,47 @@ class ClusterBackend(ComputeBackend):
         try:
             output = dispatcher(task, leader)
             duration = perf_counter() - started
-            self._completed_runs += 1
 
-            return ComputeResult(
+            candidate = ComputeResult(
                 task_id=task.task_id,
                 backend=self.name,
                 status="completed",
                 output=output,
                 duration_seconds=duration,
             )
+
+            result = self._publish_terminal_result(
+                candidate
+            )
+
+            self._completed_runs += 1
+            return result
+
+        except StaleTaskOwnershipError:
+            #
+            # A execucao perdeu sua autoridade, portanto
+            # nao deve criar uma decisao terminal "failed".
+            #
+            # Se outra generation ja publicou o winner,
+            # convergimos para exatamente aquele resultado.
+            #
+            authoritative = self._terminal_result(
+                task.task_id
+            )
+
+            if authoritative is None:
+                self._failed_runs += 1
+                raise
+
+            self._completed_runs += 1
+            return authoritative
+
         except Exception:
             self._failed_runs += 1
             raise
+
         finally:
-            self._total_duration_seconds += perf_counter() - started
+            self._total_duration_seconds += (
+                perf_counter() - started
+            )
             self._active_runs -= 1

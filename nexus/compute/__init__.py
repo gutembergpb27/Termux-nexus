@@ -36,6 +36,7 @@ from nexus.compute.task_worker import TaskWorker
 from nexus.compute.transport_executor import TransportNodeExecutor
 
 from nexus.compute.task_ownership import (
+    StaleTaskOwnershipError,
     TaskOwnership,
     TaskOwnershipRegistry,
 )
@@ -72,6 +73,7 @@ __all__ = [
     "TaskHandlerRegistry",
     "TaskHandlerMetrics",
     "build_default_task_registry",
+    "StaleTaskOwnershipError",
     "TaskOwnership",
     "TaskOwnershipRegistry",
 ]
