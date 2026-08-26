@@ -8,6 +8,7 @@ from nexus.compute import (
     ComputeRequirements,
     ComputeRuntime,
     ComputeTask,
+    TaskOwnershipRegistry,
 )
 from nexus.runtime.cluster import RuntimeCluster
 
@@ -234,3 +235,76 @@ def test_cluster_backend_routes_to_capable_follower() -> None:
         "node_id": "node-b",
         "task": "matrix_multiply",
     }
+
+
+def test_cluster_backend_reclaims_orphaned_ownership_before_dispatch(
+) -> None:
+    cluster = RuntimeCluster()
+
+    cluster.add_node("node-a")
+    cluster.add_node("node-b")
+    cluster.elect_leader("node-a")
+
+    ownership = TaskOwnershipRegistry()
+
+    orphan = ownership.claim(
+        "backend-orphaned-task",
+        "node-a",
+    )
+
+    assert orphan.generation == 1
+
+    cluster.remove_node("node-a")
+    cluster.elect_leader("node-b")
+
+    executions: list[tuple[str, str]] = []
+
+    def executor(
+        node_id: str,
+        task: ComputeTask,
+    ) -> dict[str, str]:
+        executions.append(
+            (node_id, task.task_id)
+        )
+
+        return {
+            "node": node_id,
+            "task": task.task_id,
+        }
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor,
+        ownership=ownership,
+    )
+
+    backend = ClusterBackend(
+        cluster,
+        dispatcher=dispatcher,
+    )
+
+    task = ComputeTask(
+        task_id="backend-orphaned-task",
+        name="demo",
+    )
+
+    result = backend.run(task)
+
+    assert result.status == "completed"
+    assert result.output == {
+        "node": "node-b",
+        "task": "backend-orphaned-task",
+    }
+
+    assert executions == [
+        ("node-b", "backend-orphaned-task"),
+    ]
+
+    assert ownership.owner(task.task_id) is None
+
+    next_claim = ownership.claim(
+        task.task_id,
+        "node-b",
+    )
+
+    assert next_claim.generation == 3

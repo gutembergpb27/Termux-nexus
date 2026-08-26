@@ -303,6 +303,12 @@ class ClusterDispatcher:
 
         current_leader = self.leader()
 
+        self._ownership.reclaim_orphaned(
+            online_nodes=set(
+                self._cluster.online_nodes()
+            ),
+        )
+
         if leader != current_leader:
             raise RuntimeError(
                 "stale cluster leader: "
