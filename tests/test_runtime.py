@@ -101,3 +101,43 @@ def test_runtime_readiness_accepts_started_runtime() -> None:
         }
     finally:
         runtime.stop()
+
+
+def test_runtime_composes_formal_readiness() -> None:
+    """Axis 3 Contract 2: Runtime composes formal readiness."""
+    from nexus.runtime import Runtime, RuntimeReadiness
+
+    runtime = Runtime()
+
+    assert isinstance(runtime.readiness, RuntimeReadiness)
+    assert runtime.readiness.check() == {
+        "ready": False,
+        "reason": "runtime_not_started",
+    }
+
+
+def test_runtime_readiness_instance_is_stable() -> None:
+    """Axis 3 Contract 2: Runtime readiness identity is stable."""
+    from nexus.runtime import Runtime
+
+    runtime = Runtime()
+
+    readiness = runtime.readiness
+
+    assert runtime.readiness is readiness
+
+    runtime.start()
+
+    assert runtime.readiness is readiness
+    assert runtime.readiness.check() == {
+        "ready": True,
+        "reason": "runtime_operational",
+    }
+
+    runtime.stop()
+
+    assert runtime.readiness is readiness
+    assert runtime.readiness.check() == {
+        "ready": False,
+        "reason": "runtime_not_started",
+    }

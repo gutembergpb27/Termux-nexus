@@ -9,6 +9,7 @@ from nexus.runtime.events import RuntimeEvents
 from nexus.runtime.health import RuntimeHealth
 from nexus.runtime.logger import RuntimeLogger
 from nexus.runtime.metrics import RuntimeMetrics
+from nexus.runtime.readiness import RuntimeReadiness
 from nexus.runtime.state import RuntimeState
 from nexus.runtime.telemetry import RuntimeTelemetry
 from nexus.runtime.tracing import RuntimeTracing
@@ -22,6 +23,7 @@ class Runtime:
         self._state = RuntimeState.STOPPED
 
         self.health = RuntimeHealth(self)
+        self.readiness = RuntimeReadiness(self)
         self.cluster = RuntimeCluster()
         self.metrics = RuntimeMetrics(self)
         self.events = RuntimeEvents()
