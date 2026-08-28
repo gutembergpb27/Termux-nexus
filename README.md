@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 # Nexus Runtime Platform
 
@@ -6,10 +6,10 @@
 
 **Runtime · Cluster · Replication · Diagnostics · Observability**
 
-![Version](https://img.shields.io/badge/version-2600.0.0--alpha.1-2563eb)
+![Version](https://img.shields.io/badge/version-2700.0.0--rc1-2563eb)
 ![Python](https://img.shields.io/badge/python-3.14%2B-3776ab)
 ![Status](https://img.shields.io/badge/status-release%20candidate-f59e0b)
-![Tests](https://img.shields.io/badge/tests-534%20passed-16a34a)
+![Tests](https://img.shields.io/badge/tests-586%20passed%2C%201%20xfailed-16a34a)
 
 </div>
 
@@ -24,7 +24,7 @@ The platform combines runtime lifecycle management, cluster orchestration,
 state replication, diagnostics, health inspection and observability through
 a modular Python architecture.
 
-> Current release candidate: **v2600.0.0-alpha.1**
+> Current release candidate: **v2700.0.0-rc1**
 
 ---
 
@@ -106,7 +106,7 @@ nexus version
 ```
 
 ```text
-Nexus Runtime Platform v2600.0.0-alpha.1
+Nexus Runtime Platform v2700.0.0-rc1
 ```
 
 ### Local diagnostics
@@ -359,7 +359,7 @@ timeline
     v2400 : Runtime integration and observability
     v2500 RC1 : Unified runtime and cluster architecture
     v2600 Alpha 1 : Compute lifecycle, durable state and startup recovery
-    Future : v2700 architecture and continued stabilization
+    v2700 RC1 : Durable execution, distributed coordination, readiness and transport hardening
 ```
 
 Future work may include:
@@ -392,3 +392,28 @@ Resilient runtime infrastructure through evidence, modularity and continuous
 validation.
 
 </div>
+
+---
+
+## V2700 RC1
+
+V2700 completes four architecture axes:
+
+- Durable Execution Semantics
+- Distributed Compute Coordination
+- Operational Readiness
+- Security and Transport Hardening
+
+The release gate includes automated regression validation, authenticated
+transport validation and a real multi-node failover smoke.
+
+Package version:
+
+    2700.0.0rc1
+
+Planned release tag:
+
+    v2700.0.0-rc1
+
+This is a release candidate for technical evaluation and controlled external
+testing. It is not a production-stable release.
