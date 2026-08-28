@@ -33,6 +33,7 @@ class ClusterBackend(ComputeBackend):
         self._cluster = cluster
         self._dispatcher = dispatcher
         self._terminal_results: dict[str, ComputeResult] = {}
+        self._terminal_failures: dict[str, str] = {}
         self._terminal_lock = RLock()
         self._completed_runs = 0
         self._failed_runs = 0
@@ -115,8 +116,47 @@ class ClusterBackend(ComputeBackend):
             if existing is not None:
                 return existing
 
+            existing_failure = self._terminal_failures.get(key)
+
+            if existing_failure is not None:
+                raise RuntimeError(existing_failure)
+
             self._terminal_results[key] = result
             return result
+
+    def _terminal_failure(
+        self,
+        task_id: str,
+    ) -> str | None:
+        key = str(task_id).strip()
+
+        with self._terminal_lock:
+            return self._terminal_failures.get(key)
+
+    def publish_terminal_failure(
+        self,
+        task_id: str,
+        error: Exception,
+    ) -> str:
+        """Publica uma falha somente quando ela ja e terminal."""
+        key = str(task_id).strip()
+        message = str(error)
+
+        with self._terminal_lock:
+            existing_result = self._terminal_results.get(key)
+
+            if existing_result is not None:
+                raise RuntimeError(
+                    "task already completed authoritatively"
+                )
+
+            existing_failure = self._terminal_failures.get(key)
+
+            if existing_failure is not None:
+                return existing_failure
+
+            self._terminal_failures[key] = message
+            return message
 
     def run(self, task: ComputeTask) -> ComputeResult:
         health = self.health()
@@ -160,22 +200,29 @@ class ClusterBackend(ComputeBackend):
 
         except StaleTaskOwnershipError:
             #
-            # A execucao perdeu sua autoridade, portanto
-            # nao deve criar uma decisao terminal "failed".
-            #
-            # Se outra generation ja publicou o winner,
-            # convergimos para exatamente aquele resultado.
+            # A geracao stale converge para o outcome
+            # terminal autoritativo, se ele ja existir.
             #
             authoritative = self._terminal_result(
                 task.task_id
             )
 
-            if authoritative is None:
-                self._failed_runs += 1
-                raise
+            if authoritative is not None:
+                self._completed_runs += 1
+                return authoritative
 
-            self._completed_runs += 1
-            return authoritative
+            authoritative_failure = self._terminal_failure(
+                task.task_id
+            )
+
+            if authoritative_failure is not None:
+                self._failed_runs += 1
+                raise RuntimeError(
+                    authoritative_failure
+                )
+
+            self._failed_runs += 1
+            raise
 
         except Exception:
             self._failed_runs += 1

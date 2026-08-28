@@ -16,6 +16,7 @@ from nexus.compute.result import ComputeResult
 from nexus.compute.retry import RetryPolicy
 from nexus.compute.scheduler import BackendScheduler
 from nexus.compute.task import ComputeTask
+from nexus.compute.task_ownership import StaleTaskOwnershipError
 from nexus.compute.task_completion import TaskCompletionRegistry
 
 
@@ -198,15 +199,19 @@ class ComputeRuntime:
         policy = retry or RetryPolicy()
 
         for attempt in range(1, policy.max_attempts + 1):
+            selected_backend = None
+
             try:
                 selection = self.scheduler.select(
                     backend,
                     requirements=task.requirements,
                 )
 
-                result = self.registry.get(
+                selected_backend = self.registry.get(
                     selection.selected
-                ).run(task)
+                )
+
+                result = selected_backend.run(task)
 
                 normalized = replace(
                     result,
@@ -218,9 +223,34 @@ class ComputeRuntime:
                 if attempt < policy.max_attempts:
                     continue
 
+                if selected_backend is not None:
+                    publish_terminal_failure = getattr(
+                        selected_backend,
+                        "publish_terminal_failure",
+                        None,
+                    )
+                else:
+                    publish_terminal_failure = None
+
+                if (
+                    publish_terminal_failure is not None
+                    and not isinstance(
+                        exc,
+                        StaleTaskOwnershipError,
+                    )
+                ):
+                    authoritative_failure = (
+                        publish_terminal_failure(
+                            task.task_id,
+                            exc,
+                        )
+                    )
+                else:
+                    authoritative_failure = str(exc)
+
                 self.completions.fail(
                     task.task_id,
-                    str(exc),
+                    authoritative_failure,
                 )
 
                 self._persist_if_configured()
