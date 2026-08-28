@@ -711,3 +711,356 @@ def test_terminal_state_converges_after_ownership_recoordination():
     assert old_completion.status == "completed"
 
     assert old_completion.result == current_completion.result
+
+def test_terminal_failure_converges_after_ownership_recoordination():
+    from threading import Event, Thread
+
+    from nexus.compute import (
+        ClusterBackend,
+        ClusterDispatcher,
+        ComputeRuntime,
+        ComputeTask,
+        TaskOwnershipRegistry,
+    )
+    from nexus.runtime.cluster import RuntimeCluster
+
+    task_id = "terminal-failure-convergence-contract"
+
+    cluster = RuntimeCluster()
+    cluster.add_node("node-a")
+    cluster.add_node("node-b")
+    cluster.elect_leader("node-a")
+
+    ownership = TaskOwnershipRegistry()
+
+    first_started = Event()
+    allow_first_finish = Event()
+
+    def executor(node_id, task):
+        if node_id == "node-a":
+            first_started.set()
+
+            if not allow_first_finish.wait(timeout=5):
+                raise RuntimeError(
+                    "timeout waiting for failure recoordination"
+                )
+
+            return {
+                "winner": "stale",
+                "node": node_id,
+            }
+
+        raise RuntimeError("authoritative terminal failure")
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=executor,
+        ownership=ownership,
+    )
+
+    backend = ClusterBackend(
+        cluster,
+        dispatcher=dispatcher,
+    )
+
+    runtime_a = ComputeRuntime(
+        additional_backends=(backend,),
+    )
+
+    runtime_b = ComputeRuntime(
+        additional_backends=(backend,),
+    )
+
+    task_a = ComputeTask(
+        task_id=task_id,
+        name="terminal-failure-convergence",
+    )
+
+    task_b = ComputeTask(
+        task_id=task_id,
+        name="terminal-failure-convergence",
+    )
+
+    old_error = {}
+    current_error = {}
+
+    def run_old_generation():
+        try:
+            runtime_a.run(
+                task_a,
+                backend="cluster",
+            )
+        except Exception as exc:
+            old_error["error"] = exc
+
+    thread = Thread(
+        target=run_old_generation,
+        name="terminal-failure-old-generation",
+    )
+
+    thread.start()
+
+    if not first_started.wait(timeout=5):
+        raise AssertionError(
+            "old generation did not start"
+        )
+
+    cluster.remove_node("node-a")
+    cluster.elect_leader("node-b")
+
+    try:
+        runtime_b.run(
+            task_b,
+            backend="cluster",
+        )
+    except Exception as exc:
+        current_error["error"] = exc
+
+    allow_first_finish.set()
+
+    thread.join(timeout=5)
+
+    if thread.is_alive():
+        raise AssertionError(
+            "old generation did not finish"
+        )
+
+    old_completion = runtime_a.completions.get(
+        task_id
+    )
+
+    current_completion = runtime_b.completions.get(
+        task_id
+    )
+
+    assert "error" in current_error
+
+    assert current_completion is not None
+    assert current_completion.status == "failed"
+    assert (
+        current_completion.error
+        == "authoritative terminal failure"
+    )
+
+    assert old_completion is not None
+
+    # CONTRATO 8:
+    #
+    # Depois que a geracao atual estabelece uma falha
+    # terminal autoritativa, a geracao stale nao pode
+    # materializar uma causa terminal concorrente.
+    #
+    # As duas visoes devem convergir para a mesma
+    # decisao terminal.
+
+    assert old_completion.status == "failed"
+    assert old_completion.error == current_completion.error
+
+
+def test_stale_generation_cannot_publish_failure_before_authoritative_failure():
+    from threading import Event, Thread
+
+    from nexus.compute import (
+        ClusterBackend,
+        ClusterDispatcher,
+        ComputeRuntime,
+        ComputeTask,
+        TaskOwnershipRegistry,
+    )
+    from nexus.runtime.cluster import RuntimeCluster
+
+    task_id = "terminal-failure-stale-first-contract"
+
+    cluster = RuntimeCluster()
+    cluster.add_node("node-a")
+    cluster.add_node("node-b")
+    cluster.elect_leader("node-a")
+
+    ownership = TaskOwnershipRegistry()
+
+    old_started = Event()
+    allow_old_finish = Event()
+
+    current_started = Event()
+    allow_current_failure = Event()
+
+    def executor(node_id, task):
+        if node_id == "node-a":
+            old_started.set()
+
+            if not allow_old_finish.wait(timeout=5):
+                raise RuntimeError(
+                    "timeout waiting to finish stale generation"
+                )
+
+            return {
+                "winner": "stale",
+                "node": node_id,
+            }
+
+        current_started.set()
+
+        if not allow_current_failure.wait(timeout=5):
+            raise RuntimeError(
+                "timeout waiting for authoritative failure"
+            )
+
+        raise RuntimeError(
+            "authoritative terminal failure"
+        )
+
+    dispatcher = ClusterDispatcher(
+        cluster,
+        executor=executor,
+        ownership=ownership,
+    )
+
+    backend = ClusterBackend(
+        cluster,
+        dispatcher=dispatcher,
+    )
+
+    runtime_a = ComputeRuntime(
+        additional_backends=(backend,),
+    )
+
+    runtime_b = ComputeRuntime(
+        additional_backends=(backend,),
+    )
+
+    task_a = ComputeTask(
+        task_id=task_id,
+        name="terminal-failure-stale-first",
+    )
+
+    task_b = ComputeTask(
+        task_id=task_id,
+        name="terminal-failure-stale-first",
+    )
+
+    old_error = {}
+    current_error = {}
+
+    def run_old_generation():
+        try:
+            runtime_a.run(
+                task_a,
+                backend="cluster",
+            )
+        except Exception as exc:
+            old_error["error"] = exc
+
+    def run_current_generation():
+        try:
+            runtime_b.run(
+                task_b,
+                backend="cluster",
+            )
+        except Exception as exc:
+            current_error["error"] = exc
+
+    old_thread = Thread(
+        target=run_old_generation,
+        name="terminal-failure-stale-first-old",
+    )
+
+    old_thread.start()
+
+    if not old_started.wait(timeout=5):
+        raise AssertionError(
+            "old generation did not start"
+        )
+
+    cluster.remove_node("node-a")
+    cluster.elect_leader("node-b")
+
+    current_thread = Thread(
+        target=run_current_generation,
+        name="terminal-failure-stale-first-current",
+    )
+
+    current_thread.start()
+
+    if not current_started.wait(timeout=5):
+        raise AssertionError(
+            "current generation did not start"
+        )
+
+    # --------------------------------------------------------
+    # CRITICAL ORDER:
+    #
+    # stale generation finishes BEFORE the current generation
+    # publishes its authoritative terminal failure.
+    # --------------------------------------------------------
+
+    allow_old_finish.set()
+
+    old_thread.join(timeout=5)
+
+    if old_thread.is_alive():
+        raise AssertionError(
+            "old generation did not finish"
+        )
+
+    old_completion_before_authority = (
+        runtime_a.completions.get(task_id)
+    )
+
+    assert old_completion_before_authority is not None
+
+    # A stale generation may locally observe loss of authority,
+    # but that observation must NOT become the cluster's
+    # authoritative terminal failure.
+
+    allow_current_failure.set()
+
+    current_thread.join(timeout=5)
+
+    if current_thread.is_alive():
+        raise AssertionError(
+            "current generation did not finish"
+        )
+
+    current_completion = runtime_b.completions.get(
+        task_id
+    )
+
+    old_completion = runtime_a.completions.get(
+        task_id
+    )
+
+    assert "error" in current_error
+
+    assert current_completion is not None
+    assert current_completion.status == "failed"
+
+    # The current generation owns the terminal decision.
+
+    assert (
+        current_completion.error
+        == "authoritative terminal failure"
+    )
+
+    # The stale generation must not have poisoned the shared
+    # terminal authority with its StaleTaskOwnershipError.
+
+    assert old_completion is not None
+
+    authoritative_failure = backend._terminal_failure(
+        task_id
+    )
+
+    assert (
+        authoritative_failure
+        == "authoritative terminal failure"
+    )
+
+    # Contract 8 convergence:
+    #
+    # no competing stale ownership error can become the
+    # authoritative cluster terminal cause.
+
+    assert (
+        "task is not owned"
+        not in authoritative_failure
+    )
