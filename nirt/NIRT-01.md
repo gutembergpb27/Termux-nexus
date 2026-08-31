@@ -1,4 +1,4 @@
-# NIRT-01 — Nexus Independent Reproduction Test
+# NIRT-01 â€” Nexus Independent Reproduction Test
 
 ## Status
 
@@ -56,14 +56,14 @@ external execution.
 The following behaviors were selected before execution of the
 reference run.
 
-### C1 — Leader election
+### C1 â€” Leader election
 
 PASS when both existing tests pass:
 
 - test_elect_leader_promotes_selected_node
 - test_elect_leader_changes_previous_master
 
-### C2 — Runtime recoordination
+### C2 â€” Runtime recoordination
 
 PASS when:
 
@@ -71,7 +71,7 @@ PASS when:
 
 passes.
 
-### C3 — Rejoin convergence
+### C3 â€” Rejoin convergence
 
 PASS when:
 
@@ -79,14 +79,14 @@ PASS when:
 
 passes.
 
-### C4 — Failover identity continuity
+### C4 â€” Failover identity continuity
 
 PASS when both tests pass:
 
 - test_failover_does_not_mutate_node_identity
 - test_failover_keeps_mesh_monitoring_active
 
-### C5 — Readiness contract
+### C5 â€” Readiness contract
 
 PASS when the runtime:
 
@@ -96,7 +96,7 @@ PASS when the runtime:
 - rejects a stale master heartbeat;
 - rejects unhealthy persistence/storage.
 
-### C6 — Persistence recovery
+### C6 â€” Persistence recovery
 
 PASS when:
 
@@ -168,3 +168,22 @@ The pre-external internal reference run produced:
 The repository remained at the frozen reference commit after execution.
 
 External results must be reported independently of this reference result.
+## External evaluator prerequisites
+
+The external evaluator must provide an environment with:
+
+- Git with support for `git worktree`;
+- Python 3.10 or newer;
+- pytest available to the selected Python interpreter;
+- PowerShell capable of executing the NIRT runner.
+
+The Nexus Runtime Platform project declares no runtime Python
+dependencies for this test contract. pytest is test tooling and must
+be available separately in the evaluator environment.
+
+The evaluator must record the exact Git, Python, pytest, operating
+system, and PowerShell versions used for the reproduction.
+
+The evaluator should execute the published NIRT instrument from a
+clean clone without modifying the frozen product commit or the
+predefined test list.

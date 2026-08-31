@@ -3,6 +3,53 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+# NIRT prerequisite check
+$GitCommand = Get-Command git -ErrorAction SilentlyContinue
+$PythonCommand = Get-Command python -ErrorAction SilentlyContinue
+
+if (-not $GitCommand) {
+    throw "NIRT prerequisite missing: Git."
+}
+
+if (-not $PythonCommand) {
+    throw "NIRT prerequisite missing: Python."
+}
+
+$PythonVersionText = & python --version 2>&1
+
+if ($LASTEXITCODE -ne 0) {
+    throw "NIRT prerequisite failure: Python could not be executed."
+}
+
+$PythonVersionMatch = [regex]::Match(
+    "$PythonVersionText",
+    'Python\s+(\d+)\.(\d+)'
+)
+
+if (-not $PythonVersionMatch.Success) {
+    throw "NIRT prerequisite failure: unable to determine Python version."
+}
+
+$PythonMajor = [int]$PythonVersionMatch.Groups[1].Value
+$PythonMinor = [int]$PythonVersionMatch.Groups[2].Value
+
+if (($PythonMajor -lt 3) -or
+    (($PythonMajor -eq 3) -and ($PythonMinor -lt 10))) {
+
+    throw "NIRT prerequisite failure: Python 3.10 or newer is required."
+}
+
+& python -m pytest --version *> $null
+
+if ($LASTEXITCODE -ne 0) {
+    throw "NIRT prerequisite missing: pytest for the selected Python interpreter."
+}
+
+git worktree list --porcelain *> $null
+
+if ($LASTEXITCODE -ne 0) {
+    throw "NIRT prerequisite failure: git worktree is unavailable."
+}
 
 $ExpectedCommit = "c8516db7b1fb694af647c80e1f1b9bc828a60d77"
 $ExpectedTag = "v2700.0.0-rc1"
@@ -34,7 +81,7 @@ $InstrumentationBranch = git branch --show-current
 $InstrumentationStatus = git status --porcelain
 
 Write-Evidence "============================================================"
-Write-Evidence "NEXUS INDEPENDENT REPRODUCTION TEST â€” NIRT-01"
+Write-Evidence "NEXUS INDEPENDENT REPRODUCTION TEST Ã¢â‚¬â€ NIRT-01"
 Write-Evidence "============================================================"
 Write-Evidence "UTC: $((Get-Date).ToUniversalTime().ToString('o'))"
 Write-Evidence "Instrumentation commit: $InstrumentationCommit"
