@@ -46,7 +46,6 @@ $AStdin = Join-Path $EvidenceDir "node-a.stdin.txt"
 $BStdin = Join-Path $EvidenceDir "node-b.stdin.txt"
 
 $Secret     = "NIRT02_SECRET_$UtcStamp"
-$SeedMarker = "NIRT02_SEED_$UtcStamp"
 
 $Processes = @()
 $ProductExecutionStarted = $false
@@ -353,7 +352,7 @@ try {
     # any post-promotion operator-generated transaction.
     [System.IO.File]::WriteAllText(
         $AStdin,
-        $SeedMarker + [Environment]::NewLine
+        ""
     )
 
     [System.IO.File]::WriteAllText(
@@ -385,6 +384,64 @@ try {
     }
 
     # --------------------------------------------------------
+    # Seed persistent non-genesis state in Node A
+    # Protocol-defined exact transaction.
+    # --------------------------------------------------------
+
+    Log "SEED NODE A PERSISTENCE"
+
+    $SeedCode = @"
+import sys
+sys.path.insert(0, sys.argv[1])
+from persistence import NexusPersistence
+
+db = sys.argv[2]
+store = NexusPersistence(filepath=db)
+
+store.append_transaction({
+    "event": "NIRT02_SEED",
+    "data": {
+        "payload": "pre-failover-state"
+    }
+})
+
+summary = store.state_summary()
+print(summary["height"])
+print(summary["tip_hash"])
+"@
+
+    # From this point frozen product code is being executed.
+    # Any mandatory product-property failure is FAIL, not ABORTED.
+    $ProductExecutionStarted = $true
+
+    $SeedOutput = & python `
+        -c $SeedCode `
+        $ProductWorktree `
+        $DbA
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "SEED FAIL: falha criando estado inicial"
+    }
+
+    if (@($SeedOutput).Count -lt 2) {
+        throw "SEED FAIL: state summary incompleto"
+    }
+
+    $SeedCreatedHeight = [int]$SeedOutput[0]
+    $SeedCreatedTip    = [string]$SeedOutput[1]
+
+    if ($SeedCreatedHeight -le 0) {
+        throw "SEED FAIL: height inicial nao positivo"
+    }
+
+    if (
+        [string]::IsNullOrWhiteSpace($SeedCreatedTip) -or
+        $SeedCreatedTip -eq ("0" * 64)
+    ) {
+        throw "SEED FAIL: tip inicial invalido"
+    }
+
+    # --------------------------------------------------------
     # Environment inherited by real product processes
     # --------------------------------------------------------
 
@@ -398,10 +455,6 @@ try {
     # --------------------------------------------------------
     # Start real Hub
     # --------------------------------------------------------
-
-    # From this point frozen product code is being executed.
-    # Any mandatory product-property failure is FAIL, not ABORTED.
-    $ProductExecutionStarted = $true
 
     Log "START HUB"
 
@@ -603,6 +656,14 @@ try {
 
     $ExpectedHeight = [int]$PreA.height
     $ExpectedTip    = [string]$PreA.tip_hash
+
+    if (
+        $ExpectedHeight -ne $SeedCreatedHeight -or
+        $ExpectedTip -ne $SeedCreatedTip
+    ) {
+        throw "PRECONDITION FAIL: converged state differs from predefined seed"
+    }
+
     @(
         "NIRT=NIRT-02"
         "PRODUCT_TAG=$ProductTag"
@@ -627,9 +688,11 @@ try {
             -Encoding UTF8
 
     @(
-        "source=MASTER_STDIN"
-        "event=EDGE_AI_EVENT"
-        "payload=$SeedMarker"
+        "source=FROZEN_PRODUCT_PERSISTENCE_API"
+        "event=NIRT02_SEED"
+        "payload=pre-failover-state"
+        "created_height=$SeedCreatedHeight"
+        "created_tip_hash=$SeedCreatedTip"
         "expected_height=$ExpectedHeight"
         "expected_tip_hash=$ExpectedTip"
     ) |
