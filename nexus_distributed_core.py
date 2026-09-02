@@ -26,6 +26,43 @@ logger = logging.getLogger("nexus.core")
 
 
 class NexusDistributedCore:
+    def reconcile_master_role(self, peers):
+        """Resolve concurrent MASTER roles deterministically.
+
+        The node with the lexicographically greatest stable node_id
+        retains MASTER. A lower-id local MASTER yields to FOLLOWER.
+
+        Node identity is never mutated.
+        """
+
+        if self.role != "MASTER":
+            return False
+
+        if not isinstance(peers, dict):
+            return False
+
+        local_node_id = str(self.node_id)
+
+        for peer_id, peer in peers.items():
+            if str(peer_id) == local_node_id:
+                continue
+
+            if not isinstance(peer, dict):
+                continue
+
+            if str(peer.get("role", "")).upper() != "MASTER":
+                continue
+
+            remote_node_id = str(
+                peer.get("node_id", peer_id)
+            )
+
+            if remote_node_id > local_node_id:
+                self.role = "FOLLOWER"
+                return True
+
+        return False
+
     def __init__(self, node_id, web_port, tcp_port, role):
         self.node_id = node_id
         self.web_port = int(web_port)
@@ -791,6 +828,16 @@ class NexusDistributedCore:
 
                 self.peers = raw_peers
 
+                role_changed = self.reconcile_master_role(raw_peers)
+
+                if role_changed:
+                    if not self.post_envelope(
+                        "/heartbeat",
+                        self.build_heartbeat_envelope(),
+                    ):
+                        registered = False
+                        continue
+
                 master_node = next(
                     (
                         node_id
@@ -801,7 +848,7 @@ class NexusDistributedCore:
                     None,
                 )
 
-                if master_node:
+                if master_node and self.role == "FOLLOWER":
                     self.last_master_heartbeat = current_time
                     try:
                         self.sync_from_peer(raw_peers[master_node])

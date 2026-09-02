@@ -1,0 +1,90 @@
+NEXUS ROLE RECOORDINATION — REAL-PROCESS DEVELOPMENT VALIDATION
+
+Classification
+==============
+PASS
+
+Candidate
+=========
+Branch:
+feat/role-recoordination
+
+Baseline parent:
+fa375b38b75bd91101d8b4594da3beed08fe6694
+
+Core SHA256:
+B24845F8E8480CEAB40791F1ED5C3CA379F181D8C39CA4D981BA6850643D25A3
+
+Protocol SHA256:
+979258A4D9AFE564FA0FB1517CBA498492A2C3EE70B20D460B7D601BBC3CCF29
+
+Runner SHA256:
+11AA018417863C42E8E63230BDB86D83678C802878C21810D6EECCDEBD3CA408
+
+Real-process evidence
+=====================
+Run ID:
+20260902T190341Z
+
+Evidence manifest SHA256:
+E0C8C47CE2209E5D5E35C378530690026944BE556D7FA6A020F48405F498ABA6
+
+The raw runtime evidence directory is intentionally not included in
+this Git commit. It remains preserved locally for forensic inspection.
+
+Topology
+========
+Hub:
+127.0.0.1:8500
+
+Node A:
+node_id=NO-9L-A
+initial_role=MASTER
+expected_stable_role=FOLLOWER
+
+Node Z:
+node_id=NO-9L-Z
+initial_role=MASTER
+expected_stable_role=MASTER
+
+Observed sequence
+=================
+1. Real Hub started.
+2. Real Node A started as MASTER.
+3. Real Node Z started as MASTER.
+4. Hub observed A=MASTER and Z=MASTER simultaneously.
+5. Candidate automatically reconciled the conflict.
+6. A converged to FOLLOWER.
+7. Z remained MASTER.
+8. Stable assignment was observed in three subsequent snapshots,
+   each separated by approximately five seconds.
+9. Evidence SHA256 manifest verified.
+10. Runtime cleanup verified.
+11. Post-run full regression passed.
+
+Test state
+==========
+Role-recoordination contracts:
+17 passed
+
+Full regression:
+603 passed, 1 xfailed
+
+Scope
+=====
+This is a development validation of deterministic role
+recoordination using real operating-system processes on one host.
+
+It does not establish:
+- formal consensus correctness;
+- Byzantine fault tolerance;
+- arbitrary network-partition tolerance;
+- multi-machine correctness;
+- production readiness;
+- independent third-party validation.
+
+NIRT status
+===========
+This validation is NOT NIRT-03.
+
+NIRT-03 remains undefined pending integration of the product behavior.
