@@ -414,10 +414,11 @@ print(summary["tip_hash"])
     # Any mandatory product-property failure is FAIL, not ABORTED.
     $ProductExecutionStarted = $true
 
-    $SeedOutput = & python `
-        -c $SeedCode `
-        $ProductWorktree `
-        $DbA
+    $SeedOutput = $SeedCode |
+        & python `
+            - `
+            $ProductWorktree `
+            $DbA
 
     if ($LASTEXITCODE -ne 0) {
         throw "SEED FAIL: falha criando estado inicial"
