@@ -246,6 +246,8 @@ New-Item `
     -Path $EvidenceDir |
     Out-Null
 
+    $Nirt02PreviousPythonUtf8 = $env:PYTHONUTF8
+    $Nirt02PreviousPythonIoEncoding = $env:PYTHONIOENCODING
 try {
     Log "NIRT-02 START"
 
@@ -412,6 +414,8 @@ print(summary["tip_hash"])
 
     # From this point frozen product code is being executed.
     # Any mandatory product-property failure is FAIL, not ABORTED.
+    $env:PYTHONUTF8 = "1"
+    $env:PYTHONIOENCODING = "utf-8"
     $ProductExecutionStarted = $true
 
     $SeedOutput = $SeedCode |
@@ -889,6 +893,21 @@ catch {
     ) | Set-Content $ResultFile -Encoding UTF8
 }
 finally {
+        # Restore caller Python encoding environment.
+        if ($null -ne $Nirt02PreviousPythonUtf8) {
+            $env:PYTHONUTF8 = $Nirt02PreviousPythonUtf8
+        }
+        else {
+            Remove-Item Env:PYTHONUTF8 -ErrorAction SilentlyContinue
+        }
+
+        if ($null -ne $Nirt02PreviousPythonIoEncoding) {
+            $env:PYTHONIOENCODING = $Nirt02PreviousPythonIoEncoding
+        }
+        else {
+            Remove-Item Env:PYTHONIOENCODING -ErrorAction SilentlyContinue
+        }
+
 
     Log "CLEANUP"
 
