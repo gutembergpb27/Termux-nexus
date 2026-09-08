@@ -871,6 +871,40 @@ class NexusDistributedCore:
                             getattr(self, "node_id", "unknown"),
                             delta,
                         )
+
+                        eligible_candidate_ids = [
+                            str(node_id)
+                            for node_id, info in raw_peers.items()
+                            if (
+                                str(node_id) != str(self.node_id)
+                                and isinstance(info, dict)
+                                and str(
+                                    info.get("role", "")
+                                ).upper() == "FOLLOWER"
+                            )
+                        ]
+
+                        eligible_candidate_ids.append(
+                            str(self.node_id)
+                        )
+
+                        promotion_candidate = max(
+                            eligible_candidate_ids
+                        )
+
+                        if str(self.node_id) != promotion_candidate:
+                            logger.info(
+                                "leadership_promotion_deferred "
+                                "node=%s candidate=%s",
+                                getattr(
+                                    self,
+                                    "node_id",
+                                    "unknown",
+                                ),
+                                promotion_candidate,
+                            )
+                            continue
+
                         logger.info(
                             "leadership_promotion_started node=%s",
                             getattr(self, "node_id", "unknown"),
