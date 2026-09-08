@@ -119,3 +119,99 @@ def test_polling_does_not_mutate_node_identity():
     source = polling_source()
 
     assert "self.node_id =" not in source
+
+
+def test_master_heartbeat_refresh_requires_successful_peer_sync():
+    """
+    Hub advertisement is discovery, not proof of MASTER liveness.
+
+    The follower may refresh last_master_heartbeat only after
+    successful peer synchronization/contact.
+    """
+    source = polling_source()
+
+    follower_branch = position(
+        source,
+        'if master_node and self.role == "FOLLOWER":',
+    )
+
+    sync_call = source.index(
+        "self.sync_from_peer(raw_peers[master_node])",
+        follower_branch,
+    )
+
+    heartbeat_refresh = source.index(
+        "self.last_master_heartbeat = current_time",
+        follower_branch,
+    )
+
+    except_branch = source.index(
+        "except Exception as exc:",
+        sync_call,
+    )
+
+    assert sync_call < heartbeat_refresh < except_branch, (
+        "MASTER liveness must not be refreshed merely because "
+        "the Hub still advertises a MASTER. Successful peer "
+        "contact must occur before heartbeat refresh."
+    )
+
+
+def test_unreachable_advertised_master_cannot_suppress_failover_timeout():
+    """
+    A stale Hub MASTER advertisement must not suppress failover.
+
+    Failed synchronization leaves the follower eligible for the
+    normal MASTER-missing timeout path.
+    """
+    source = polling_source()
+
+    follower_branch = position(
+        source,
+        'if master_node and self.role == "FOLLOWER":',
+    )
+
+    sync_call = source.index(
+        "self.sync_from_peer(raw_peers[master_node])",
+        follower_branch,
+    )
+
+    heartbeat_refresh = source.index(
+        "self.last_master_heartbeat = current_time",
+        sync_call,
+    )
+
+    reachable_true = source.index(
+        "master_reachable = True",
+        heartbeat_refresh,
+    )
+
+    sync_except = source.index(
+        "except Exception as exc:",
+        reachable_true,
+    )
+
+    failover_guard = source.index(
+        'if self.role == "FOLLOWER" and not master_reachable:',
+        sync_except,
+    )
+
+    timeout = source.index(
+        "delta = current_time - self.last_master_heartbeat",
+        failover_guard,
+    )
+
+    promotion = source.index(
+        'self.role = "MASTER"',
+        timeout,
+    )
+
+    assert (
+        sync_call
+        < heartbeat_refresh
+        < reachable_true
+        < sync_except
+        < failover_guard
+        < timeout
+        < promotion
+    )
