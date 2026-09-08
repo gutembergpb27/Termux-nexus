@@ -848,10 +848,13 @@ class NexusDistributedCore:
                     None,
                 )
 
+                master_reachable = False
+
                 if master_node and self.role == "FOLLOWER":
-                    self.last_master_heartbeat = current_time
                     try:
                         self.sync_from_peer(raw_peers[master_node])
+                        self.last_master_heartbeat = current_time
+                        master_reachable = True
                     except Exception as exc:
                         logger.warning(
                             "peer_sync_failed node=%s peer=%s error=%s",
@@ -859,7 +862,8 @@ class NexusDistributedCore:
                             master_node,
                             exc,
                         )
-                else:
+
+                if self.role == "FOLLOWER" and not master_reachable:
                     delta = current_time - self.last_master_heartbeat
                     if self.role == "FOLLOWER" and delta > 15.0:
                         logger.warning(
