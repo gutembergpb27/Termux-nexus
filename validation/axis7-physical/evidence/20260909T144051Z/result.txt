@@ -1,0 +1,97 @@
+﻿NEXUS RUNTIME PLATFORM V2700
+AXIS 7 — PHYSICAL DISTRIBUTED VALIDATION
+
+PHYSICAL 2-HOST CERTIFICATION RECORD
+
+Author:
+GUTEMBERG PROCOPIO BARBOSA
+
+Date:
+09 de setembro de 2026
+
+============================================================
+CERTIFICATION RESULT
+============================================================
+
+PHYSICAL 2-HOST CONTRACT: DEMONSTRATED
+
+FULL PHYSICAL 3-HOST CONTRACT: NOT YET DEMONSTRATED
+
+============================================================
+DEMONSTRATED
+============================================================
+
+- Windows <-> Android physical connectivity
+- cross-machine persistence replication
+- physical MASTER failure
+- remote FOLLOWER promotion
+- state preservation through failover
+- post-failover progress
+- stale old-MASTER rejoin
+- role recoordination
+- state reconvergence
+- final equal height and tip_hash
+- sustained final single-leader observation
+
+============================================================
+FINAL OBSERVATION
+============================================================
+
+AXIS7-A
+role=FOLLOWER
+height=2
+tip_hash=aba1ccbb33c4ebcc4a9e9e6de3fa6cfcd59fcad79b798bbbb672f9aec8eab784
+
+AXIS7-B
+role=MASTER
+height=2
+tip_hash=aba1ccbb33c4ebcc4a9e9e6de3fa6cfcd59fcad79b798bbbb672f9aec8eab784
+
+============================================================
+SCOPE LIMIT
+============================================================
+
+This evidence covers TWO distinct physical devices.
+
+The full three-host Axis 7 contract remains PENDING because
+a third independent physical device was not available.
+
+No local process or virtual machine is represented as a
+replacement for the missing third physical host.
+
+============================================================
+KNOWN FINDINGS
+============================================================
+
+Transient dual-MASTER behavior was observed during rejoin.
+
+Transient Hub membership disappearance and heartbeat HTTP 400
+responses were also observed.
+
+These findings remain recorded and are not concealed by the
+final stable-state result.
+
+============================================================
+BASELINE
+============================================================
+
+Branch:
+feat/v2700-multi-machine-failover
+
+HEAD:
+6756db2642c5cfbd34503ea2e5544696e5000f80
+
+Product code changed:
+NO
+
+Git add:
+NO
+
+Git commit:
+NO
+
+Git push:
+NO
+
+Git merge:
+NO
