@@ -1,0 +1,40 @@
+﻿NEXUS V2700 — AXIS 7
+PHYSICAL HOST 1 IDENTITY
+
+Author:
+GUTEMBERG PROCOPIO BARBOSA
+
+Date:
+09 de setembro de 2026
+
+Physical host:
+DESKTOP-M8S9MSN
+
+Operating system:
+Microsoft Windows 11 Pro
+Version 10.0.26200
+64-bit
+
+LAN address:
+192.168.1.30/24
+
+Runtime identity:
+AXIS7-A
+
+Final runtime role:
+FOLLOWER
+
+Final persistence height:
+2
+
+Final persistence tip_hash:
+aba1ccbb33c4ebcc4a9e9e6de3fa6cfcd59fcad79b798bbbb672f9aec8eab784
+
+Repository branch:
+feat/v2700-multi-machine-failover
+
+Repository HEAD:
+6756db2642c5cfbd34503ea2e5544696e5000f80
+
+Tracked working tree:
+CLEAN

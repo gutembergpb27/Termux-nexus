@@ -1,0 +1,54 @@
+﻿{
+    "AXIS7-A":  {
+                    "node_id":  "AXIS7-A",
+                    "role":  "FOLLOWER",
+                    "web_port":  8081,
+                    "tcp_port":  9091,
+                    "protocol_version":  1,
+                    "capabilities":  {
+                                         "handlers":  [
+                                                          "data_transform",
+                                                          "echo",
+                                                          "matrix_multiply"
+                                                      ],
+                                         "compute_type":  "cpu",
+                                         "memory_mb":  7455,
+                                         "has_gpu":  false
+                                     },
+                    "ip":  "192.168.1.30",
+                    "last_seen":  1788964847.1748338,
+                    "load":  {
+                                 "active_tasks":  0,
+                                 "queued_tasks":  0,
+                                 "completed_tasks":  0,
+                                 "failed_tasks":  0,
+                                 "average_duration_ms":  0.0
+                             }
+                },
+    "AXIS7-B":  {
+                    "node_id":  "AXIS7-B",
+                    "role":  "MASTER",
+                    "web_port":  8082,
+                    "tcp_port":  9092,
+                    "protocol_version":  1,
+                    "capabilities":  {
+                                         "handlers":  [
+                                                          "data_transform",
+                                                          "echo",
+                                                          "matrix_multiply"
+                                                      ],
+                                         "compute_type":  "cpu",
+                                         "memory_mb":  7448,
+                                         "has_gpu":  false
+                                     },
+                    "ip":  "192.168.1.22",
+                    "last_seen":  1788964841.1515641,
+                    "load":  {
+                                 "active_tasks":  0,
+                                 "queued_tasks":  0,
+                                 "completed_tasks":  0,
+                                 "failed_tasks":  0,
+                                 "average_duration_ms":  0.0
+                             }
+                }
+}

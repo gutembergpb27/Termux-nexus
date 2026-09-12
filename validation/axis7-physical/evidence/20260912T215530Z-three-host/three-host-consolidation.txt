@@ -1,0 +1,154 @@
+﻿NEXUS RUNTIME PLATFORM V2700
+AXIS 7 — PHYSICAL THREE-HOST EVIDENCE CONSOLIDATION
+
+Run ID:
+20260912T215530Z-three-host
+
+Date:
+12 de setembro de 2026
+
+Author:
+GUTEMBERG PROCOPIO BARBOSA
+
+============================================================
+SOURCE A
+============================================================
+
+Physical host:
+Windows notebook
+
+Node:
+AXIS7-A
+
+IP:
+192.168.1.9
+
+Evidence source:
+Canonical Host A package
+
+============================================================
+SOURCE B
+============================================================
+
+Physical host:
+Motorola Edge 40 Neo
+
+Node:
+AXIS7-B
+
+IP:
+192.168.1.4
+
+Evidence source:
+Independent Host B package
+
+Host B original SHA-256 manifest:
+VERIFIED
+
+============================================================
+SOURCE C
+============================================================
+
+Physical host:
+Samsung SM-S918B
+
+Node:
+AXIS7-C
+
+IP:
+192.168.1.8
+
+Evidence source:
+Independent Host C package
+
+Host C original SHA-256 manifest:
+VERIFIED
+
+============================================================
+FINAL DISTRIBUTED STATE
+============================================================
+
+AXIS7-A = FOLLOWER / height=2
+AXIS7-B = FOLLOWER / height=2
+AXIS7-C = MASTER   / height=2
+
+tip_hash:
+21c276cd51e0f244e07edafc9f7fa65e3c28ea92b81fd13aab268a6b1f299efa
+
+============================================================
+CROSS-PERSPECTIVE RESULT
+============================================================
+
+Host A canonical observation:
+PASS
+
+Host B independent observation:
+PASS
+
+Host C independent observation:
+PASS
+
+Host B manifest verification:
+PASS
+
+Host C manifest verification:
+PASS
+
+============================================================
+CLASSIFICATION
+============================================================
+
+PHYSICAL 3-HOST CONTRACT = DEMONSTRATED
+
+The experiment demonstrated:
+
+- three distinct physical hosts;
+- common certified baseline;
+- physical cross-host state convergence;
+- stable pre-failure single leader;
+- physical master failure;
+- automatic surviving-node recoordination;
+- exactly one surviving master in stable observation;
+- preserved canonical state;
+- post-failover forward progress;
+- cross-host replication after failover;
+- stale old-master rejoin;
+- role recoordination;
+- final three-host state convergence;
+- stable final single-leader topology.
+
+Known finding preserved:
+
+A transient dual-MASTER overlap occurred during stale
+old-master rejoin before convergence:
+
+AXIS7-A = MASTER / stale height=1
+AXIS7-C = MASTER / canonical height=2
+
+Final converged state:
+
+AXIS7-A = FOLLOWER
+AXIS7-B = FOLLOWER
+AXIS7-C = MASTER
+
+============================================================
+PRODUCT INVARIANT
+============================================================
+
+HEAD:
+6756db2642c5cfbd34503ea2e5544696e5000f80
+
+Product code changed:
+NO
+
+Git add:
+NO
+
+Commit:
+NO
+
+Push:
+NO
+
+Merge:
+NO
