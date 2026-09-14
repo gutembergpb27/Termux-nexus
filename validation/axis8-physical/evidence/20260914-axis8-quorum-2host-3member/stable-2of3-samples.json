@@ -1,0 +1,74 @@
+﻿[
+    {
+        "sample":  1,
+        "host_a_role":  "MASTER",
+        "host_b_role":  "FOLLOWER",
+        "master_count":  1,
+        "height_a":  0,
+        "height_b":  0,
+        "state_equal":  true
+    },
+    {
+        "sample":  2,
+        "host_a_role":  "MASTER",
+        "host_b_role":  "FOLLOWER",
+        "master_count":  1,
+        "height_a":  0,
+        "height_b":  0,
+        "state_equal":  true
+    },
+    {
+        "sample":  3,
+        "host_a_role":  "MASTER",
+        "host_b_role":  "FOLLOWER",
+        "master_count":  1,
+        "height_a":  0,
+        "height_b":  0,
+        "state_equal":  true
+    },
+    {
+        "sample":  4,
+        "host_a_role":  "MASTER",
+        "host_b_role":  "FOLLOWER",
+        "master_count":  1,
+        "height_a":  0,
+        "height_b":  0,
+        "state_equal":  true
+    },
+    {
+        "sample":  5,
+        "host_a_role":  "MASTER",
+        "host_b_role":  "FOLLOWER",
+        "master_count":  1,
+        "height_a":  0,
+        "height_b":  0,
+        "state_equal":  true
+    },
+    {
+        "sample":  6,
+        "host_a_role":  "MASTER",
+        "host_b_role":  "FOLLOWER",
+        "master_count":  1,
+        "height_a":  0,
+        "height_b":  0,
+        "state_equal":  true
+    },
+    {
+        "sample":  7,
+        "host_a_role":  "MASTER",
+        "host_b_role":  "FOLLOWER",
+        "master_count":  1,
+        "height_a":  0,
+        "height_b":  0,
+        "state_equal":  true
+    },
+    {
+        "sample":  8,
+        "host_a_role":  "MASTER",
+        "host_b_role":  "FOLLOWER",
+        "master_count":  1,
+        "height_a":  0,
+        "height_b":  0,
+        "state_equal":  true
+    }
+]

@@ -1,0 +1,59 @@
+diff --git a/nexus_distributed_core.py b/nexus_distributed_core.py
+index 4adb000..8b6329a 100644
+--- a/nexus_distributed_core.py
++++ b/nexus_distributed_core.py
+@@ -68,6 +68,19 @@ class NexusDistributedCore:
+         self.web_port = int(web_port)
+         self.tcp_port = int(tcp_port)
+         self.role = role
++
++        self.configured_cluster_size = int(
++            os.getenv("NEXUS_CLUSTER_SIZE", "1")
++        )
++        if self.configured_cluster_size < 1:
++            raise ValueError(
++                "NEXUS_CLUSTER_SIZE must be greater than zero"
++            )
++
++        self.majority = (
++            self.configured_cluster_size // 2
++        ) + 1
++
+         self.hub_url = os.getenv("NEXUS_HUB_URL", "http://127.0.0.1:8500")
+         secret = os.getenv("NEXUS_SECRET_KEY", "").strip()
+         self.protocol = NexusProtocol(secret)
+@@ -905,6 +918,34 @@ class NexusDistributedCore:
+                             )
+                             continue
+ 
++                        visible_member_ids = {
++                            str(node_id)
++                            for node_id, info in raw_peers.items()
++                            if isinstance(info, dict)
++                        }
++                        visible_member_ids.add(str(self.node_id))
++
++                        quorum_count = len(visible_member_ids)
++                        quorum_available = (
++                            quorum_count >= self.majority
++                        )
++
++                        if not quorum_available:
++                            logger.warning(
++                                "leadership_promotion_blocked_no_quorum "
++                                "node=%s visible=%s majority=%s "
++                                "configured_cluster_size=%s",
++                                getattr(
++                                    self,
++                                    "node_id",
++                                    "unknown",
++                                ),
++                                quorum_count,
++                                self.majority,
++                                self.configured_cluster_size,
++                            )
++                            continue
++
+                         logger.info(
+                             "leadership_promotion_started node=%s",
+                             getattr(self, "node_id", "unknown"),

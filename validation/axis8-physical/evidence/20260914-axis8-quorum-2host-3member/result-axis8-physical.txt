@@ -1,0 +1,45 @@
+﻿NEXUS V2700 — AXIS 8
+PHYSICAL QUORUM / SPLIT-BRAIN SAFETY
+
+RUN_ID=20260914-axis8-quorum-2host-3member
+
+LOGICAL_CLUSTER_SIZE=3
+MAJORITY=2
+
+HOST_A:
+  node_id=NO-WIN-A
+  ip=192.168.1.29
+  final_role=MASTER
+
+HOST_B:
+  node_id=AXIS8-B
+  ip=192.168.1.30
+  final_role=FOLLOWER
+
+CONTRACT 1 — MINORITY SAFETY:
+  1/3 visible
+  majority required=2
+  observed result=MASTER promotion blocked
+  result=PASS
+
+CONTRACT 2 — MAJORITY AUTHORITY:
+  2/3 visible
+  majority required=2
+  observed result=exactly one MASTER
+  A=MASTER
+  B=FOLLOWER
+  result=PASS
+
+STABILITY:
+  8/8 consecutive external samples
+  exactly_one_master=true
+  state_equal=true
+  result=PASS
+
+LAN ADDRESSING:
+  NO-WIN-A=192.168.1.29
+  AXIS8-B=192.168.1.30
+  result=PASS
+
+FINAL:
+  AXIS 8 PHYSICAL QUORUM SAFETY = PASS

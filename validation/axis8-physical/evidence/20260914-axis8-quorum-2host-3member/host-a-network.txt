@@ -1,0 +1,8 @@
+﻿
+InterfaceAlias             IPAddress    PrefixLength
+--------------             ---------    ------------
+vEthernet (Default Switch) 172.29.0.1             20
+Wi-Fi                      192.168.1.29           24
+
+
+

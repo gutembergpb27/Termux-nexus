@@ -1,0 +1,10 @@
+{
+  "height": 0,
+  "node_id": "NO-WIN-A",
+  "role": "MASTER",
+  "status": "OPERATIONAL",
+  "tcp_port": 9091,
+  "term": 0,
+  "tip_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "web_port": 8081
+}
