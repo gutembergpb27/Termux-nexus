@@ -1,0 +1,63 @@
+﻿NEXUS V2700 — AXIS 8
+PHYSICAL QUORUM / SPLIT-BRAIN SAFETY
+CROSS-HOST CONSOLIDATED EVIDENCE
+
+RUN_ID=20260914-axis8-quorum-2host-3member
+
+LOGICAL_CLUSTER_SIZE=3
+MAJORITY=2
+
+PHYSICAL HOST A:
+  node_id=NO-WIN-A
+  ip=192.168.1.29
+  role=MASTER
+  evidence_source=Windows Host A
+  result=PASS
+
+PHYSICAL HOST B:
+  node_id=AXIS8-B
+  ip=192.168.1.30
+  role=FOLLOWER
+  evidence_source=Android / Termux Host B
+  result=PASS
+
+MINORITY CONTRACT:
+  visible=1/3
+  majority=2
+  MASTER promotion blocked
+  result=PASS
+
+MAJORITY CONTRACT:
+  visible=2/3
+  exactly one MASTER
+  A=MASTER
+  B=FOLLOWER
+  result=PASS
+
+STATE:
+  height_equal=true
+  tip_hash_equal=true
+  convergence=PASS
+
+STABILITY:
+  Host A external samples=8/8 PASS
+  Host B independent samples=8/8 PASS
+
+NETWORK:
+  NO-WIN-A=192.168.1.29
+  AXIS8-B=192.168.1.30
+  bidirectional observation=PASS
+
+SOURCE:
+  baseline=1cd3661470003d43dfaf92a6cc48aeaa185cda3e
+  Axis8 product diff=41 insertions / 0 deletions
+  canonical_lf_sha256=29763baacd659109eaf6cbd4b90b11181fa38a53612a43865b42860e860dfe8f
+  cross_host_code_identity=PASS
+
+HOST B PACKAGE:
+  sha256=7d13b49502982d0f673556cedcaef668902479af0c670e130fd1416b9d19a6a3
+  outer_integrity=PASS
+  inner_manifest=PASS
+
+FINAL:
+  AXIS 8 CROSS-HOST PHYSICAL QUORUM SAFETY = PASS

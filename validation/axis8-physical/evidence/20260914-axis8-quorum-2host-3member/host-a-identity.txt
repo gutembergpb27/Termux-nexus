@@ -1,0 +1,9 @@
+﻿RUN_ID=20260914-axis8-quorum-2host-3member
+HOST=HOST-A
+NODE_ID=NO-WIN-A
+LAN_IP=192.168.1.29
+BRANCH=feat/v2700-quorum-split-brain-safety
+BASE_HEAD=1cd3661470003d43dfaf92a6cc48aeaa185cda3e
+LOGICAL_CLUSTER_SIZE=3
+MAJORITY=2
+AXIS8_PRODUCT_FILE=nexus_distributed_core.py
