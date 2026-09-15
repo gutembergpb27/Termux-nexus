@@ -1,0 +1,92 @@
+﻿{
+    "schema":  "nexus.axis10.quorum-timing.v1",
+    "axis":  10,
+    "run":  "run-002",
+    "classification":  "valid",
+    "experiment":  "three-node-master-loss-failover",
+    "baseline":  {
+                     "configured_cluster_size":  3,
+                     "majority":  2,
+                     "hub":  "RUNNING",
+                     "node_a":  "MASTER",
+                     "node_b":  "FOLLOWER",
+                     "node_c":  "FOLLOWER"
+                 },
+    "failure":  {
+                    "type":  "controlled-master-process-termination",
+                    "failed_node":  "NODE-A",
+                    "pid":  18652
+                },
+    "timeline":  {
+                     "t0":  {
+                                "event":  "NODE-A process termination initiated",
+                                "timestamp_utc":  "2026-09-15T17:30:53.1560496+00:00"
+                            },
+                     "t1":  {
+                                "event":  "NODE-C master_missing",
+                                "timestamp_original":  "2026-09-15 14:31:12.259",
+                                "timezone":  "UTC-03:00",
+                                "timestamp_utc":  "2026-09-15T17:31:12.2590000+00:00"
+                            },
+                     "t2":  {
+                                "event":  "NODE-C leadership_promotion_started",
+                                "timestamp_original":  "2026-09-15 14:31:12.260",
+                                "timezone":  "UTC-03:00",
+                                "timestamp_utc":  "2026-09-15T17:31:12.2600000+00:00"
+                            },
+                     "t3":  {
+                                "event":  "NODE-C leadership_promoted",
+                                "timestamp_original":  "2026-09-15 14:31:12.261",
+                                "timezone":  "UTC-03:00",
+                                "timestamp_utc":  "2026-09-15T17:31:12.2610000+00:00"
+                            },
+                     "t4":  {
+                                "event":  "NODE-C observed as MASTER through Hub",
+                                "timestamp_utc":  "2026-09-15T17:31:17.3797373+00:00",
+                                "measurement":  "external-stopwatch-observation"
+                            }
+                 },
+    "timing_ms":  {
+                      "t0_to_t1":  19102.9504,
+                      "t0_to_t2":  19103.9504,
+                      "t0_to_t3":  19104.9504,
+                      "t1_to_t2":  1,
+                      "t2_to_t3":  1,
+                      "t3_to_t4":  5104.7776,
+                      "t0_to_t4_measured":  24209.728
+                  },
+    "coordination":  {
+                         "node_b":  "leadership_promotion_deferred candidate=NODE-C",
+                         "node_c":  [
+                                        "leadership_promotion_started",
+                                        "leadership_promoted role=MASTER"
+                                    ],
+                         "promoted_node":  "NODE-C"
+                     },
+    "convergence":  {
+                        "surviving_members":  [
+                                                  "NODE-B",
+                                                  "NODE-C"
+                                              ],
+                        "final_master":  "NODE-C",
+                        "final_follower":  "NODE-B",
+                        "failed_node_removed_from_hub":  true,
+                        "transient_old_master_entry":  "stale Hub membership entry",
+                        "active_split_brain_observed":  false
+                    },
+    "interpretation":  {
+                           "dominant_phase":  "master-loss detection",
+                           "internal_promotion_ms":  1,
+                           "note":  "T0-to-T4 is external failover latency; it includes failure detection, promotion, Hub propagation, and observer polling."
+                       },
+    "evidence_files":  [
+                           "node-a.stdout.log",
+                           "node-a.stderr.log",
+                           "node-b.stdout.log",
+                           "node-b.stderr.log",
+                           "node-c.stdout.log",
+                           "node-c.stderr.log",
+                           "hub.stdout.log",
+                           "hub.stderr.log"
+                       ]
+}
