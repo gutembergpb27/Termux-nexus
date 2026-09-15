@@ -1,10 +1,15 @@
-﻿import time
+import time
 
 from nexus_distributed_core import NexusDistributedCore
 from persistence import NexusPersistence
 
 
-def make_follower(tmp_path):
+def make_follower(tmp_path, monkeypatch):
+    monkeypatch.setenv(
+        "NEXUS_SECRET_KEY",
+        "axis9-test-key",
+    )
+
     core = NexusDistributedCore(
         node_id="NODE-A",
         web_port=8081,
@@ -19,7 +24,7 @@ def make_follower(tmp_path):
     return core
 
 
-def test_follower_without_master_is_not_ready(tmp_path):
+def test_follower_without_master_is_not_ready(tmp_path, monkeypatch):
     """
     Axis 9 Contract 1A.
 
@@ -29,7 +34,7 @@ def test_follower_without_master_is_not_ready(tmp_path):
     Loss of leadership must therefore be observable instead
     of being reported as an operational distributed state.
     """
-    core = make_follower(tmp_path)
+    core = make_follower(tmp_path, monkeypatch)
 
     core.peers = {}
     core.last_master_heartbeat = time.time()
@@ -44,14 +49,14 @@ def test_follower_without_master_is_not_ready(tmp_path):
     assert readiness["reason"] == "master_missing"
 
 
-def test_follower_with_stale_master_is_not_ready(tmp_path):
+def test_follower_with_stale_master_is_not_ready(tmp_path, monkeypatch):
     """
     Axis 9 Contract 1B.
 
     A previously known MASTER whose liveness evidence has
     expired must not keep the FOLLOWER operational.
     """
-    core = make_follower(tmp_path)
+    core = make_follower(tmp_path, monkeypatch)
 
     core.peers = {
         "NODE-MASTER": {
@@ -79,6 +84,7 @@ def test_follower_with_stale_master_is_not_ready(tmp_path):
 
 def test_degraded_readiness_does_not_grant_master_authority(
     tmp_path,
+    monkeypatch,
 ):
     """
     Axis 9 Contract 1C.
@@ -89,7 +95,7 @@ def test_degraded_readiness_does_not_grant_master_authority(
     Observation of failure and authorization of promotion are
     separate contracts.
     """
-    core = make_follower(tmp_path)
+    core = make_follower(tmp_path, monkeypatch)
 
     core.peers = {}
     core.last_master_heartbeat = 0.0
@@ -110,12 +116,12 @@ def test_degraded_readiness_does_not_grant_master_authority(
 # HTTP DEGRADED READINESS CONTRACT
 # ============================================================
 
-def test_http_readiness_exposes_master_missing(tmp_path):
+def test_http_readiness_exposes_master_missing(tmp_path, monkeypatch):
     import io
     import json
     import web_panel
 
-    core = make_follower(tmp_path)
+    core = make_follower(tmp_path, monkeypatch)
     core.role = "FOLLOWER"
     core.peers = {}
 
@@ -166,12 +172,12 @@ def test_http_readiness_exposes_master_missing(tmp_path):
         web_panel._runtime_instance = original
 
 
-def test_http_readiness_exposes_stale_master_heartbeat(tmp_path):
+def test_http_readiness_exposes_stale_master_heartbeat(tmp_path, monkeypatch):
     import io
     import json
     import web_panel
 
-    core = make_follower(tmp_path)
+    core = make_follower(tmp_path, monkeypatch)
     core.role = "FOLLOWER"
 
     core.peers = {
@@ -249,6 +255,7 @@ def test_http_readiness_exposes_stale_master_heartbeat(tmp_path):
 
 def test_degraded_follower_without_quorum_cannot_become_master(
     tmp_path,
+    monkeypatch,
 ):
     """
     Axis 9 Contract 3.
@@ -260,7 +267,7 @@ def test_degraded_follower_without_quorum_cannot_become_master(
     FOLLOWER even after MASTER liveness has expired.
     """
 
-    core = make_follower(tmp_path)
+    core = make_follower(tmp_path, monkeypatch)
 
     core.configured_cluster_size = 3
     core.majority = 2
