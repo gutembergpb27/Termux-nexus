@@ -6,10 +6,10 @@
 
 **Runtime · Cluster · Replication · Diagnostics · Observability**
 
-![Version](https://img.shields.io/badge/version-2700.0.0--rc1-2563eb)
+![Version](https://img.shields.io/badge/version-2700.0.0--rc2-2563eb)
 ![Python](https://img.shields.io/badge/python-3.14%2B-3776ab)
 ![Status](https://img.shields.io/badge/status-release%20candidate-f59e0b)
-![Tests](https://img.shields.io/badge/tests-586%20passed%2C%201%20xfailed-16a34a)
+![Tests](https://img.shields.io/badge/tests-645%20passed%2C%201%20xfailed-16a34a)
 
 </div>
 
@@ -24,7 +24,7 @@ The platform combines runtime lifecycle management, cluster orchestration,
 state replication, diagnostics, health inspection and observability through
 a modular Python architecture.
 
-> Current release candidate: **v2700.0.0-rc1**
+> Current release candidate: **v2700.0.0-rc2**
 
 ---
 
@@ -106,7 +106,7 @@ nexus version
 ```
 
 ```text
-Nexus Runtime Platform v2700.0.0-rc1
+Nexus Runtime Platform v2700.0.0-rc2
 ```
 
 ### Local diagnostics
