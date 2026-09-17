@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from nexus.compute.runtime import ComputeRuntime
 from nexus.runtime import Runtime
 from nexus.runtime import RuntimeConfig
 from nexus.runtime_lifecycle import RuntimeLifecycle
@@ -11,10 +12,19 @@ from nexus.runtime_observability import RuntimeObservability
 class RuntimeClient:
     """Stable public interface for a local Nexus Runtime."""
 
-    def __init__(self, config: RuntimeConfig | None = None):
+    def __init__(
+        self,
+        config: RuntimeConfig | None = None,
+        *,
+        compute: ComputeRuntime | None = None,
+    ):
         self._runtime = Runtime(config=config)
+        self._compute = compute or ComputeRuntime()
         self._lifecycle = RuntimeLifecycle(self._runtime)
-        self._observability = RuntimeObservability(self._runtime)
+        self._observability = RuntimeObservability(
+            self._runtime,
+            compute=self._compute,
+        )
 
     @property
     def runtime(self) -> Runtime:
@@ -33,6 +43,12 @@ class RuntimeClient:
         """Return the Runtime cluster facade."""
 
         return self._runtime.cluster
+
+    @property
+    def compute(self) -> ComputeRuntime:
+        """Return the Compute Runtime owned by this client."""
+
+        return self._compute
 
     @property
     def lifecycle(self) -> RuntimeLifecycle:

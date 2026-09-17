@@ -1,0 +1,10 @@
+﻿{
+    "status":  "OPERATIONAL",
+    "node_id":  "AXIS7-B",
+    "role":  "MASTER",
+    "web_port":  8082,
+    "tcp_port":  9092,
+    "height":  2,
+    "tip_hash":  "aba1ccbb33c4ebcc4a9e9e6de3fa6cfcd59fcad79b798bbbb672f9aec8eab784",
+    "term":  0
+}

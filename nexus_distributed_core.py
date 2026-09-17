@@ -1,4 +1,11 @@
-from nexus_protocol import NexusProtocol
+from nexus.compute.handlers import TaskHandlerRegistry, build_default_task_registry
+from nexus.compute.hardware import HardwareCapabilityDetector
+from nexus.compute.node_load import NodeLoad
+from nexus.compute.task import ComputeTask
+from nexus.compute.task_completion import TaskCompletionRegistry
+from nexus.compute.task_queue import TaskQueue
+from nexus.compute.task_worker import TaskWorker
+from nexus_protocol import NexusProtocol, ReplayCache
 from nexus_transport import recv_message, send_message
 from persistence import NexusPersistence
 from web_panel import start_web_server
@@ -19,14 +26,93 @@ logger = logging.getLogger("nexus.core")
 
 
 class NexusDistributedCore:
+    def reconcile_master_role(self, peers):
+        """Resolve concurrent MASTER roles deterministically.
+
+        The node with the lexicographically greatest stable node_id
+        retains MASTER. A lower-id local MASTER yields to FOLLOWER.
+
+        Node identity is never mutated.
+        """
+
+        if self.role != "MASTER":
+            return False
+
+        if not isinstance(peers, dict):
+            return False
+
+        local_node_id = str(self.node_id)
+
+        for peer_id, peer in peers.items():
+            if str(peer_id) == local_node_id:
+                continue
+
+            if not isinstance(peer, dict):
+                continue
+
+            if str(peer.get("role", "")).upper() != "MASTER":
+                continue
+
+            remote_node_id = str(
+                peer.get("node_id", peer_id)
+            )
+
+            if remote_node_id > local_node_id:
+                self.role = "FOLLOWER"
+                return True
+
+        return False
+
     def __init__(self, node_id, web_port, tcp_port, role):
         self.node_id = node_id
         self.web_port = int(web_port)
         self.tcp_port = int(tcp_port)
         self.role = role
+
+        self.configured_cluster_size = int(
+            os.getenv("NEXUS_CLUSTER_SIZE", "1")
+        )
+        if self.configured_cluster_size < 1:
+            raise ValueError(
+                "NEXUS_CLUSTER_SIZE must be greater than zero"
+            )
+
+        self.majority = (
+            self.configured_cluster_size // 2
+        ) + 1
+
         self.hub_url = os.getenv("NEXUS_HUB_URL", "http://127.0.0.1:8500")
         secret = os.getenv("NEXUS_SECRET_KEY", "").strip()
         self.protocol = NexusProtocol(secret)
+        self.compute_replay_cache = ReplayCache()
+        self.compute_task_handlers = build_default_task_registry()
+        self.compute_task_queue = TaskQueue()
+        self.compute_task_completions = TaskCompletionRegistry()
+        self.compute_task_worker = TaskWorker(
+            queue=self.compute_task_queue,
+            registry=self.compute_task_handlers,
+            completions=self.compute_task_completions,
+        )
+        self.hardware_capability_detector = HardwareCapabilityDetector()
+        self.compute_message_ttl = float(
+            os.getenv("NEXUS_MESSAGE_TTL", "60.0")
+        )
+        if self.compute_message_ttl <= 0:
+            raise ValueError(
+                "NEXUS_MESSAGE_TTL must be greater than zero"
+            )
+
+        self.compute_completion_retention_seconds = float(
+            os.getenv(
+                "NEXUS_COMPLETION_RETENTION_SECONDS",
+                "300.0",
+            )
+        )
+        if self.compute_completion_retention_seconds <= 0:
+            raise ValueError(
+                "NEXUS_COMPLETION_RETENTION_SECONDS "
+                "must be greater than zero"
+            )
         self.last_master_heartbeat = time.time()
         self.peers = {}
         
@@ -132,6 +218,80 @@ class NexusDistributedCore:
         result["reason"] = "follower_operational"
         return result
 
+    def hardware_capabilities(self):
+        detector = getattr(
+            self,
+            "hardware_capability_detector",
+            None,
+        )
+
+        if detector is None:
+            detector = HardwareCapabilityDetector()
+
+        return detector.detect()
+
+    def compute_node_load(self) -> NodeLoad:
+        registry = getattr(
+            self,
+            "compute_task_handlers",
+            None,
+        )
+
+        if registry is None:
+            load = NodeLoad()
+        else:
+            load = registry.load_snapshot()
+
+        queue = getattr(
+            self,
+            "compute_task_queue",
+            None,
+        )
+
+        queued_tasks = 0
+
+        if queue is not None:
+            queued_tasks = queue.pending_count()
+
+        return NodeLoad(
+            active_tasks=load.active_tasks,
+            queued_tasks=queued_tasks,
+            completed_tasks=load.completed_tasks,
+            failed_tasks=load.failed_tasks,
+            average_duration_ms=load.average_duration_ms,
+        )
+
+    def compute_capabilities(self):
+        registry = getattr(
+            self,
+            "compute_task_handlers",
+            None,
+        )
+
+        handlers = []
+
+        if registry is not None:
+            handlers = list(registry.names())
+
+        hardware = self.hardware_capabilities()
+
+        return {
+            "handlers": handlers,
+            "compute_type": hardware.get(
+                "compute_type",
+                "cpu",
+            ),
+            "memory_mb": hardware.get(
+                "memory_mb",
+            ),
+            "has_gpu": bool(
+                hardware.get(
+                    "has_gpu",
+                    False,
+                )
+            ),
+        }
+
     def build_registration_envelope(
         self,
         *,
@@ -148,6 +308,7 @@ class NexusDistributedCore:
                 "web_port": self.web_port,
                 "tcp_port": self.tcp_port,
                 "protocol_version": 1,
+                "capabilities": self.compute_capabilities(),
             },
             timestamp=timestamp,
             nonce=nonce,
@@ -181,7 +342,11 @@ class NexusDistributedCore:
         return self.protocol.create_envelope(
             sender=getattr(self, "node_id", "unknown"),
             message_type="HEARTBEAT",
-            payload={"role": self.role},
+            payload={
+                "role": self.role,
+                "capabilities": self.compute_capabilities(),
+                "load": self.compute_node_load().to_dict(),
+            },
             timestamp=timestamp,
             nonce=nonce,
             message_id=message_id,
@@ -252,10 +417,330 @@ class NexusDistributedCore:
             applied,
         )
 
+    def start_compute_worker(self) -> bool:
+        worker = getattr(
+            self,
+            "compute_task_worker",
+            None,
+        )
+
+        if worker is None:
+            raise RuntimeError(
+                "compute task worker is not configured"
+            )
+
+        return worker.start()
+
+    def stop_compute_worker(
+        self,
+        *,
+        timeout: float | None = None,
+    ) -> bool:
+        worker = getattr(
+            self,
+            "compute_task_worker",
+            None,
+        )
+
+        if worker is None:
+            return False
+
+        return worker.stop(
+            timeout=timeout
+        )
+
+    def compute_completion_snapshot(
+        self,
+    ):
+        completions = getattr(
+            self,
+            "compute_task_completions",
+            None,
+        )
+
+        if completions is None:
+            raise RuntimeError(
+                "compute task completions are not configured"
+            )
+
+        return completions.snapshot()
+
+    def cleanup_compute_completions(
+        self,
+        *,
+        max_age: float,
+    ) -> int:
+        completions = getattr(
+            self,
+            "compute_task_completions",
+            None,
+        )
+
+        if completions is None:
+            raise RuntimeError(
+                "compute task completions are not configured"
+            )
+
+        return completions.cleanup(
+            max_age=max_age,
+        )
+
+    def submit_compute_task(
+        self,
+        task: ComputeTask,
+    ):
+        retention = getattr(
+            self,
+            "compute_completion_retention_seconds",
+            None,
+        )
+
+        if retention is not None:
+            self.cleanup_compute_completions(
+                max_age=retention,
+            )
+
+        queue = getattr(
+            self,
+            "compute_task_queue",
+            None,
+        )
+
+        if queue is None:
+            raise RuntimeError(
+                "compute task queue is not configured"
+            )
+
+        completions = getattr(
+            self,
+            "compute_task_completions",
+            None,
+        )
+
+        if completions is None:
+            raise RuntimeError(
+                "compute task completions are not configured"
+            )
+
+        registry = getattr(
+            self,
+            "compute_task_handlers",
+            None,
+        )
+
+        if registry is None:
+            raise RuntimeError(
+                "compute task handlers are not configured"
+            )
+
+        # Admission validation: reject an unknown handler before
+        # creating a completion or placing the task in the queue.
+        registry.get(task.name)
+
+        completion = completions.create(
+            task.task_id
+        )
+
+        queue.enqueue(task)
+
+        return completion
+
+    def wait_for_compute_task(
+        self,
+        task_id: str,
+        *,
+        timeout: float | None = None,
+    ):
+        completions = getattr(
+            self,
+            "compute_task_completions",
+            None,
+        )
+
+        if completions is None:
+            raise RuntimeError(
+                "compute task completions are not configured"
+            )
+
+        return completions.wait(
+            task_id,
+            timeout=timeout,
+        )
+
+    def execute_queued_compute_task(
+        self,
+        task: ComputeTask,
+    ):
+        queue = getattr(
+            self,
+            "compute_task_queue",
+            None,
+        )
+
+        if queue is None:
+            raise RuntimeError(
+                "compute task queue is not configured"
+            )
+
+        worker = getattr(
+            self,
+            "compute_task_worker",
+            None,
+        )
+
+        completions = getattr(
+            self,
+            "compute_task_completions",
+            None,
+        )
+
+        if worker is not None and completions is not None:
+            completions.create(
+                task.task_id
+            )
+
+            queue.enqueue(task)
+
+            return worker.run_once()
+
+        registry = getattr(
+            self,
+            "compute_task_handlers",
+            None,
+        )
+
+        if registry is None:
+            raise RuntimeError(
+                "compute task handlers are not configured"
+            )
+
+        queue.enqueue(task)
+
+        queued_task = queue.dequeue()
+
+        return registry.execute(
+            queued_task.name,
+            queued_task.payload,
+        )
+
+    def handle_compute_task(self, conn, message):
+        self.protocol.verify_envelope(
+            message,
+            now=time.time(),
+            ttl=self.compute_message_ttl,
+            replay_cache=self.compute_replay_cache,
+        )
+
+        if message.get("type") != "COMPUTE_TASK":
+            raise ValueError("invalid compute request type")
+
+        payload = message.get("payload")
+
+        if not isinstance(payload, dict):
+            raise ValueError(
+                "compute task payload envelope must be an object"
+            )
+
+        task_id = str(payload.get("task_id", "")).strip()
+        name = str(payload.get("name", "")).strip()
+        task_payload = payload.get("task_payload", {})
+
+        if not task_id:
+            raise ValueError("compute task id must not be empty")
+
+        if not name:
+            raise ValueError("compute task name must not be empty")
+
+        if not isinstance(task_payload, dict):
+            raise ValueError(
+                "compute task payload must be an object"
+            )
+
+        task = ComputeTask(
+            name=name,
+            payload=task_payload,
+            task_id=task_id,
+        )
+
+        self.submit_compute_task(
+            task
+        )
+
+        worker = getattr(
+            self,
+            "compute_task_worker",
+            None,
+        )
+
+        if worker is None:
+            raise RuntimeError(
+                "compute task worker is not configured"
+            )
+
+        if not worker.running:
+            worker.start()
+
+        node_id = getattr(
+            self,
+            "node_id",
+            "unknown",
+        )
+
+        try:
+            completion = self.wait_for_compute_task(
+                task_id,
+                timeout=self.compute_message_ttl,
+            )
+        except TimeoutError as exc:
+            response_payload = {
+                "task_id": task_id,
+                "status": "timeout",
+                "node_id": node_id,
+                "error": str(
+                    exc
+                    or "task completion timed out"
+                ),
+            }
+        else:
+            if completion.status == "failed":
+                response_payload = {
+                    "task_id": task_id,
+                    "status": "failed",
+                    "node_id": node_id,
+                    "error": (
+                        completion.error
+                        or "compute task failed"
+                    ),
+                }
+            else:
+                response_payload = {
+                    "task_id": task_id,
+                    "status": "completed",
+                    "node_id": node_id,
+                    "output": completion.result,
+                }
+
+        response = self.protocol.create_envelope(
+            sender=getattr(self, "node_id", "unknown"),
+            message_type="COMPUTE_RESULT",
+            payload=response_payload,
+        )
+
+        send_message(conn, response)
+
+        logger.info(
+            "secure_compute_task_completed "
+            "node=%s task_id=%s sender=%s",
+            getattr(self, "node_id", "unknown"),
+            task_id,
+            message.get("sender"),
+        )
+
     def dispatch_tcp_message(self, conn, message):
         handlers = {
             "STATE_SUMMARY": self.handle_state_summary,
             "SYNC_BATCH": self.handle_sync_batch,
+            "COMPUTE_TASK": self.handle_compute_task,
         }
 
         message_type = message.get("type")
@@ -356,6 +841,16 @@ class NexusDistributedCore:
 
                 self.peers = raw_peers
 
+                role_changed = self.reconcile_master_role(raw_peers)
+
+                if role_changed:
+                    if not self.post_envelope(
+                        "/heartbeat",
+                        self.build_heartbeat_envelope(),
+                    ):
+                        registered = False
+                        continue
+
                 master_node = next(
                     (
                         node_id
@@ -366,10 +861,13 @@ class NexusDistributedCore:
                     None,
                 )
 
-                if master_node:
-                    self.last_master_heartbeat = current_time
+                master_reachable = False
+
+                if master_node and self.role == "FOLLOWER":
                     try:
                         self.sync_from_peer(raw_peers[master_node])
+                        self.last_master_heartbeat = current_time
+                        master_reachable = True
                     except Exception as exc:
                         logger.warning(
                             "peer_sync_failed node=%s peer=%s error=%s",
@@ -377,7 +875,8 @@ class NexusDistributedCore:
                             master_node,
                             exc,
                         )
-                else:
+
+                if self.role == "FOLLOWER" and not master_reachable:
                     delta = current_time - self.last_master_heartbeat
                     if self.role == "FOLLOWER" and delta > 15.0:
                         logger.warning(
@@ -385,6 +884,68 @@ class NexusDistributedCore:
                             getattr(self, "node_id", "unknown"),
                             delta,
                         )
+
+                        eligible_candidate_ids = [
+                            str(node_id)
+                            for node_id, info in raw_peers.items()
+                            if (
+                                str(node_id) != str(self.node_id)
+                                and isinstance(info, dict)
+                                and str(
+                                    info.get("role", "")
+                                ).upper() == "FOLLOWER"
+                            )
+                        ]
+
+                        eligible_candidate_ids.append(
+                            str(self.node_id)
+                        )
+
+                        promotion_candidate = max(
+                            eligible_candidate_ids
+                        )
+
+                        if str(self.node_id) != promotion_candidate:
+                            logger.info(
+                                "leadership_promotion_deferred "
+                                "node=%s candidate=%s",
+                                getattr(
+                                    self,
+                                    "node_id",
+                                    "unknown",
+                                ),
+                                promotion_candidate,
+                            )
+                            continue
+
+                        visible_member_ids = {
+                            str(node_id)
+                            for node_id, info in raw_peers.items()
+                            if isinstance(info, dict)
+                        }
+                        visible_member_ids.add(str(self.node_id))
+
+                        quorum_count = len(visible_member_ids)
+                        quorum_available = (
+                            quorum_count >= self.majority
+                        )
+
+                        if not quorum_available:
+                            logger.warning(
+                                "leadership_promotion_blocked_no_quorum "
+                                "node=%s visible=%s majority=%s "
+                                "configured_cluster_size=%s",
+                                getattr(
+                                    self,
+                                    "node_id",
+                                    "unknown",
+                                ),
+                                quorum_count,
+                                self.majority,
+                                self.configured_cluster_size,
+                            )
+                            continue
+
                         logger.info(
                             "leadership_promotion_started node=%s",
                             getattr(self, "node_id", "unknown"),

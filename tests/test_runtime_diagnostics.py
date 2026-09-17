@@ -57,3 +57,52 @@ def test_diagnostics_summary():
     assert summary["logs"] == 2
     assert summary["traces"] == 1
     assert summary["active_traces"] == 0
+
+
+def test_axis3_diagnostics_expose_formal_readiness():
+    """Axis 3: diagnostics expose authoritative Runtime readiness."""
+    from nexus.runtime import Runtime
+
+    runtime = Runtime()
+
+    assert runtime.diagnostics.snapshot()["readiness"] == {
+        "ready": False,
+        "reason": "runtime_not_started",
+    }
+
+    runtime.start()
+
+    try:
+        assert runtime.diagnostics.snapshot()["readiness"] == {
+            "ready": True,
+            "reason": "runtime_operational",
+        }
+    finally:
+        runtime.stop()
+
+    assert runtime.diagnostics.snapshot()["readiness"] == {
+        "ready": False,
+        "reason": "runtime_not_started",
+    }
+
+
+def test_axis3_diagnostics_summary_exposes_readiness():
+    """Axis 3: compact diagnostics include readiness state and reason."""
+    from nexus.runtime import Runtime
+
+    runtime = Runtime()
+
+    summary = runtime.diagnostics.summary()
+
+    assert summary["ready"] is False
+    assert summary["readiness_reason"] == "runtime_not_started"
+
+    runtime.start()
+
+    try:
+        summary = runtime.diagnostics.summary()
+
+        assert summary["ready"] is True
+        assert summary["readiness_reason"] == "runtime_operational"
+    finally:
+        runtime.stop()

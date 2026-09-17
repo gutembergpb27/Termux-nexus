@@ -1,0 +1,176 @@
+﻿NEXUS RUNTIME PLATFORM V2700
+AXIS 7 — PHYSICAL THREE-HOST DISTRIBUTED VALIDATION
+
+Author:
+GUTEMBERG PROCOPIO BARBOSA
+
+Date:
+12 de setembro de 2026
+
+============================================================
+CERTIFICATION RESULT
+============================================================
+
+PHYSICAL 3-HOST CONTRACT = DEMONSTRATED
+
+============================================================
+PHYSICAL TOPOLOGY
+============================================================
+
+HOST A
+Windows notebook
+192.168.1.9
+AXIS7-A
+
+HOST B
+Motorola Edge 40 Neo
+192.168.1.4
+AXIS7-B
+
+HOST C
+Samsung SM-S918B
+192.168.1.8
+AXIS7-C
+
+All nodes executed from baseline:
+
+6756db2642c5cfbd34503ea2e5544696e5000f80
+
+============================================================
+INITIAL CANONICAL STATE S0
+============================================================
+
+height=1
+
+tip_hash=
+f79eb4b082333b4f8b60574e75ac59ed87debfaa59469dc60199a5f1660debfb
+
+============================================================
+DEMONSTRATED SEQUENCE
+============================================================
+
+1. Three distinct physical hosts joined the same Nexus Hub.
+
+2. Initial role topology:
+   AXIS7-A = MASTER
+   AXIS7-B = FOLLOWER
+   AXIS7-C = FOLLOWER
+
+3. All three physical hosts converged to identical S0.
+
+4. Pre-failure single-leader state was observed and stable.
+
+5. Physical MASTER AXIS7-A was stopped.
+
+6. Hub remained running.
+
+7. Surviving followers B and C recoordinated without manual
+   role selection.
+
+8. AXIS7-C became the unique surviving MASTER.
+
+9. AXIS7-B remained FOLLOWER.
+
+10. B and C preserved the canonical S0 state.
+
+11. New MASTER C made post-failover forward progress.
+
+12. S1 was created on C.
+
+13. B replicated S1 from C.
+
+14. Surviving nodes converged to height=2 and identical tip.
+
+15. Old MASTER A was restarted from stale height=1 state.
+
+16. During rejoin, A initially reported MASTER while C was
+    already MASTER.
+
+17. A subsequently recoordinated to FOLLOWER.
+
+18. A synchronized the missing S1 state.
+
+19. Final physical three-host topology converged to:
+
+    AXIS7-A = FOLLOWER
+    AXIS7-B = FOLLOWER
+    AXIS7-C = MASTER
+
+20. All three nodes converged to:
+
+    height=2
+
+    tip_hash=
+    21c276cd51e0f244e07edafc9f7fa65e3c28ea92b81fd13aab268a6b1f299efa
+
+21. Final single-leader state remained stable across repeated
+    observations.
+
+============================================================
+KNOWN FINDING
+============================================================
+
+A transient dual-MASTER condition was observed during stale
+old-master rejoin:
+
+AXIS7-A = MASTER / stale height=1
+AXIS7-C = MASTER / canonical height=2
+
+The system subsequently recoordinated without manual role
+intervention:
+
+AXIS7-A -> FOLLOWER
+AXIS7-C -> MASTER
+
+This finding is preserved explicitly.
+
+Therefore this evidence demonstrates final single-leader
+convergence and role recoordination, but does NOT claim that
+dual-MASTER overlap is impossible during every rejoin phase.
+
+============================================================
+FINAL STATE
+============================================================
+
+AXIS7-A
+role=FOLLOWER
+height=2
+tip_hash=21c276cd51e0f244e07edafc9f7fa65e3c28ea92b81fd13aab268a6b1f299efa
+
+AXIS7-B
+role=FOLLOWER
+height=2
+tip_hash=21c276cd51e0f244e07edafc9f7fa65e3c28ea92b81fd13aab268a6b1f299efa
+
+AXIS7-C
+role=MASTER
+height=2
+tip_hash=21c276cd51e0f244e07edafc9f7fa65e3c28ea92b81fd13aab268a6b1f299efa
+
+============================================================
+BASELINE
+============================================================
+
+Branch:
+feat/v2700-multi-machine-failover
+
+HEAD:
+6756db2642c5cfbd34503ea2e5544696e5000f80
+
+Tracked product tree:
+CLEAN
+
+Product code changed by evidence preservation:
+NO
+
+Git add:
+NO
+
+Git commit:
+NO
+
+Git push:
+NO
+
+Git merge:
+NO

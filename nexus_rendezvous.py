@@ -14,6 +14,161 @@ REPLAY_CACHE = ReplayCache()
 MESSAGE_TTL = 60.0
 
 
+def normalize_capabilities(value):
+    if value is None:
+        return {
+            "handlers": [],
+        }
+
+    if not isinstance(value, dict):
+        raise ValueError("invalid capabilities")
+
+    handlers = value.get("handlers", [])
+
+    if not isinstance(handlers, list):
+        raise ValueError(
+            "invalid capabilities handlers"
+        )
+
+    normalized_handlers = []
+
+    for handler in handlers:
+        name = str(handler).strip()
+
+        if not name:
+            raise ValueError(
+                "invalid capability handler"
+            )
+
+        normalized_handlers.append(name)
+
+    normalized = {
+        "handlers": sorted(
+            set(normalized_handlers)
+        ),
+    }
+
+    # Hardware fields remain optional for compatibility
+    # with legacy nodes.
+
+    if "compute_type" in value:
+        compute_type = str(
+            value["compute_type"]
+        ).strip()
+
+        if not compute_type:
+            raise ValueError(
+                "invalid capability compute type"
+            )
+
+        normalized["compute_type"] = compute_type
+
+    if "memory_mb" in value:
+        memory_mb = value["memory_mb"]
+
+        if memory_mb is None:
+            normalized["memory_mb"] = None
+        else:
+            if isinstance(memory_mb, bool):
+                raise ValueError(
+                    "invalid capability memory"
+                )
+
+            try:
+                memory_mb = int(memory_mb)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "invalid capability memory"
+                ) from exc
+
+            if memory_mb < 0:
+                raise ValueError(
+                    "capability memory must be greater "
+                    "than or equal to zero"
+                )
+
+            normalized["memory_mb"] = memory_mb
+
+    if "has_gpu" in value:
+        has_gpu = value["has_gpu"]
+
+        if not isinstance(has_gpu, bool):
+            raise ValueError(
+                "invalid capability GPU flag"
+            )
+
+        normalized["has_gpu"] = has_gpu
+
+    return normalized
+
+
+def normalize_node_load(value):
+    if value is None:
+        return None
+
+    if not isinstance(value, dict):
+        raise ValueError("invalid node load")
+
+    counter_names = (
+        "active_tasks",
+        "queued_tasks",
+        "completed_tasks",
+        "failed_tasks",
+    )
+
+    normalized = {}
+
+    for name in counter_names:
+        raw_value = value.get(name, 0)
+
+        if isinstance(raw_value, bool):
+            raise ValueError(
+                f"invalid node load {name}"
+            )
+
+        try:
+            counter = int(raw_value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"invalid node load {name}"
+            ) from exc
+
+        if counter < 0:
+            raise ValueError(
+                f"node load {name} must be greater "
+                "than or equal to zero"
+            )
+
+        normalized[name] = counter
+
+    raw_duration = value.get(
+        "average_duration_ms",
+        0.0,
+    )
+
+    if isinstance(raw_duration, bool):
+        raise ValueError(
+            "invalid node load average duration"
+        )
+
+    try:
+        duration = float(raw_duration)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            "invalid node load average duration"
+        ) from exc
+
+    if duration < 0:
+        raise ValueError(
+            "node load average duration must be greater "
+            "than or equal to zero"
+        )
+
+    normalized["average_duration_ms"] = duration
+
+    return normalized
+
+
 def register_peer(
     *,
     envelope: dict[str, Any],
@@ -51,6 +206,14 @@ def register_peer(
     if role not in {"FOLLOWER", "CANDIDATE", "MASTER"}:
         raise ValueError("invalid role")
 
+    load = normalize_node_load(
+        payload.get("load")
+    )
+
+    capabilities = normalize_capabilities(
+        payload.get("capabilities")
+    )
+
     try:
         web_port = int(payload["web_port"])
         tcp_port = int(payload["tcp_port"])
@@ -67,6 +230,7 @@ def register_peer(
         "web_port": web_port,
         "tcp_port": tcp_port,
         "protocol_version": protocol_version,
+        "capabilities": capabilities,
         "ip": client_ip,
         "last_seen": float(now),
     }
@@ -101,12 +265,36 @@ def update_peer_heartbeat(
     if node_id not in peers:
         raise ValueError("peer not registered")
 
-    role = str(payload.get("role", peers[node_id]["role"])).upper()
+    role = str(
+        payload.get(
+            "role",
+            peers[node_id]["role"],
+        )
+    ).upper()
+
+    capabilities = normalize_capabilities(
+        payload.get(
+            "capabilities",
+            peers[node_id].get(
+                "capabilities",
+                {"handlers": []},
+            ),
+        )
+    )
     if role not in {"FOLLOWER", "CANDIDATE", "MASTER"}:
         raise ValueError("invalid role")
 
+    load = normalize_node_load(
+        payload.get("load")
+    )
+
     record = dict(peers[node_id])
     record["role"] = role
+    record["capabilities"] = capabilities
+
+    if load is not None:
+        record["load"] = load
+
     record["last_seen"] = float(now)
     peers[node_id] = record
     return record

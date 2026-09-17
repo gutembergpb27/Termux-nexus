@@ -1,0 +1,10 @@
+﻿{
+    "status":  "OPERATIONAL",
+    "node_id":  "AXIS7-B",
+    "role":  "FOLLOWER",
+    "web_port":  8082,
+    "tcp_port":  9092,
+    "height":  2,
+    "tip_hash":  "21c276cd51e0f244e07edafc9f7fa65e3c28ea92b81fd13aab268a6b1f299efa",
+    "term":  0
+}

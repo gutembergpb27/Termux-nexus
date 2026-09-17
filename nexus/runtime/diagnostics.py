@@ -27,6 +27,7 @@ class RuntimeDiagnostics:
         return {
             "runtime": self._runtime.status(),
             "health": self._runtime.health.summary(),
+            "readiness": self._runtime.readiness.summary(),
             "metrics": self._runtime.metrics.summary(),
             "observability": {
                 "events": self._runtime.events.count(),
@@ -42,6 +43,7 @@ class RuntimeDiagnostics:
         snapshot = self.snapshot()
         runtime = snapshot["runtime"]
         health = snapshot["health"]
+        readiness = snapshot["readiness"]
         observability = snapshot["observability"]
 
         if not isinstance(runtime, dict):
@@ -49,6 +51,9 @@ class RuntimeDiagnostics:
 
         if not isinstance(health, dict):
             raise TypeError("health diagnostics must be a dictionary")
+
+        if not isinstance(readiness, dict):
+            raise TypeError("readiness diagnostics must be a dictionary")
 
         if not isinstance(observability, dict):
             raise TypeError(
@@ -59,6 +64,8 @@ class RuntimeDiagnostics:
             "state": runtime["state"],
             "started": runtime["started"],
             "healthy": health["healthy"],
+            "ready": readiness["ready"],
+            "readiness_reason": readiness["reason"],
             "events": observability["events"],
             "logs": observability["logs"],
             "traces": observability["traces"],

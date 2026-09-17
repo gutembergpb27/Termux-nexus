@@ -9,6 +9,11 @@ def make_core():
     core.tcp_port = 9092
     core.role = "FOLLOWER"
     core.protocol = NexusProtocol("test-secret")
+    core.hardware_capabilities = lambda: {
+        "compute_type": "cpu",
+        "memory_mb": None,
+        "has_gpu": False,
+    }
     return core
 
 
@@ -29,6 +34,12 @@ def test_core_builds_authenticated_register_envelope():
         "web_port": 8082,
         "tcp_port": 9092,
         "protocol_version": 1,
+        "capabilities": {
+            "handlers": [],
+            "compute_type": "cpu",
+            "memory_mb": None,
+            "has_gpu": False,
+        },
     }
 
     verifier = NexusProtocol("test-secret")
@@ -66,7 +77,22 @@ def test_core_builds_authenticated_heartbeat_envelope():
 
     assert envelope["type"] == "HEARTBEAT"
     assert envelope["sender"] == "NO-ARM-01"
-    assert envelope["payload"] == {"role": "FOLLOWER"}
+    assert envelope["payload"] == {
+        "role": "FOLLOWER",
+        "capabilities": {
+            "handlers": [],
+            "compute_type": "cpu",
+            "memory_mb": None,
+            "has_gpu": False,
+        },
+        "load": {
+            "active_tasks": 0,
+            "queued_tasks": 0,
+            "completed_tasks": 0,
+            "failed_tasks": 0,
+            "average_duration_ms": 0.0,
+        },
+    }
 
     verifier = NexusProtocol("test-secret")
     assert verifier.verify_envelope(

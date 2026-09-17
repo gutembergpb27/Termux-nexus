@@ -1,0 +1,15 @@
+﻿Branch:
+feat/v2700-multi-machine-failover
+
+HEAD:
+6756db2642c5cfbd34503ea2e5544696e5000f80
+
+Tracked tree before evidence preservation:
+CLEAN
+
+Untracked / evidence state after preservation:
+?? tests/test_multi_machine_failover_contract.py
+?? validation/axis7-physical/
+?? validation/multi-node-convergence/evidence/
+?? validation/old-master-rejoin/
+?? validation/role-recoordination/evidence/

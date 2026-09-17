@@ -1,0 +1,1714 @@
+from __future__ import annotations
+
+import pytest
+
+from nexus.compute.task_completion import (
+    TaskCompletion,
+    TaskCompletionRegistry,
+)
+
+
+def test_registry_creates_pending_completion() -> None:
+    registry = TaskCompletionRegistry()
+
+    completion = registry.create(
+        "task-001",
+    )
+
+    assert completion == TaskCompletion.pending(
+        task_id="task-001",
+    )
+
+    assert registry.get("task-001") == completion
+
+
+def test_registry_rejects_duplicate_task_id() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-001")
+
+    with pytest.raises(
+        ValueError,
+        match="already exists",
+    ):
+        registry.create("task-001")
+
+
+def test_registry_marks_pending_task_running() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-running-1")
+
+    completion = registry.start(
+        "task-running-1"
+    )
+
+    assert completion == TaskCompletion.running(
+        task_id="task-running-1",
+    )
+
+    assert registry.get(
+        "task-running-1"
+    ) == completion
+
+
+def test_registry_rejects_start_for_unknown_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    with pytest.raises(
+        KeyError,
+        match="unknown task completion",
+    ):
+        registry.start("missing")
+
+
+def test_registry_rejects_repeated_start() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-running-2")
+    registry.start("task-running-2")
+
+    with pytest.raises(
+        ValueError,
+        match="cannot start",
+    ):
+        registry.start("task-running-2")
+
+
+def test_registry_completes_running_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-running-3")
+    registry.start("task-running-3")
+
+    completion = registry.complete(
+        "task-running-3",
+        {"value": 42},
+    )
+
+    assert completion.status == "completed"
+    assert completion.result == {
+        "value": 42,
+    }
+
+
+def test_registry_fails_running_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-running-4")
+    registry.start("task-running-4")
+
+    completion = registry.fail(
+        "task-running-4",
+        "handler failed",
+    )
+
+    assert completion.status == "failed"
+    assert completion.error == "handler failed"
+
+
+def test_registry_marks_task_completed() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-002")
+
+    completion = registry.complete(
+        "task-002",
+        {"value": 42},
+    )
+
+    assert completion.status == "completed"
+    assert completion.result == {
+        "value": 42,
+    }
+    assert completion.error is None
+
+    assert registry.get("task-002") == completion
+
+
+def test_registry_marks_task_failed() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-003")
+
+    completion = registry.fail(
+        "task-003",
+        "handler failed",
+    )
+
+    assert completion.status == "failed"
+    assert completion.result is None
+    assert completion.error == "handler failed"
+
+    assert registry.get("task-003") == completion
+
+
+def test_registry_returns_none_for_unknown_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    assert registry.get("missing") is None
+
+
+def test_registry_rejects_completion_for_unknown_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    with pytest.raises(
+        KeyError,
+        match="unknown task completion",
+    ):
+        registry.complete(
+            "missing",
+            {"value": 1},
+        )
+
+
+def test_registry_rejects_failure_for_unknown_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    with pytest.raises(
+        KeyError,
+        match="unknown task completion",
+    ):
+        registry.fail(
+            "missing",
+            "boom",
+        )
+
+
+def test_registry_rejects_repeated_completion() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-terminal-1")
+
+    registry.complete(
+        "task-terminal-1",
+        {"value": 1},
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.complete(
+            "task-terminal-1",
+            {"value": 2},
+        )
+
+
+def test_registry_rejects_repeated_failure() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-terminal-2")
+
+    registry.fail(
+        "task-terminal-2",
+        "first failure",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.fail(
+            "task-terminal-2",
+            "second failure",
+        )
+
+
+def test_registry_rejects_failure_after_completion() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-terminal-3")
+
+    registry.complete(
+        "task-terminal-3",
+        {"value": 42},
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.fail(
+            "task-terminal-3",
+            "late failure",
+        )
+
+    completion = registry.get(
+        "task-terminal-3"
+    )
+
+    assert completion is not None
+    assert completion.status == "completed"
+    assert completion.result == {
+        "value": 42,
+    }
+    assert completion.error is None
+
+
+def test_registry_rejects_completion_after_failure() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-terminal-4")
+
+    registry.fail(
+        "task-terminal-4",
+        "handler failed",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.complete(
+            "task-terminal-4",
+            {"value": 42},
+        )
+
+    completion = registry.get(
+        "task-terminal-4"
+    )
+
+    assert completion is not None
+    assert completion.status == "failed"
+    assert completion.result is None
+    assert completion.error == "handler failed"
+
+
+def test_registry_wait_returns_completed_task() -> None:
+    import threading
+    import time
+
+    registry = TaskCompletionRegistry()
+    registry.create("task-wait-1")
+
+    def complete_later():
+        time.sleep(0.02)
+        registry.complete(
+            "task-wait-1",
+            {"value": 42},
+        )
+
+    thread = threading.Thread(
+        target=complete_later,
+    )
+    thread.start()
+
+    completion = registry.wait(
+        "task-wait-1",
+        timeout=1.0,
+    )
+
+    thread.join(timeout=1.0)
+
+    assert completion.status == "completed"
+    assert completion.result == {
+        "value": 42,
+    }
+
+
+def test_registry_wait_returns_failed_task() -> None:
+    import threading
+    import time
+
+    registry = TaskCompletionRegistry()
+    registry.create("task-wait-2")
+
+    def fail_later():
+        time.sleep(0.02)
+        registry.fail(
+            "task-wait-2",
+            "boom",
+        )
+
+    thread = threading.Thread(
+        target=fail_later,
+    )
+    thread.start()
+
+    completion = registry.wait(
+        "task-wait-2",
+        timeout=1.0,
+    )
+
+    thread.join(timeout=1.0)
+
+    assert completion.status == "failed"
+    assert completion.error == "boom"
+
+
+def test_registry_wait_times_out_for_pending_task() -> None:
+    registry = TaskCompletionRegistry()
+    registry.create("task-wait-3")
+
+    with pytest.raises(
+        TimeoutError,
+        match="task completion timed out",
+    ):
+        registry.wait(
+            "task-wait-3",
+            timeout=0.01,
+        )
+
+
+def test_registry_wait_rejects_unknown_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    with pytest.raises(
+        KeyError,
+        match="unknown task completion",
+    ):
+        registry.wait(
+            "missing",
+            timeout=0.01,
+        )
+
+
+def test_registry_cleanup_removes_old_completed_tasks(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    now = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: now["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-old-completed")
+    registry.complete(
+        "task-old-completed",
+        {"value": 42},
+    )
+
+    now["value"] = 105.0
+
+    removed = registry.cleanup(
+        max_age=4.0,
+    )
+
+    assert removed == 1
+    assert registry.get(
+        "task-old-completed"
+    ) is None
+
+
+def test_registry_cleanup_keeps_recent_completed_tasks(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    now = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: now["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-recent-completed")
+    registry.complete(
+        "task-recent-completed",
+        {"value": 42},
+    )
+
+    now["value"] = 103.0
+
+    removed = registry.cleanup(
+        max_age=5.0,
+    )
+
+    assert removed == 0
+    assert registry.get(
+        "task-recent-completed"
+    ) is not None
+
+
+def test_registry_cleanup_never_removes_pending_tasks(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    now = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: now["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+    registry.create("task-pending")
+
+    now["value"] = 1000.0
+
+    removed = registry.cleanup(
+        max_age=1.0,
+    )
+
+    assert removed == 0
+    assert registry.get(
+        "task-pending"
+    ) is not None
+
+
+def test_registry_cleanup_rejects_negative_max_age() -> None:
+    registry = TaskCompletionRegistry()
+
+    with pytest.raises(
+        ValueError,
+        match="max age",
+    ):
+        registry.cleanup(
+            max_age=-1.0,
+        )
+
+
+def test_registry_cleanup_allows_task_id_reuse(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    now = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: now["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-reusable")
+    registry.complete(
+        "task-reusable",
+        {"value": 1},
+    )
+
+    now["value"] = 110.0
+
+    assert registry.cleanup(
+        max_age=5.0,
+    ) == 1
+
+    recreated = registry.create(
+        "task-reusable"
+    )
+
+    assert recreated.task_id == "task-reusable"
+    assert recreated.status == "pending"
+    assert recreated.result is None
+    assert recreated.error is None
+
+
+def test_registry_cleanup_removes_terminal_but_keeps_pending(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    now = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: now["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-completed")
+    registry.complete(
+        "task-completed",
+        {"value": 1},
+    )
+
+    registry.create("task-failed")
+    registry.fail(
+        "task-failed",
+        "boom",
+    )
+
+    registry.create("task-pending")
+
+    removed = registry.cleanup(
+        max_age=0.0,
+    )
+
+    assert removed == 2
+
+    assert registry.get(
+        "task-completed"
+    ) is None
+
+    assert registry.get(
+        "task-failed"
+    ) is None
+
+    pending = registry.get(
+        "task-pending"
+    )
+
+    assert pending is not None
+    assert pending.status == "pending"
+
+
+def test_registry_snapshot_reports_completion_counts() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-pending")
+
+    registry.create("task-completed")
+    registry.complete(
+        "task-completed",
+        {"value": 42},
+    )
+
+    registry.create("task-failed")
+    registry.fail(
+        "task-failed",
+        "boom",
+    )
+
+    snapshot = registry.snapshot()
+
+    assert snapshot.pending == 1
+    assert snapshot.completed == 1
+    assert snapshot.failed == 1
+    assert snapshot.total == 3
+
+
+def test_registry_snapshot_is_empty_by_default() -> None:
+    registry = TaskCompletionRegistry()
+
+    snapshot = registry.snapshot()
+
+    assert snapshot.pending == 0
+    assert snapshot.completed == 0
+    assert snapshot.failed == 0
+    assert snapshot.total == 0
+
+
+def test_registry_snapshot_reflects_cleanup(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    now = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: now["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-pending")
+
+    registry.create("task-completed")
+    registry.complete(
+        "task-completed",
+        {"value": 42},
+    )
+
+    registry.create("task-failed")
+    registry.fail(
+        "task-failed",
+        "boom",
+    )
+
+    before = registry.snapshot()
+
+    assert before.pending == 1
+    assert before.completed == 1
+    assert before.failed == 1
+    assert before.total == 3
+
+    now["value"] = 110.0
+
+    assert registry.cleanup(
+        max_age=5.0,
+    ) == 2
+
+    after = registry.snapshot()
+
+    assert after.pending == 1
+    assert after.completed == 0
+    assert after.failed == 0
+    assert after.total == 1
+
+
+def test_registry_snapshot_reports_running_tasks() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-pending")
+
+    registry.create("task-running")
+    registry.start("task-running")
+
+    snapshot = registry.snapshot()
+
+    assert snapshot.pending == 1
+    assert snapshot.running == 1
+    assert snapshot.completed == 0
+    assert snapshot.failed == 0
+    assert snapshot.total == 2
+
+
+def test_registry_snapshot_is_immutable() -> None:
+    registry = TaskCompletionRegistry()
+
+    snapshot = registry.snapshot()
+
+    with pytest.raises(
+        (AttributeError, TypeError),
+    ):
+        snapshot.total = 99
+
+
+def test_registry_wait_does_not_treat_running_as_terminal() -> None:
+    import threading
+    import time
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-running-wait")
+    registry.start("task-running-wait")
+
+    def complete_later():
+        time.sleep(0.02)
+        registry.complete(
+            "task-running-wait",
+            {"value": 42},
+        )
+
+    thread = threading.Thread(
+        target=complete_later,
+    )
+    thread.start()
+
+    completion = registry.wait(
+        "task-running-wait",
+        timeout=1.0,
+    )
+
+    thread.join(timeout=1.0)
+
+    assert completion.status == "completed"
+    assert completion.result == {
+        "value": 42,
+    }
+
+
+def test_registry_wait_times_out_for_running_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-running-timeout")
+    registry.start("task-running-timeout")
+
+    with pytest.raises(
+        TimeoutError,
+        match="task completion timed out",
+    ):
+        registry.wait(
+            "task-running-timeout",
+            timeout=0.01,
+        )
+
+    completion = registry.get(
+        "task-running-timeout"
+    )
+
+    assert completion is not None
+    assert completion.status == "running"
+
+
+def test_registry_cleanup_never_removes_running_tasks(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    now = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: now["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-running-cleanup")
+    registry.start("task-running-cleanup")
+
+    now["value"] = 1000.0
+
+    removed = registry.cleanup(
+        max_age=1.0,
+    )
+
+    assert removed == 0
+
+    completion = registry.get(
+        "task-running-cleanup"
+    )
+
+    assert completion is not None
+    assert completion.status == "running"
+
+
+
+
+def test_registry_running_task_can_reach_only_one_terminal_state() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-running-terminal")
+    registry.start("task-running-terminal")
+
+    completed = registry.complete(
+        "task-running-terminal",
+        {"value": 1},
+    )
+
+    assert completed.status == "completed"
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.fail(
+            "task-running-terminal",
+            "late failure",
+        )
+
+    current = registry.get(
+        "task-running-terminal"
+    )
+
+    assert current == completed
+    assert current is not None
+    assert current.status == "completed"
+    assert current.result == {
+        "value": 1,
+    }
+    assert current.error is None
+
+def test_registry_records_running_start_time(
+    monkeypatch,
+) -> None:
+    registry = TaskCompletionRegistry()
+
+    values = iter([100.0])
+    monkeypatch.setattr(
+        "nexus.compute.task_completion.monotonic",
+        lambda: next(values),
+    )
+
+    registry.create("task-start-time")
+    registry.start("task-start-time")
+
+    assert registry._started_at["task-start-time"] == 100.0
+
+
+def test_registry_cleanup_does_not_remove_running_start_time(
+    monkeypatch,
+) -> None:
+    registry = TaskCompletionRegistry()
+
+    values = iter([100.0, 200.0])
+    monkeypatch.setattr(
+        "nexus.compute.task_completion.monotonic",
+        lambda: next(values),
+    )
+
+    registry.create("task-running-start")
+    registry.start("task-running-start")
+
+    assert registry.cleanup(max_age=0) == 0
+    assert registry.get("task-running-start") is not None
+    assert registry._started_at["task-running-start"] == 100.0
+
+def test_registry_execution_elapsed_is_none_for_pending() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-elapsed-pending")
+
+    assert (
+        registry.execution_elapsed(
+            "task-elapsed-pending"
+        )
+        is None
+    )
+
+
+def test_registry_execution_elapsed_tracks_running_task(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-elapsed-running")
+    registry.start("task-elapsed-running")
+
+    clock["value"] = 112.5
+
+    assert registry.execution_elapsed(
+        "task-elapsed-running"
+    ) == 12.5
+
+
+def test_registry_execution_elapsed_freezes_after_completion(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-elapsed-completed")
+    registry.start("task-elapsed-completed")
+
+    clock["value"] = 107.25
+
+    registry.complete(
+        "task-elapsed-completed",
+        {"value": 42},
+    )
+
+    clock["value"] = 500.0
+
+    assert registry.execution_elapsed(
+        "task-elapsed-completed"
+    ) == 7.25
+
+
+def test_registry_execution_elapsed_freezes_after_failure(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 50.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-elapsed-failed")
+    registry.start("task-elapsed-failed")
+
+    clock["value"] = 55.5
+
+    registry.fail(
+        "task-elapsed-failed",
+        "handler failed",
+    )
+
+    clock["value"] = 999.0
+
+    assert registry.execution_elapsed(
+        "task-elapsed-failed"
+    ) == 5.5
+
+
+def test_registry_execution_elapsed_rejects_unknown_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    with pytest.raises(
+        KeyError,
+        match="unknown task completion",
+    ):
+        registry.execution_elapsed(
+            "task-elapsed-unknown"
+        )
+
+def test_registry_running_over_is_empty_without_running_tasks(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: 100.0,
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-pending")
+
+    assert registry.running_over(
+        10.0
+    ) == {}
+
+
+def test_registry_running_over_reports_task_above_threshold(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-long-running")
+    registry.start("task-long-running")
+
+    clock["value"] = 125.0
+
+    assert registry.running_over(
+        20.0
+    ) == {
+        "task-long-running": 25.0,
+    }
+
+
+def test_registry_running_over_excludes_task_below_threshold(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 10.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-short-running")
+    registry.start("task-short-running")
+
+    clock["value"] = 14.0
+
+    assert registry.running_over(
+        5.0
+    ) == {}
+
+
+def test_registry_running_over_excludes_exact_threshold(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 50.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-boundary")
+    registry.start("task-boundary")
+
+    clock["value"] = 60.0
+
+    assert registry.running_over(
+        10.0
+    ) == {}
+
+
+def test_registry_running_over_excludes_terminal_tasks(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-completed")
+    registry.start("task-completed")
+
+    clock["value"] = 130.0
+
+    registry.complete(
+        "task-completed",
+        {"ok": True},
+    )
+
+    clock["value"] = 1000.0
+
+    assert registry.running_over(
+        1.0
+    ) == {}
+
+
+def test_registry_running_over_rejects_negative_threshold() -> None:
+    registry = TaskCompletionRegistry()
+
+    with pytest.raises(
+        ValueError,
+        match="max_elapsed must be non-negative",
+    ):
+        registry.running_over(
+            -1.0
+        )
+
+def test_registry_execution_observability_is_empty_by_default(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: 100.0,
+    )
+
+    registry = TaskCompletionRegistry()
+
+    snapshot = registry.execution_observability(
+        10.0
+    )
+
+    assert snapshot.running_tasks == 0
+    assert snapshot.long_running_tasks == 0
+    assert snapshot.max_running_elapsed == 0.0
+
+
+def test_registry_execution_observability_counts_running_tasks(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-running-a")
+    registry.start("task-running-a")
+
+    clock["value"] = 105.0
+
+    registry.create("task-running-b")
+    registry.start("task-running-b")
+
+    clock["value"] = 110.0
+
+    snapshot = registry.execution_observability(
+        100.0
+    )
+
+    assert snapshot.running_tasks == 2
+    assert snapshot.long_running_tasks == 0
+    assert snapshot.max_running_elapsed == 10.0
+
+
+def test_registry_execution_observability_counts_long_running_tasks(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 10.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-long-a")
+    registry.start("task-long-a")
+
+    clock["value"] = 20.0
+
+    registry.create("task-long-b")
+    registry.start("task-long-b")
+
+    clock["value"] = 40.0
+
+    snapshot = registry.execution_observability(
+        15.0
+    )
+
+    assert snapshot.running_tasks == 2
+    assert snapshot.long_running_tasks == 2
+    assert snapshot.max_running_elapsed == 30.0
+
+
+def test_registry_execution_observability_excludes_exact_threshold(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 50.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-boundary")
+    registry.start("task-boundary")
+
+    clock["value"] = 60.0
+
+    snapshot = registry.execution_observability(
+        10.0
+    )
+
+    assert snapshot.running_tasks == 1
+    assert snapshot.long_running_tasks == 0
+    assert snapshot.max_running_elapsed == 10.0
+
+
+def test_registry_execution_observability_excludes_terminal_tasks(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-terminal")
+    registry.start("task-terminal")
+
+    clock["value"] = 130.0
+
+    registry.complete(
+        "task-terminal",
+        {"ok": True},
+    )
+
+    clock["value"] = 1000.0
+
+    snapshot = registry.execution_observability(
+        1.0
+    )
+
+    assert snapshot.running_tasks == 0
+    assert snapshot.long_running_tasks == 0
+    assert snapshot.max_running_elapsed == 0.0
+
+
+def test_registry_execution_observability_mixes_short_and_long_tasks(
+    monkeypatch,
+) -> None:
+    import nexus.compute.task_completion as task_completion_module
+
+    clock = {"value": 100.0}
+
+    monkeypatch.setattr(
+        task_completion_module,
+        "monotonic",
+        lambda: clock["value"],
+    )
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-old")
+    registry.start("task-old")
+
+    clock["value"] = 120.0
+
+    registry.create("task-recent")
+    registry.start("task-recent")
+
+    clock["value"] = 125.0
+
+    snapshot = registry.execution_observability(
+        10.0
+    )
+
+    assert snapshot.running_tasks == 2
+    assert snapshot.long_running_tasks == 1
+    assert snapshot.max_running_elapsed == 25.0
+
+
+def test_registry_execution_observability_rejects_negative_threshold() -> None:
+    registry = TaskCompletionRegistry()
+
+    with pytest.raises(
+        ValueError,
+        match="max_elapsed must be non-negative",
+    ):
+        registry.execution_observability(
+            -1.0
+        )
+
+
+def test_registry_cancels_pending_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-cancel-pending")
+
+    completion = registry.cancel(
+        "task-cancel-pending"
+    )
+
+    assert completion.status == "cancelled"
+    assert completion.result is None
+    assert completion.error is None
+    assert registry.get(
+        "task-cancel-pending"
+    ) == completion
+
+
+def test_registry_cancels_running_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-cancel-running")
+    registry.start("task-cancel-running")
+
+    completion = registry.cancel(
+        "task-cancel-running"
+    )
+
+    assert completion.status == "cancelled"
+    assert completion.result is None
+    assert completion.error is None
+
+
+def test_registry_rejects_cancel_for_unknown_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    with pytest.raises(
+        KeyError,
+        match="unknown task completion",
+    ):
+        registry.cancel("missing")
+
+
+def test_registry_rejects_cancel_after_completion() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-cancel-completed")
+    registry.complete(
+        "task-cancel-completed",
+        {"value": 42},
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.cancel(
+            "task-cancel-completed"
+        )
+
+
+def test_registry_rejects_cancel_after_failure() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-cancel-failed")
+    registry.fail(
+        "task-cancel-failed",
+        "boom",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.cancel(
+            "task-cancel-failed"
+        )
+
+
+def test_registry_rejects_repeated_cancel() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-cancel-repeat")
+    registry.cancel("task-cancel-repeat")
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.cancel(
+            "task-cancel-repeat"
+        )
+
+
+def test_registry_wait_returns_cancelled_task() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-cancel-wait")
+    registry.cancel("task-cancel-wait")
+
+    completion = registry.wait(
+        "task-cancel-wait",
+        timeout=0.01,
+    )
+
+    assert completion.status == "cancelled"
+
+
+def test_registry_snapshot_reports_cancelled_tasks() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-cancel-snapshot")
+    registry.cancel(
+        "task-cancel-snapshot"
+    )
+
+    snapshot = registry.snapshot()
+
+    assert snapshot.cancelled == 1
+    assert snapshot.total == 1
+
+
+def test_registry_rejects_complete_after_cancel() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-cancel-then-complete")
+    registry.cancel("task-cancel-then-complete")
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.complete(
+            "task-cancel-then-complete",
+            {"value": 42},
+        )
+
+
+def test_registry_rejects_fail_after_cancel() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("task-cancel-then-fail")
+    registry.cancel("task-cancel-then-fail")
+
+    with pytest.raises(
+        ValueError,
+        match="already terminal",
+    ):
+        registry.fail(
+            "task-cancel-then-fail",
+            "boom",
+        )
+
+
+def test_registry_cancelled_running_elapsed_is_frozen(
+    monkeypatch,
+) -> None:
+    registry = TaskCompletionRegistry()
+
+    values = iter([
+        100.0,
+        125.0,
+    ])
+
+    monkeypatch.setattr(
+        "nexus.compute.task_completion.monotonic",
+        lambda: next(values),
+    )
+
+    registry.create("task-cancel-elapsed")
+    registry.start("task-cancel-elapsed")
+    registry.cancel("task-cancel-elapsed")
+
+    assert (
+        registry.execution_elapsed(
+            "task-cancel-elapsed"
+        )
+        == 25.0
+    )
+
+
+def test_registry_cancelled_task_is_not_running_over(
+    monkeypatch,
+) -> None:
+    registry = TaskCompletionRegistry()
+
+    values = iter([
+        100.0,
+        200.0,
+        300.0,
+    ])
+
+    monkeypatch.setattr(
+        "nexus.compute.task_completion.monotonic",
+        lambda: next(values),
+    )
+
+    registry.create("task-cancel-running-over")
+    registry.start("task-cancel-running-over")
+    registry.cancel("task-cancel-running-over")
+
+    assert registry.running_over(
+        max_elapsed=0,
+    ) == {}
+
+
+def test_registry_cleanup_removes_cancelled_task(
+    monkeypatch,
+) -> None:
+    registry = TaskCompletionRegistry()
+
+    values = iter([
+        100.0,
+        200.0,
+    ])
+
+    monkeypatch.setattr(
+        "nexus.compute.task_completion.monotonic",
+        lambda: next(values),
+    )
+
+    registry.create("task-cancel-cleanup")
+    registry.cancel("task-cancel-cleanup")
+
+    assert registry.cleanup(max_age=0) == 1
+    assert registry.get(
+        "task-cancel-cleanup"
+    ) is None
+
+
+def test_registry_exports_versioned_state() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("export-pending")
+
+    state = registry.export_state()
+
+    assert state["schema_version"] == 1
+    assert state["items"] == [
+        {
+            "task_id": "export-pending",
+            "status": "pending",
+            "result": None,
+            "error": None,
+        }
+    ]
+
+
+def test_registry_restores_completion_states() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("restore-pending")
+
+    registry.create("restore-completed")
+    registry.complete(
+        "restore-completed",
+        {"value": 42},
+    )
+
+    registry.create("restore-failed")
+    registry.fail(
+        "restore-failed",
+        "boom",
+    )
+
+    registry.create("restore-cancelled")
+    registry.cancel(
+        "restore-cancelled"
+    )
+
+    restored = TaskCompletionRegistry.restore_state(
+        registry.export_state()
+    )
+
+    assert restored.get(
+        "restore-pending"
+    ).status == "pending"
+
+    completed = restored.get(
+        "restore-completed"
+    )
+    assert completed.status == "completed"
+    assert completed.result == {"value": 42}
+
+    failed = restored.get(
+        "restore-failed"
+    )
+    assert failed.status == "failed"
+    assert failed.error == "boom"
+
+    cancelled = restored.get(
+        "restore-cancelled"
+    )
+    assert cancelled.status == "cancelled"
+
+
+def test_registry_restore_converts_running_to_failed() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("restore-running")
+    registry.start("restore-running")
+
+    restored = TaskCompletionRegistry.restore_state(
+        registry.export_state()
+    )
+
+    completion = restored.get(
+        "restore-running"
+    )
+
+    assert completion is not None
+    assert completion.status == "failed"
+    assert completion.error == (
+        "task interrupted by runtime restart"
+    )
+
+
+def test_registry_restored_state_has_correct_snapshot() -> None:
+    registry = TaskCompletionRegistry()
+
+    registry.create("snapshot-pending")
+
+    registry.create("snapshot-completed")
+    registry.complete(
+        "snapshot-completed",
+        42,
+    )
+
+    registry.create("snapshot-cancelled")
+    registry.cancel(
+        "snapshot-cancelled"
+    )
+
+    restored = TaskCompletionRegistry.restore_state(
+        registry.export_state()
+    )
+
+    snapshot = restored.snapshot()
+
+    assert snapshot.pending == 1
+    assert snapshot.completed == 1
+    assert snapshot.cancelled == 1
+    assert snapshot.total == 3
+
+
+def test_registry_restore_rejects_unknown_schema() -> None:
+    import pytest
+
+    with pytest.raises(
+        ValueError,
+        match="unsupported completion state schema",
+    ):
+        TaskCompletionRegistry.restore_state(
+            {
+                "schema_version": 999,
+                "items": [],
+            }
+        )
+
+
+def test_registry_restore_rejects_invalid_items() -> None:
+    import pytest
+
+    with pytest.raises(
+        ValueError,
+        match="items must be a list",
+    ):
+        TaskCompletionRegistry.restore_state(
+            {
+                "schema_version": 1,
+                "items": {},
+            }
+        )
+
+
+def test_registry_restore_rejects_duplicate_task_ids() -> None:
+    import pytest
+
+    state = {
+        "schema_version": 1,
+        "items": [
+            {
+                "task_id": "duplicate",
+                "status": "pending",
+                "result": None,
+                "error": None,
+            },
+            {
+                "task_id": "duplicate",
+                "status": "pending",
+                "result": None,
+                "error": None,
+            },
+        ],
+    }
+
+    with pytest.raises(
+        ValueError,
+        match="duplicate task completion",
+    ):
+        TaskCompletionRegistry.restore_state(
+            state
+        )
+
+
+def test_registry_restored_terminal_task_remains_terminal() -> None:
+    import pytest
+
+    registry = TaskCompletionRegistry()
+
+    registry.create("terminal-restored")
+    registry.cancel("terminal-restored")
+
+    restored = TaskCompletionRegistry.restore_state(
+        registry.export_state()
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="terminal",
+    ):
+        restored.complete(
+            "terminal-restored",
+            "late-result",
+        )

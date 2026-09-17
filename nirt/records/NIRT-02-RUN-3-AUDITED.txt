@@ -1,0 +1,41 @@
+NEXUS RUNTIME PLATFORM
+NIRT-02 RUN #3 — AUDITED EVIDENCE FREEZE RECORD
+
+Classification: PASS EXPERIMENTAL AUDITADO
+
+Evidence directory: nirt/evidence/nirt02/20260902T165139Z
+Evidence files: 41
+Evidence manifest entries: 40
+Evidence manifest SHA256: B5B320EB16B8BDC77FD7FB3000B9CA6BA867E6A97C2D7A00E68047230578F8ED
+Canonical package SHA256: 651F3227367A9F98B15D9CBD0428AA1192ED0F8151C6F68766805B56E308A7F9
+
+Instrument commit: 5097017d09b3f242b98c7346d432e6536edc2af9
+Runner SHA256: 1142AC099255C5A442B16D58A52465AA3AE9DC39F633185D1FF632C365209AE6
+Protocol SHA256: 50A14A71684EBB6F4EC440ADB2C2524AFCB4BC62C9F024BDE40AFCB4C8C2A373
+Product RC1 commit: c8516db7b1fb694af647c80e1f1b9bc828a60d77
+
+Initial MASTER: NO-NIRT02-A
+Initial FOLLOWER: NO-NIRT02-B
+New MASTER: NO-NIRT02-B
+State height before: 1
+State height after: 1
+State tip before: d88438b274f6426dd7a0775dac0d42a1be3ea519b26b94e7ae81f8faf23f49ed
+State tip after: d88438b274f6426dd7a0775dac0d42a1be3ea519b26b94e7ae81f8faf23f49ed
+Failover duration seconds: 48.382
+
+Database A/B: byte-identical
+Checkpoint state: semantically identical
+Checkpoint difference: updated_at only
+Critical stderr markers: none
+Original evidence manifest: verified
+Evidence mutation during forensic audit: none
+NIRT rerun after Run #3: no
+
+Scope:
+Real local OS-process failover against frozen RC1;
+automatic MASTER promotion and persistent-state preservation.
+
+Not claimed:
+Independent reproduction; production certification;
+Byzantine tolerance; arbitrary fault tolerance;
+network-partition safety; multi-machine validation.

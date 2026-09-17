@@ -1,0 +1,10 @@
+﻿{
+    "healthy":  true,
+    "node_id":  "AXIS7-A",
+    "role":  "FOLLOWER",
+    "storage":  {
+                    "valid":  true,
+                    "height":  2,
+                    "tip_hash":  "21c276cd51e0f244e07edafc9f7fa65e3c28ea92b81fd13aab268a6b1f299efa"
+                }
+}

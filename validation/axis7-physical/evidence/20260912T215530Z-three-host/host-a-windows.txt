@@ -1,0 +1,35 @@
+﻿NEXUS V2700 — AXIS 7
+PHYSICAL HOST A
+
+Computer:
+DESKTOP-M8S9MSN
+
+Operating system:
+Microsoft Windows 11 Pro
+
+OS version:
+10.0.26200
+
+Architecture:
+64 bits
+
+LAN IP:
+192.168.1.9
+
+Runtime:
+AXIS7-A
+
+Final role:
+FOLLOWER
+
+Final height:
+2
+
+Final tip:
+21c276cd51e0f244e07edafc9f7fa65e3c28ea92b81fd13aab268a6b1f299efa
+
+Repository branch:
+feat/v2700-multi-machine-failover
+
+Repository HEAD:
+6756db2642c5cfbd34503ea2e5544696e5000f80
