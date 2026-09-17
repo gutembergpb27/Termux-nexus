@@ -314,3 +314,47 @@ O AXIS 10 acrescenta ao histórico verificável do Nexus V2700 uma evidência te
 ---
 
 *Documento de validação técnica — Nexus Runtime Platform.*
+## 15. Certificação final pós-merge
+
+A documentação formal do AXIS 10 foi submetida ao fluxo de integração do Nexus Runtime Platform e incorporada à branch de desenvolvimento `v2700-dev` após validação automatizada.
+
+### 15.1 Commit documental
+
+- Commit: `f0a2266a1a91c8d2795b3227428e6ba4fd9c8908`
+- Mensagem: `docs(validation): document AXIS 10 quorum timing`
+- Escopo: exclusivamente `docs/validation/NEXUS-V2700-AXIS-10-QUORUM-TIMING.md`
+
+### 15.2 Pull Request documental
+
+- Pull Request: **#85**
+- Base: `v2700-dev`
+- Head: `feat/v2700-quorum-timing-benchmark`
+- Head SHA validado: `f0a2266a1a91c8d2795b3227428e6ba4fd9c8908`
+- Estado final: **MERGED**
+- Merge realizado em: `2026-09-17T12:52:05Z`
+
+### 15.3 Merge documental
+
+- Merge commit: `51d3a1c85998e017ca57da5131e244f151733bb2`
+- Destino: `v2700-dev`
+
+### 15.4 CI pós-merge
+
+- Workflow: `Nexus Runtime CI`
+- Run ID: `35223589257`
+- Evento: `push`
+- Head SHA: `51d3a1c85998e017ca57da5131e244f151733bb2`
+- Status: `completed`
+- Conclusão: **SUCCESS**
+- Início: `2026-09-17T12:52:07Z`
+- Conclusão da execução: `2026-09-17T12:53:28Z`
+
+### 15.5 Cadeia de evidência do AXIS 10
+
+A certificação final preserva a seguinte cadeia verificável:
+
+`run-002` → medição T0→T4 de **24209.728 ms** → promoção de `NODE-C` a MASTER → convergência de `NODE-B` como FOLLOWER → ausência de active split-brain observada → commit técnico `ca9b54c0f18aef1c64a6e99819a30a603651fa8f` → PR técnico **#84** → merge técnico `a6ad0bdbe3dc02bc71cd7c76aaaca7cd98227ca2` → CI técnico pós-merge `35005733219` com **SUCCESS** → commit documental `f0a2266a1a91c8d2795b3227428e6ba4fd9c8908` → PR documental **#85** → merge documental `51d3a1c85998e017ca57da5131e244f151733bb2` → CI documental pós-merge `35223589257` com **SUCCESS**.
+
+Com essa sequência, o AXIS 10 possui evidência experimental preservada, integração técnica certificada, documentação versionada e validação automatizada pós-merge registrada.
+
+**AXIS 10 — FINAL CERTIFICATION: COMPLETE**
