@@ -4,8 +4,8 @@
 
 - Architecture cycle: `v2700`
 - Development branch: `v2700-dev`
-- Release candidate: `v2700.0.0-rc1`
-- Python package version: `2700.0.0rc1`
+- Release candidate: `v2700.0.0-rc2`
+- Python package version: `2700.0.0rc2`
 - Status: Release Candidate
 - Production status: Pre-release
 
