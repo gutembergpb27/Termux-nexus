@@ -1,0 +1,182 @@
+name: External Reproduction Report
+description: Report an independent Nexus V2700 evaluation or reproduction attempt.
+title: "[External Reproduction]: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for independently evaluating Nexus V2700.
+
+        Please report the result exactly as observed. Successful, failed, incomplete, and divergent attempts are all useful evidence.
+
+        Before submitting, review the External Evaluation Guide and External Reproduction Protocol in the repository documentation.
+
+  - type: dropdown
+    id: evaluation_class
+    attributes:
+      label: Evaluation class
+      description: Select the class that best describes this attempt.
+      options:
+        - External evaluation
+        - Test-suite reproduction
+        - Physical resilience reproduction
+        - Non-reproduction or divergent result
+    validations:
+      required: true
+
+  - type: input
+    id: evaluator
+    attributes:
+      label: Evaluator
+      description: Name, organization, or stable public identity. State "anonymous" if you prefer not to identify yourself.
+      placeholder: Name, organization, public identity, or anonymous
+    validations:
+      required: true
+
+  - type: input
+    id: evaluation_date
+    attributes:
+      label: Evaluation date
+      description: Date on which the evaluation was performed.
+      placeholder: YYYY-MM-DD
+    validations:
+      required: true
+
+  - type: input
+    id: operating_system
+    attributes:
+      label: Operating system
+      placeholder: Windows 11, Ubuntu 24.04, Android/Termux, etc.
+    validations:
+      required: true
+
+  - type: input
+    id: python_version
+    attributes:
+      label: Python version
+      placeholder: Python 3.14.x
+    validations:
+      required: true
+
+  - type: input
+    id: nexus_revision
+    attributes:
+      label: Nexus tag and commit SHA
+      description: Record the exact revision evaluated.
+      placeholder: v2700.0.0-rc2 / full commit SHA
+    validations:
+      required: true
+
+  - type: textarea
+    id: installation
+    attributes:
+      label: Installation method
+      description: Describe how the repository and dependencies were obtained and installed.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: commands
+    attributes:
+      label: Commands executed
+      description: Provide the relevant commands exactly as executed.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: test_result
+    attributes:
+      label: Test-suite result
+      description: Report the observed result exactly, including failures and xfails.
+      placeholder: Example - 810 passed, 1 xfailed
+    validations:
+      required: true
+
+  - type: textarea
+    id: cli_result
+    attributes:
+      label: CLI checks
+      description: Report version, doctor, status, peers, cluster, or other CLI checks performed.
+    validations:
+      required: false
+
+  - type: textarea
+    id: distributed_runtime
+    attributes:
+      label: Distributed runtime result
+      description: Describe distributed-runtime observations when applicable.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: physical_experiment
+    attributes:
+      label: Physical resilience experiment
+      description: Was an independent physical resilience experiment executed?
+      options:
+        - Not executed
+        - Executed
+        - Attempted but incomplete
+    validations:
+      required: true
+
+  - type: textarea
+    id: observed_result
+    attributes:
+      label: Observed result
+      description: Describe what actually happened. Do not omit divergent or unsuccessful observations.
+    validations:
+      required: true
+
+  - type: textarea
+    id: deviations
+    attributes:
+      label: Deviations from documented procedure
+      description: Identify any differences from the documented evaluation or reproduction procedure.
+      placeholder: None, or describe the deviations.
+    validations:
+      required: true
+
+  - type: textarea
+    id: errors
+    attributes:
+      label: Errors or limitations
+      description: Record errors, limitations, environmental constraints, or unexpected behavior.
+      placeholder: None, or describe the observed issues.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence location and hashes
+      description: Provide public evidence links and SHA-256 hashes when available.
+      placeholder: Evidence URL / archive / repository and SHA-256
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes
+      description: Any additional information useful for technical review.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: integrity
+    attributes:
+      label: Evidence integrity acknowledgement
+      options:
+        - label: I reported the observed result without converting an unsuccessful or divergent attempt into a successful result.
+          required: true
+        - label: I identified the Nexus revision used for this evaluation.
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        Submission of this report does not imply production certification, universal fault tolerance, or endorsement by the Nexus project.
