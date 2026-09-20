@@ -43,6 +43,24 @@ a modular Python architecture.
 
 ---
 
+## Physical resilience evidence
+
+V2700 includes a controlled three-node master-loss statistical campaign.
+
+The certified Axis 11 population contains **29 physical samples**:
+all **29 converged**, with **0 operational split-brain observations**
+under the documented measurement semantics.
+
+The mean measured complete T0-to-T4 failover interval was approximately
+**31.49 seconds** in the controlled campaign environment.
+
+See the
+[V2700 Resilience Case Study](docs/NEXUS_V2700_RESILIENCE_CASE_STUDY.md)
+for methodology, timing statistics, evidence boundaries and
+reproducibility details.
+
+---
+
 ## Architecture
 
 ```mermaid

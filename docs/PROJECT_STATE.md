@@ -1,17 +1,20 @@
-# Nexus Runtime Platform — Project State
+# Nexus Runtime Platform - Project State
 
 ## Current Release Line
 
 - Architecture cycle: `v2700`
-- Development branch: `v2700-dev`
 - Release candidate: `v2700.0.0-rc2`
 - Python package version: `2700.0.0rc2`
-- Status: Release Candidate
-- Production status: Pre-release
+- Release status: Release Candidate
+- Canonical branch: `main`
+
+V2700 RC2 was promoted to `main`. Subsequent validation and documentation
+work, including the Axis 11 statistical resilience certification, has
+also been integrated into `main`.
 
 ## V2700 Architecture
 
-All four V2700 architecture axes are formally closed:
+The four V2700 architecture axes are formally closed:
 
 1. Durable Execution Semantics
 2. Distributed Compute Coordination
@@ -20,91 +23,139 @@ All four V2700 architecture axes are formally closed:
 
 ## Durable Execution
 
-The Compute runtime includes durable completion persistence, explicit retry
-semantics, basic idempotency, persistence failure semantics and deterministic
-restart recovery.
+The Compute runtime includes durable completion persistence, explicit
+retry semantics, basic idempotency, persistence failure semantics and
+deterministic restart recovery.
 
 ## Distributed Coordination
 
 Distributed execution includes leader re-evaluation, explicit ownership,
-generation fencing, orphan reclamation, stale side-effect fencing and terminal
-success/failure convergence.
+generation fencing, orphan reclamation, stale side-effect fencing and
+terminal success/failure convergence.
 
 ## Operational Readiness
 
-Runtime readiness is exposed as a stable public contract and is integrated with
+Runtime readiness is exposed as a public contract and integrated with
 diagnostics.
 
-The platform exposes health, readiness, cluster information and aggregated
-runtime metrics.
+The platform exposes health, readiness, cluster information and
+aggregated runtime metrics.
 
-Cluster membership views are eventually consistent with the Rendezvous Hub.
+Cluster membership views are eventually consistent with the Rendezvous
+Hub.
 
 ## Security Boundary
 
-Authenticated communication uses a configured shared secret with HMAC, nonce,
-timestamp validation and replay protection.
+Authenticated communication uses a configured shared secret with HMAC,
+nonce, timestamp validation and replay protection.
 
 Compute requests and responses are authenticated.
 
-Framed TCP transport is not itself an authentication or confidentiality layer.
+Framed TCP transport is not itself an authentication or confidentiality
+layer.
 
-The current architecture does not claim TLS, PKI, mTLS or per-node
+The architecture does not claim TLS, PKI, mTLS or per-node
 cryptographic identity.
 
-## Multi-Node Release Gate
+## Physical Multi-Node Validation
 
-A real multi-process release smoke demonstrated:
+The V2700 validation history includes physical and real-process cluster
+experiments covering discovery, convergence, leadership recoordination,
+master loss and post-failure convergence.
 
-- authenticated Hub startup;
-- MASTER and FOLLOWER operation;
-- two-node discovery;
-- real TCP listeners;
-- cluster convergence;
-- controlled MASTER failure;
-- automatic FOLLOWER promotion;
-- post-failover Hub convergence;
-- post-failover `/cluster` convergence;
-- clean process and port cleanup.
+Axis 10 established a controlled three-node master-loss timing
+experiment.
 
-The multi-node release criterion is satisfied.
+Axis 11 extended that scenario into a frozen statistical campaign.
+
+## Axis 11 Statistical Resilience
+
+The certified Axis 11 population contains 29 physical samples,
+`run-011` through `run-039`.
+
+Observed campaign outcome:
+
+- 29 physical samples;
+- 29 valid;
+- 29 converged;
+- 0 operational split-brain observations;
+- NODE-C promoted in all 29 samples.
+
+`run-010` remains preserved as an incomplete historical harness
+artifact and is not included in the statistical population.
+
+Mean measured complete failover interval, T0 to T4:
+
+    31492.270 ms
+
+P95 measured complete failover interval:
+
+    31584.133 ms
+
+The results characterize the controlled campaign and must not be
+generalized to every topology, network, workload or failure mode.
 
 ## Automated Validation
 
-Integrated development baseline:
+The repository contains automated contracts covering runtime,
+persistence, cluster coordination, distributed Compute, security,
+transport, degraded states, quorum behavior and the Axis 11 statistical
+resilience methodology.
 
-    586 passed, 1 xfailed
+The authoritative current regression count is the result of the current
+CI/test execution. Historical test counts in older release records remain
+historical evidence and are not used here as a current baseline.
 
-The expected failure documents the coordinated log-and-checkpoint rollback
-boundary requiring an authenticated external anchor outside the restorable
+## Known Integrity Boundary
+
+The integrity suite documents coordinated rollback of log and checkpoint
+as requiring an authenticated external anchor outside the restorable
 state set.
 
-## RC1 Release Process
+This remains an explicit architectural boundary.
 
-Planned package version:
+## Release and Integration State
 
-    2700.0.0rc1
+V2700 RC2 tag:
 
-Planned tag:
+    v2700.0.0-rc2
 
-    v2700.0.0-rc1
+RC2 was promoted to `main` through the controlled release process.
 
-The tag must only be created after:
+Axis 11 certification was subsequently integrated through PR #91.
 
-1. local release validation;
-2. package build validation;
-3. release PR review;
-4. PR CI success;
-5. merge into `v2700-dev`;
-6. post-merge CI success;
-7. exact merged-SHA certification.
+Axis 11 canonical merge:
+
+    f1d779699760b522d6e1b67355bd5f0bbf03ca98
+
+## Public Technical Evidence
+
+Primary public technical case study:
+
+    docs/NEXUS_V2700_RESILIENCE_CASE_STUDY.md
+
+Axis 10 certification:
+
+    docs/validation/NEXUS-V2700-AXIS-10-QUORUM-TIMING.md
+
+Axis 11 certification:
+
+    docs/validation/NEXUS-V2700-AXIS-11-STATISTICAL-RESILIENCE.md
+
+Axis 11 aggregate:
+
+    validation/statistical-resilience/axis11-statistical-campaign.json
 
 ## Source of Truth
 
-The engineering source of truth is:
+Engineering claims should be grounded in:
 
 1. versioned source code;
 2. automated tests;
-3. continuous integration results;
+3. continuous-integration results;
 4. Git history and release tags;
-5. architecture and release documentation.
+5. preserved validation evidence;
+6. architecture and certification documentation.
+
+Experimental evidence must be interpreted within the topology,
+environment and measurement boundaries under which it was collected.
