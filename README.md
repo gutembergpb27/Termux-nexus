@@ -9,7 +9,7 @@
 ![Version](https://img.shields.io/badge/version-2700.0.0--rc2-2563eb)
 ![Python](https://img.shields.io/badge/python-3.14%2B-3776ab)
 ![Status](https://img.shields.io/badge/status-release%20candidate-f59e0b)
-![Tests](https://img.shields.io/badge/tests-645%20passed%2C%201%20xfailed-16a34a)
+![Tests](https://img.shields.io/badge/tests-810%20passed%2C%201%20xfailed-16a34a)
 
 </div>
 
@@ -65,6 +65,32 @@ for methodology, timing statistics, evidence boundaries and
 reproducibility details.
 
 ---
+
+## External evaluation path
+
+For an external technical evaluation of Nexus V2700:
+
+1. [Executive Technical Brief](docs/NEXUS_V2700_EXECUTIVE_TECHNICAL_BRIEF.md) - architecture, capabilities, boundaries and evidence map.
+2. [Resilience Case Study](docs/NEXUS_V2700_RESILIENCE_CASE_STUDY.md) - controlled three-node MASTER-loss scenario.
+3. [Technical Positioning](docs/NEXUS_V2700_TECHNICAL_POSITIONING.md) - neutral scope comparison with established distributed-system technologies.
+4. [External Resilience Demonstration](docs/NEXUS_V2700_EXTERNAL_RESILIENCE_DEMO.md) - navigation layer over certified resilience evidence.
+5. [Axis 11 Statistical Resilience](docs/validation/NEXUS-V2700-AXIS-11-STATISTICAL-RESILIENCE.md) - statistical certification record and methodology.
+
+The Axis 11 campaign contains **29 physical samples (run011-run039)**:
+**29 valid, 29 converged, 0 operational split-brain observations, and 29 NODE-C promotions** under the documented experiment contract.
+
+| T0 -> T4 metric | Result |
+| --- | ---: |
+| Mean | 31492.270 ms |
+| Median | 31491.374 ms |
+| p95 | 31584.133 ms |
+| p99 | 31607.337 ms |
+| Minimum | 31367.022 ms |
+| Maximum | 31614.804 ms |
+
+`run010` is preserved as incomplete and is not counted as a physical sample. No `run040` was created.
+
+These results apply to the documented experiment contract. They are not production certification, universal fault-tolerance claims, or a direct performance comparison with etcd, Consul, Raft implementations, or other distributed systems.
 
 ## Architecture
 
@@ -284,80 +310,38 @@ nexus peers --url http://127.0.0.1:8500/peers
 
 ## Documentation
 
-| Document | Description |
-|---|---|
-| [Project state](docs/PROJECT_STATE.md) | Current implementation state |
-| [v2500 architecture map](docs/NEXUS_V2500_ARCHITECTURE_MAP.md) | Architecture and component map |
-| [Windows–Android validation](docs/windows_android_validation.md) | Cross-platform validation |
-| [Canonical baseline](docs/canonical/BASELINE.md) | Canonical technical baseline |
-| [Known limitations](docs/canonical/LIMITATIONS.md) | Explicit technical boundaries |
-| [Legacy documentation](docs/legacy/) | Preserved historical material |
-
----
+| Document | Purpose |
+| --- | --- |
+| [Executive Technical Brief](docs/NEXUS_V2700_EXECUTIVE_TECHNICAL_BRIEF.md) | External technical overview |
+| [External Resilience Demonstration](docs/NEXUS_V2700_EXTERNAL_RESILIENCE_DEMO.md) | Entry point to certified resilience evidence |
+| [Resilience Case Study](docs/NEXUS_V2700_RESILIENCE_CASE_STUDY.md) | Controlled MASTER-loss case study |
+| [Technical Positioning](docs/NEXUS_V2700_TECHNICAL_POSITIONING.md) | Scope and neutral technology positioning |
+| [Axis 11 Statistical Resilience](docs/validation/NEXUS-V2700-AXIS-11-STATISTICAL-RESILIENCE.md) | Statistical resilience certification |
+| [V2700 Architecture Plan](docs/NEXUS_V2700_ARCHITECTURE_PLAN.md) | Architecture and development axes |
+| [V2700 RC2 Release Notes](RELEASE_NOTES_v2700.0.0-rc2.md) | Release-candidate record |
+| [v2500 architecture map](docs/NEXUS_V2500_ARCHITECTURE_MAP.md) | Historical architecture reference |
 
 ## Release status
 
-### v2600.0.0 Alpha 1
+### v2700.0.0 RC2
 
-The v2600 audited release candidate consolidates:
+The current public release candidate is **v2700.0.0-rc2**.
 
-- unified Nexus CLI;
-- runtime diagnostics;
-- remote endpoint inspection;
-- health and cluster checks;
-- JSON output and watch mode;
-- runtime engine modules;
-- cluster management and orchestration;
-- state replication;
-- metrics, telemetry, logging and tracing;
-- automated regression validation;
-- Windows and Android Termux validation;
-- cooperative task cancellation;
-- cooperative task deadlines;
-- relative task timeouts;
-- Compute runtime operational health;
-- durable task-completion state;
-- atomic completion-state storage;
-- automatic completion recovery during ComputeRuntime startup.
+V2700 consolidates durable execution semantics, distributed Compute coordination, operational readiness and observability, and authenticated transport with replay protection.
 
-The v2600 Alpha 1 release candidate is frozen at:
+See [RELEASE_NOTES_v2700.0.0-rc2.md](RELEASE_NOTES_v2700.0.0-rc2.md).
 
-- tag: `v2600.0.0-alpha.1`;
-- commit: `c238311dd8185eb69c00a718a09846d9ba64a1b0`;
-- validated suite: `534 passed, 1 xfailed`.
-
-This release candidate is intended for technical evaluation, controlled
-experimentation and continued architecture validation.
-
-It should not yet be treated as a production-stable release.
-
----
+The project remains experimental. Published evidence supports the documented contracts and scenarios and is not a general production-readiness certification.
 
 ## Development validation
 
-Run the complete test suite:
-
-```bash
-python -m pytest -q
-```
-
-Current validated result:
+The V2700 certification baseline completed the repository regression suite with:
 
 ```text
-534 passed, 1 xfailed
+810 passed, 1 xfailed
 ```
 
-Repository consistency checks:
-
-```bash
-git diff --check
-git status
-```
-
-Expected-failure tests are retained when they document a known and explicit
-technical limitation.
-
----
+The resilience evidence is maintained separately from the ordinary regression count. Axis 11 closed with 29 counted physical samples and a derived statistical campaign artifact.
 
 ## Project principles
 
@@ -417,26 +401,3 @@ validation.
 </div>
 
 ---
-
-## V2700 RC1
-
-V2700 completes four architecture axes:
-
-- Durable Execution Semantics
-- Distributed Compute Coordination
-- Operational Readiness
-- Security and Transport Hardening
-
-The release gate includes automated regression validation, authenticated
-transport validation and a real multi-node failover smoke.
-
-Package version:
-
-    2700.0.0rc1
-
-Planned release tag:
-
-    v2700.0.0-rc1
-
-This is a release candidate for technical evaluation and controlled external
-testing. It is not a production-stable release.
