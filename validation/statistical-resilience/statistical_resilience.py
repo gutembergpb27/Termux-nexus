@@ -148,6 +148,15 @@ def validate_run(run: Mapping[str, Any]) -> dict[str, Any]:
             "missing run fields: " + ", ".join(missing)
         )
 
+    run_id = str(run["run_id"]).strip()
+    experiment = str(run["experiment"]).strip()
+
+    if not run_id:
+        raise ValueError("run_id must not be empty")
+
+    if not experiment:
+        raise ValueError("experiment must not be empty")
+
     classification = str(run["classification"])
 
     if classification not in {"valid", "invalid"}:
@@ -162,18 +171,78 @@ def validate_run(run: Mapping[str, Any]) -> dict[str, Any]:
 
     normalized_timing: dict[str, float] = {}
 
-    for field in TIMING_FIELDS:
-        if field not in timing:
-            raise ValueError(
-                f"missing timing field: {field}"
+    if classification == "valid":
+        for field in TIMING_FIELDS:
+            if field not in timing:
+                raise ValueError(
+                    f"missing timing field: {field}"
+                )
+
+            normalized_timing[field] = (
+                _finite_non_negative(
+                    timing[field],
+                    f"timing_ms.{field}",
+                )
+            )
+    else:
+        for field in TIMING_FIELDS:
+            if field not in timing:
+                continue
+
+            normalized_timing[field] = (
+                _finite_non_negative(
+                    timing[field],
+                    f"timing_ms.{field}",
+                )
             )
 
-        normalized_timing[field] = (
-            _finite_non_negative(
-                timing[field],
-                f"timing_ms.{field}",
-            )
+    converged = _strict_bool(
+        run["converged"],
+        "converged",
+    )
+
+    split_brain = _strict_bool(
+        run["active_split_brain_observed"],
+        "active_split_brain_observed",
+    )
+
+    promoted_raw = run["promoted_node"]
+
+    if promoted_raw is None:
+        promoted_node = None
+    elif isinstance(promoted_raw, str):
+        promoted_node = promoted_raw.strip() or None
+    else:
+        raise ValueError(
+            "promoted_node must be a string or None"
         )
+
+    invalid_reason_raw = run.get("invalid_reason")
+
+    if invalid_reason_raw is None:
+        invalid_reason = None
+    elif isinstance(invalid_reason_raw, str):
+        invalid_reason = invalid_reason_raw.strip() or None
+    else:
+        raise ValueError(
+            "invalid_reason must be a string or None"
+        )
+
+    if classification == "valid":
+        if promoted_node is None:
+            raise ValueError(
+                "valid run requires promoted_node"
+            )
+
+        if invalid_reason is not None:
+            raise ValueError(
+                "valid run must not have invalid_reason"
+            )
+    else:
+        if invalid_reason is None:
+            raise ValueError(
+                "invalid run requires invalid_reason"
+            )
 
     environment = run.get("environment")
     provenance = run.get("provenance")
@@ -196,19 +265,14 @@ def validate_run(run: Mapping[str, Any]) -> dict[str, Any]:
 
     return {
         "schema": RUN_SCHEMA,
-        "run_id": str(run["run_id"]),
+        "run_id": run_id,
         "classification": classification,
-        "experiment": str(run["experiment"]),
+        "experiment": experiment,
         "timing_ms": normalized_timing,
-        "promoted_node": str(run["promoted_node"]),
-        "converged": _strict_bool(
-            run["converged"],
-            "converged",
-        ),
-        "active_split_brain_observed": _strict_bool(
-            run["active_split_brain_observed"],
-            "active_split_brain_observed",
-        ),
+        "promoted_node": promoted_node,
+        "converged": converged,
+        "active_split_brain_observed": split_brain,
+        "invalid_reason": invalid_reason,
         "environment": (
             dict(environment)
             if environment is not None
@@ -220,7 +284,6 @@ def validate_run(run: Mapping[str, Any]) -> dict[str, Any]:
             else {}
         ),
     }
-
 
 def summarize_campaign(
     runs: Iterable[Mapping[str, Any]],

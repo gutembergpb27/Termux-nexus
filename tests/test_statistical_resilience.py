@@ -31,7 +31,7 @@ def make_run(
     converged=True,
     split_brain=False,
 ):
-    return {
+    run = {
         "run_id": run_id,
         "classification": classification,
         "experiment": (
@@ -47,6 +47,11 @@ def make_run(
         "converged": converged,
         "active_split_brain_observed": split_brain,
     }
+
+    if classification == "invalid":
+        run["invalid_reason"] = "controlled invalid test run"
+
+    return run
 
 
 def test_schema_identity():
@@ -341,3 +346,98 @@ def test_save_json_evidence_uses_utf8(tmp_path):
     decoded = raw.decode("utf-8")
 
     assert "resili?ncia" in decoded
+def test_invalid_run_preserves_partial_timing():
+    run = make_run(
+        "run-partial",
+        20000.0,
+        classification="invalid",
+        promoted_node=None,
+        converged=False,
+    )
+
+    run["timing_ms"] = {
+        "t0_to_t1": 15000.0,
+    }
+    run["invalid_reason"] = "timeout before promotion"
+
+    result = module.validate_run(run)
+
+    assert result["classification"] == "invalid"
+    assert result["timing_ms"] == {
+        "t0_to_t1": 15000.0,
+    }
+    assert result["promoted_node"] is None
+    assert result["invalid_reason"] == (
+        "timeout before promotion"
+    )
+
+
+def test_invalid_run_requires_reason():
+    run = make_run(
+        "run-invalid",
+        20000.0,
+        classification="invalid",
+        converged=False,
+    )
+
+    del run["invalid_reason"]
+
+    with pytest.raises(
+        ValueError,
+        match="invalid run requires invalid_reason",
+    ):
+        module.validate_run(run)
+
+
+def test_valid_run_still_requires_all_canonical_timings():
+    run = make_run("run-valid", 20000.0)
+
+    del run["timing_ms"]["t1_to_t3"]
+
+    with pytest.raises(
+        ValueError,
+        match="missing timing field: t1_to_t3",
+    ):
+        module.validate_run(run)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("run_id", ""),
+        ("run_id", "   "),
+        ("experiment", ""),
+        ("experiment", "   "),
+    ],
+)
+def test_run_identity_fields_must_be_non_empty(field, value):
+    run = make_run("run-identity", 20000.0)
+    run[field] = value
+
+    with pytest.raises(ValueError):
+        module.validate_run(run)
+
+
+def test_valid_run_requires_promoted_node():
+    run = make_run(
+        "run-no-promotion",
+        20000.0,
+        promoted_node=None,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="valid run requires promoted_node",
+    ):
+        module.validate_run(run)
+
+
+def test_valid_run_rejects_invalid_reason():
+    run = make_run("run-valid-reason", 20000.0)
+    run["invalid_reason"] = "must not exist"
+
+    with pytest.raises(
+        ValueError,
+        match="valid run must not have invalid_reason",
+    ):
+        module.validate_run(run)
