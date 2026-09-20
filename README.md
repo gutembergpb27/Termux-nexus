@@ -43,6 +43,11 @@ a modular Python architecture.
 
 ---
 
+## Executive technical brief
+
+For a concise external overview of the V2700 architecture, demonstrated
+resilience evidence, technical boundaries and evaluation path, see the
+[Executive Technical Brief](docs/NEXUS_V2700_EXECUTIVE_TECHNICAL_BRIEF.md).
 ## Physical resilience evidence
 
 V2700 includes a controlled three-node master-loss statistical campaign.
