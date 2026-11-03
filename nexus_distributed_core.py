@@ -85,6 +85,8 @@ class NexusDistributedCore:
         secret = os.getenv("NEXUS_SECRET_KEY", "").strip()
         self.protocol = NexusProtocol(secret)
         self.compute_replay_cache = ReplayCache()
+        self.liveness_replay_cache = ReplayCache()
+        self.liveness_lock = threading.Lock()
         self.compute_task_handlers = build_default_task_registry()
         self.compute_task_queue = TaskQueue()
         self.compute_task_completions = TaskCompletionRegistry()
@@ -395,7 +397,161 @@ class NexusDistributedCore:
             except:
                 pass
 
+    # ------------------------------------------------------------------
+    # QS-C01: fail-closed distributed sync and writes.
+    # ------------------------------------------------------------------
+
+    def _distributed_sync_enabled(self):
+        """Return True only for the legacy single-member configuration.
+
+        Any other value (N > 1, missing or non-int) fails closed until a
+        quorum-commit protocol exists.
+        """
+        size = getattr(self, "configured_cluster_size", None)
+        return type(size) is int and size == 1
+
+    def _block_distributed_sync(self, operation):
+        logger.warning(
+            "distributed_sync_blocked "
+            "node=%s operation=%s reason=quorum_commit_not_implemented",
+            getattr(self, "node_id", "unknown"),
+            operation,
+        )
+        raise RuntimeError(
+            "distributed sync disabled until quorum commit is implemented"
+        )
+
+    # ------------------------------------------------------------------
+    # MASTER liveness probe (no state transfer).
+    #
+    # Hub advertisement is discovery, not proof of liveness. A follower
+    # refreshes MASTER liveness only after an authenticated, request-bound
+    # acknowledgement in which the advertised MASTER confirms it still
+    # holds the MASTER role.
+    # ------------------------------------------------------------------
+
+    MASTER_PROBE_TIMEOUT = 3.0
+
+    def _liveness_replay_cache(self):
+        cache = getattr(self, "liveness_replay_cache", None)
+        if cache is None:
+            cache = ReplayCache()
+            self.liveness_replay_cache = cache
+        return cache
+
+    def _liveness_message_ttl(self):
+        return float(getattr(self, "compute_message_ttl", 60.0))
+
+    def _verify_liveness_envelope(self, envelope):
+        """Verify HMAC, TTL and replay atomically.
+
+        ReplayCache is not thread-safe (check-then-add), and the polling
+        thread and TCP handler threads share the liveness cache.
+        """
+        lock = getattr(self, "liveness_lock", None)
+        if lock is None:
+            lock = threading.Lock()
+            self.liveness_lock = lock
+
+        with lock:
+            return self.protocol.verify_envelope(
+                envelope,
+                now=time.time(),
+                ttl=self._liveness_message_ttl(),
+                replay_cache=self._liveness_replay_cache(),
+            )
+
+    def build_master_probe_envelope(self, master_id):
+        return self.protocol.create_envelope(
+            sender=str(getattr(self, "node_id", "unknown")),
+            message_type="MASTER_PROBE",
+            payload={"target": str(master_id)},
+        )
+
+    def verify_master_probe_ack(self, master_id, request, response):
+        if not isinstance(response, dict):
+            raise ValueError("invalid master probe response")
+
+        self._verify_liveness_envelope(response)
+
+        if response.get("type") != "MASTER_PROBE_ACK":
+            raise ValueError("invalid master probe response type")
+
+        if str(response.get("sender")) != str(master_id):
+            raise ValueError("master probe identity mismatch")
+
+        payload = response.get("payload")
+        if not isinstance(payload, dict):
+            raise ValueError("invalid master probe payload")
+
+        if str(payload.get("request_id")) != str(request["message_id"]):
+            raise ValueError("master probe response not bound to request")
+
+        if str(payload.get("probe_sender")) != str(request["sender"]):
+            raise ValueError("master probe response not bound to sender")
+
+        if str(payload.get("role", "")).upper() != "MASTER":
+            raise ValueError("advertised master no longer holds MASTER role")
+
+        return True
+
+    def probe_master_liveness(self, master_id, peer):
+        """Prove that the advertised MASTER is alive and still MASTER.
+
+        Raises on any failure. Never reads or writes persistent state.
+        """
+        if not isinstance(peer, dict):
+            raise ValueError("invalid master peer record")
+
+        host = str(peer.get("ip", "")).strip()
+        try:
+            tcp_port = int(peer.get("tcp_port", 0))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("invalid master probe address") from exc
+
+        if not host or not 1 <= tcp_port <= 65535:
+            raise ValueError("invalid master probe address")
+
+        request = self.build_master_probe_envelope(master_id)
+
+        with socket.create_connection(
+            (host, tcp_port),
+            timeout=self.MASTER_PROBE_TIMEOUT,
+        ) as conn:
+            send_message(conn, request)
+            response = recv_message(conn)
+
+        return self.verify_master_probe_ack(master_id, request, response)
+
+    def handle_master_probe(self, conn, message):
+        self._verify_liveness_envelope(message)
+
+        if message.get("type") != "MASTER_PROBE":
+            raise ValueError("invalid master probe type")
+
+        payload = message.get("payload")
+        if not isinstance(payload, dict):
+            raise ValueError("invalid master probe payload")
+
+        if str(payload.get("target")) != str(self.node_id):
+            raise ValueError("master probe target mismatch")
+
+        response = self.protocol.create_envelope(
+            sender=str(self.node_id),
+            message_type="MASTER_PROBE_ACK",
+            payload={
+                "role": str(self.role),
+                "request_id": str(message["message_id"]),
+                "probe_sender": str(message["sender"]),
+            },
+        )
+        send_message(conn, response)
+
     def handle_state_summary(self, conn, message):
+        # QS-C01: serving blocks is part of distributed sync.
+        if not self._distributed_sync_enabled():
+            self._block_distributed_sync("state_summary")
+
         payload = message.get("payload", {})
         remote_height = int(payload.get("height", 0))
 
@@ -409,6 +565,10 @@ class NexusDistributedCore:
         send_message(conn, response)
 
     def handle_sync_batch(self, _conn, message):
+        # QS-C01 / STAGE B.3: fail-closed sync.
+        if not self._distributed_sync_enabled():
+            self._block_distributed_sync("sync_batch")
+
         blocks = message.get("blocks", [])
         applied = self.persistence.apply_blocks(blocks)
         logger.info(
@@ -741,6 +901,7 @@ class NexusDistributedCore:
             "STATE_SUMMARY": self.handle_state_summary,
             "SYNC_BATCH": self.handle_sync_batch,
             "COMPUTE_TASK": self.handle_compute_task,
+            "MASTER_PROBE": self.handle_master_probe,
         }
 
         message_type = message.get("type")
@@ -769,6 +930,10 @@ class NexusDistributedCore:
             conn.close()
 
     def sync_from_peer(self, peer):
+        # QS-C01 / STAGE B.3: fail-closed sync.
+        if not self._distributed_sync_enabled():
+            self._block_distributed_sync("sync_from_peer")
+
         host = str(peer.get("ip", "")).strip()
         tcp_port = int(peer.get("tcp_port", 0))
 
@@ -865,7 +1030,17 @@ class NexusDistributedCore:
 
                 if master_node and self.role == "FOLLOWER":
                     try:
-                        self.sync_from_peer(raw_peers[master_node])
+                        # Liveness and sync are separate concerns.
+                        # N == 1 keeps the legacy sync path; N > 1
+                        # keeps sync blocked (QS-C01) and proves
+                        # MASTER liveness with an authenticated probe.
+                        if self._distributed_sync_enabled():
+                            self.sync_from_peer(raw_peers[master_node])
+                        else:
+                            self.probe_master_liveness(
+                                master_node,
+                                raw_peers[master_node],
+                            )
                         self.last_master_heartbeat = current_time
                         master_reachable = True
                     except Exception as exc:
@@ -968,8 +1143,45 @@ class NexusDistributedCore:
         while self.role == "MASTER":
             try:
                 payload = input(f"[{self.node_id} Intake] Digite o payload -> ")
-                if not payload: continue
-                
+                if not payload:
+                    continue
+
+                # QS-C01 / STAGE A:
+                # A multi-node deployment must not report local
+                # persistence as a distributed commit.
+                # Fail closed until a certified quorum-commit
+                # protocol is available.
+                if not self._distributed_sync_enabled():
+                    logger.warning(
+                        "distributed_write_blocked "
+                        "node=%s reason=quorum_commit_not_implemented",
+                        self.node_id,
+                    )
+                    print(
+                        f"[{self.node_id} Intake] Escrita BLOQUEADA: "
+                        "commit distribuído por quorum ainda não "
+                        "implementado (NEXUS_CLUSTER_SIZE="
+                        f"{getattr(self, 'configured_cluster_size', None)}"
+                        "). Payload não persistido.",
+                        flush=True,
+                    )
+                    continue
+
+                # Revalidate after blocking input().
+                if self.role != "MASTER":
+                    logger.warning(
+                        "write_blocked_role_changed node=%s role=%s",
+                        self.node_id,
+                        self.role,
+                    )
+                    print(
+                        f"[{self.node_id} Intake] Escrita BLOQUEADA: "
+                        f"o nó não é mais MASTER (role={self.role}). "
+                        "Payload não persistido.",
+                        flush=True,
+                    )
+                    continue
+
                 current_hash = self.persistence.append_transaction(
                     {
                         "event": "EDGE_AI_EVENT",

@@ -32,6 +32,7 @@ def decode_sent(data):
 def make_core(store):
     core = object.__new__(NexusDistributedCore)
     core.node_id = "NO-TEST"
+    core.configured_cluster_size = 1
     core.persistence = store
     return core
 

@@ -6,6 +6,8 @@ from persistence import NexusPersistence
 def make_core(node_id, store):
     core = object.__new__(NexusDistributedCore)
     core.node_id = node_id
+    # Legacy single-member sync path (QS-C01 allows sync only for N == 1).
+    core.configured_cluster_size = 1
     core.persistence = store
     return core
 
