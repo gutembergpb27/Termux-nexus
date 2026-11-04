@@ -1,0 +1,691 @@
+{
+  "mission": "W07",
+  "kind": "hub-comparison",
+  "run_id": "4878156d",
+  "started_utc": "2026-11-03T20:07:21.238915+00:00",
+  "finished_utc": "2026-11-03T20:08:04.730330+00:00",
+  "host": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.14.6",
+    "free_memory_mb": 954.9
+  },
+  "git": {
+    "branch": "fix/v2700-qs-c01-master-liveness",
+    "commit": "30b774da59b6c0a04f8ca468d6bca994cf873a6e",
+    "runtime_blobs": {
+      "nexus_rendezvous.py": "d61fedd2d417ed85d6759239e16751fac7920298",
+      "nexus_distributed_core.py": "eb8a48da88a75f9d58c954f8afeed86c2af27f93",
+      "nexus_protocol.py": "12e38d3ae95a724badb455a02d7ffac48caabfcd",
+      "nexus_transport.py": "e99a7797e6235b381f86779aca9bd4331f45bd01",
+      "web_panel.py": "7b12eb9dc0a607c8258edc0ea160b3818ce2b54f"
+    },
+    "runtime_modified": ""
+  },
+  "artifacts_sha256": {
+    "compare_hubs.py": "268aff6c36f40148186dc5f299e392b3b4471aa6e3374e83ef48ee054bc1e909",
+    "experimental_hub.py": "ff62ab0e4cd74552c26ea692956070c0a1fcc3c747d9b1b2d0eb214099bfa55f",
+    "hub_probes.py": "2809679705bb87efcac5c4560c162b23d90fb7f6f63c6315080949e2225880f4",
+    "test_hub_hardening.py": "59c2767e9e5ea7902e95a83d1a2b4e12f41417b9f69a90d9e34b4d43f987694c"
+  },
+  "network": {
+    "bind": "127.0.0.1 only, ephemeral ports",
+    "port_8500_listening_before": false,
+    "port_8500_listening_after": false
+  },
+  "test_limits": {
+    "max_connections": 8,
+    "max_per_client": 8,
+    "socket_timeout_s": 0.5,
+    "request_deadline_s": 1.5,
+    "max_body_bytes": 65536,
+    "shutdown_grace_s": 1.0,
+    "peer_timeout_s": 30.0,
+    "message_ttl_s": 60.0,
+    "reap_interval_s": 0.2,
+    "listen_backlog": 128
+  },
+  "threads": {
+    "before": 1,
+    "after": 1
+  },
+  "summary": {
+    "PASS": 14,
+    "FAIL": 0,
+    "BLOCKED": 1
+  },
+  "claims": {
+    "distributed_consensus": "not claimed",
+    "master_fencing": "not claimed",
+    "scope": "hub HTTP availability/robustness only"
+  },
+  "checks": [
+    {
+      "check": "idle_client_does_not_block",
+      "mission_item": 12,
+      "verdict": "PASS",
+      "original": "LIMITATION_REPRODUCED",
+      "measurements": {
+        "original": {
+          "concurrent_peers_request": {
+            "error": "timeout",
+            "elapsed_s": 2.018
+          },
+          "idle_connection": {
+            "closed": false,
+            "after_s": 2.579,
+            "data": ""
+          }
+        },
+        "original_stop": {
+          "clean": true,
+          "duration_s": 0.009,
+          "threads_alive": []
+        },
+        "experimental": {
+          "concurrent_peers_request": {
+            "status": 200,
+            "json": {},
+            "elapsed_s": 0.003
+          },
+          "idle_connection": {
+            "closed": true,
+            "after_s": 0.205,
+            "data": ""
+          }
+        },
+        "experimental_stop": {
+          "duration_s": 0.031,
+          "forced_connections": 0,
+          "threads_alive": [],
+          "clean": true
+        }
+      },
+      "note": ""
+    },
+    {
+      "check": "partial_headers_time_out",
+      "mission_item": 11,
+      "verdict": "PASS",
+      "original": "LIMITATION_REPRODUCED",
+      "measurements": {
+        "original": {
+          "concurrent_peers_request": {
+            "error": "timeout",
+            "elapsed_s": 2.031
+          },
+          "partial_connection": {
+            "closed": false,
+            "after_s": 2.582,
+            "data": ""
+          }
+        },
+        "original_stop": {
+          "clean": true,
+          "duration_s": 0.005,
+          "threads_alive": []
+        },
+        "experimental": {
+          "concurrent_peers_request": {
+            "status": 200,
+            "json": {},
+            "elapsed_s": 0.003
+          },
+          "partial_connection": {
+            "closed": true,
+            "after_s": 0.215,
+            "data": ""
+          }
+        },
+        "experimental_stop": {
+          "duration_s": 0.104,
+          "forced_connections": 0,
+          "threads_alive": [],
+          "clean": true
+        }
+      },
+      "note": ""
+    },
+    {
+      "check": "partial_body_times_out",
+      "mission_item": 11,
+      "verdict": "PASS",
+      "original": "LIMITATION_REPRODUCED",
+      "measurements": {
+        "original": {
+          "concurrent_peers_request": {
+            "error": "timeout",
+            "elapsed_s": 2.003
+          },
+          "partial_connection": {
+            "closed": false,
+            "after_s": 2.587,
+            "data": ""
+          },
+          "peer_registered": false
+        },
+        "original_stop": {
+          "clean": true,
+          "duration_s": 0.025,
+          "threads_alive": []
+        },
+        "experimental": {
+          "concurrent_peers_request": {
+            "status": 200,
+            "json": {},
+            "elapsed_s": 0.003
+          },
+          "partial_connection": {
+            "closed": true,
+            "after_s": 0.206,
+            "data": ""
+          },
+          "peer_registered": false
+        },
+        "experimental_stop": {
+          "duration_s": 0.03,
+          "forced_connections": 0,
+          "threads_alive": [],
+          "clean": true
+        }
+      },
+      "note": ""
+    },
+    {
+      "check": "slow_drip_cut_by_deadline",
+      "mission_item": 14,
+      "verdict": "PASS",
+      "original": "LIMITATION_REPRODUCED",
+      "measurements": {
+        "original": {
+          "bytes_sent": 16,
+          "cut_by_server_after_s": null,
+          "survived_full_window": true
+        },
+        "original_stop": {
+          "clean": true,
+          "duration_s": 0.063,
+          "threads_alive": []
+        },
+        "experimental": {
+          "bytes_sent": 7,
+          "cut_by_server_after_s": 1.567,
+          "survived_full_window": false
+        },
+        "experimental_stop": {
+          "duration_s": 0.046,
+          "forced_connections": 0,
+          "threads_alive": [],
+          "clean": true
+        }
+      },
+      "note": "request_deadline_s=1.5 (test limits)"
+    },
+    {
+      "check": "concurrent_requests",
+      "mission_item": 13,
+      "verdict": "PASS",
+      "original": "OK",
+      "measurements": {
+        "original": {
+          "clients": 20,
+          "register_200": 20,
+          "peers_200": 20,
+          "errors": [],
+          "final_peer_count": 20,
+          "elapsed_s": 2.102
+        },
+        "original_stop": {
+          "clean": true,
+          "duration_s": 0.06,
+          "threads_alive": []
+        },
+        "experimental": {
+          "clients": 20,
+          "register_200": 20,
+          "peers_200": 20,
+          "errors": [],
+          "final_peer_count": 20,
+          "elapsed_s": 0.116
+        },
+        "experimental_stop": {
+          "duration_s": 0.11,
+          "forced_connections": 0,
+          "threads_alive": [],
+          "clean": true
+        }
+      },
+      "note": ""
+    },
+    {
+      "check": "parallel_replay_once",
+      "mission_item": 18,
+      "verdict": "PASS",
+      "original": "OK",
+      "measurements": {
+        "original": {
+          "copies": 16,
+          "accepted": 1,
+          "rejected_401": 15,
+          "other": []
+        },
+        "original_stop": {
+          "clean": true,
+          "duration_s": 0.051,
+          "threads_alive": []
+        },
+        "experimental": {
+          "copies": 16,
+          "accepted": 1,
+          "rejected_401": 15,
+          "other": []
+        },
+        "experimental_stop": {
+          "duration_s": 0.105,
+          "forced_connections": 0,
+          "threads_alive": [],
+          "clean": true
+        }
+      },
+      "note": ""
+    },
+    {
+      "check": "capacity_limit_and_recovery",
+      "mission_item": 16,
+      "verdict": "PASS",
+      "original": "LIMITATION_REPRODUCED",
+      "measurements": {
+        "original": {
+          "held": 6,
+          "connect_failures": 6,
+          "overflow_closed_fast": 0,
+          "overflow_503": 0,
+          "peers_during_saturation": "timeout",
+          "peers_after_release": 200,
+          "elapsed_s": 5.858
+        },
+        "original_stop": {
+          "clean": true,
+          "duration_s": 0.066,
+          "threads_alive": []
+        },
+        "experimental": {
+          "held": 8,
+          "connect_failures": 0,
+          "overflow_closed_fast": 4,
+          "overflow_503": 4,
+          "peers_during_saturation": 503,
+          "peers_after_release": 200,
+          "elapsed_s": 0.318
+        },
+        "experimental_stop": {
+          "duration_s": 0.102,
+          "forced_connections": 0,
+          "threads_alive": [],
+          "clean": true
+        }
+      },
+      "note": "original has no admission control; while saturated it does not answer"
+    },
+    {
+      "check": "shutdown_with_pending_clients",
+      "mission_item": 15,
+      "verdict": "PASS",
+      "original": "LIMITATION_REPRODUCED",
+      "measurements": {
+        "original": {
+          "shutdown_completed_with_client_open": false,
+          "waited_s": 1.516,
+          "completed_after_client_closed": true
+        },
+        "original_stop": {
+          "clean": true,
+          "duration_s": 0.001,
+          "threads_alive": []
+        },
+        "experimental": {
+          "shutdown_completed_with_client_open": true,
+          "waited_s": 0.227,
+          "forced_connections": 0,
+          "threads_alive": []
+        },
+        "experimental_stop": {
+          "duration_s": 0.227,
+          "forced_connections": 0,
+          "threads_alive": [],
+          "clean": true
+        }
+      },
+      "note": ""
+    },
+    {
+      "check": "handler_exception_contained",
+      "mission_item": 17,
+      "verdict": "PASS",
+      "original": "LIMITATION_REPRODUCED",
+      "measurements": {
+        "original": {
+          "while_corrupt": "RemoteDisconnected",
+          "while_corrupt_body": null,
+          "after_repair": 200
+        },
+        "original_stop": {
+          "clean": true,
+          "duration_s": 0.052,
+          "threads_alive": []
+        },
+        "experimental": {
+          "while_corrupt": 500,
+          "while_corrupt_body": {
+            "error": "internal error"
+          },
+          "after_repair": 200
+        },
+        "experimental_stop": {
+          "duration_s": 0.114,
+          "forced_connections": 0,
+          "threads_alive": [],
+          "clean": true
+        }
+      },
+      "note": "original prints a traceback to stderr and drops the connection"
+    },
+    {
+      "check": "exclusive_port_bind",
+      "mission_item": 25,
+      "verdict": "PASS",
+      "original": "LIMITATION_REPRODUCED",
+      "measurements": {
+        "original": {
+          "second_bind_allowed": true
+        },
+        "original_stop": {
+          "clean": true,
+          "duration_s": 0.057,
+          "threads_alive": []
+        },
+        "experimental": {
+          "second_bind_allowed": false,
+          "error": "PermissionError"
+        },
+        "experimental_stop": {
+          "duration_s": 0.102,
+          "forced_connections": 0,
+          "threads_alive": [],
+          "clean": true
+        }
+      },
+      "note": "Windows-specific: SO_REUSEADDR lets another socket bind a listening port"
+    },
+    {
+      "check": "oversized_headers_rejected",
+      "mission_item": 29,
+      "verdict": "PASS",
+      "original": "OK",
+      "measurements": {
+        "original": {
+          "header_line_70k": 431,
+          "headers_150": 431
+        },
+        "original_stop": {
+          "clean": true,
+          "duration_s": 0.054,
+          "threads_alive": []
+        },
+        "experimental": {
+          "header_line_70k": 431,
+          "headers_150": 431
+        },
+        "experimental_stop": {
+          "duration_s": 0.109,
+          "forced_connections": 0,
+          "threads_alive": [],
+          "clean": true
+        }
+      },
+      "note": ""
+    },
+    {
+      "check": "runtime_node_client_compatible",
+      "mission_item": 19,
+      "verdict": "PASS",
+      "original": "OK",
+      "measurements": {
+        "original": {
+          "a_register": true,
+          "c_register": true,
+          "a_heartbeat": true,
+          "c_heartbeat": true,
+          "peers_ok": true,
+          "peer_ids": [
+            "NODE-A",
+            "NODE-C"
+          ],
+          "record_keys": [
+            "capabilities",
+            "ip",
+            "last_seen",
+            "load",
+            "node_id",
+            "protocol_version",
+            "role",
+            "tcp_port",
+            "web_port"
+          ],
+          "a_role": "MASTER",
+          "a_ip": "127.0.0.1",
+          "a_ports": [
+            8081,
+            9091
+          ],
+          "has_load_after_heartbeat": true
+        },
+        "original_stop": {
+          "clean": true,
+          "duration_s": 0.056,
+          "threads_alive": []
+        },
+        "experimental": {
+          "a_register": true,
+          "c_register": true,
+          "a_heartbeat": true,
+          "c_heartbeat": true,
+          "peers_ok": true,
+          "peer_ids": [
+            "NODE-A",
+            "NODE-C"
+          ],
+          "record_keys": [
+            "capabilities",
+            "ip",
+            "last_seen",
+            "load",
+            "node_id",
+            "protocol_version",
+            "role",
+            "tcp_port",
+            "web_port"
+          ],
+          "a_role": "MASTER",
+          "a_ip": "127.0.0.1",
+          "a_ports": [
+            8081,
+            9091
+          ],
+          "has_load_after_heartbeat": true
+        },
+        "experimental_stop": {
+          "duration_s": 0.115,
+          "forced_connections": 0,
+          "threads_alive": [],
+          "clean": true
+        }
+      },
+      "note": "uses NexusDistributedCore.post_envelope/build_*_envelope unchanged"
+    },
+    {
+      "check": "node_client_when_hub_blocked",
+      "mission_item": 20,
+      "verdict": "PASS",
+      "original": "LIMITATION_REPRODUCED",
+      "measurements": {
+        "original": {
+          "mode": "blocked",
+          "register_ok": false,
+          "elapsed_s": 2.002,
+          "peers": {
+            "ok": false,
+            "error": "TimeoutError",
+            "elapsed_s": 2.003
+          }
+        },
+        "original_stop": {
+          "clean": true,
+          "duration_s": 0.004,
+          "threads_alive": []
+        },
+        "experimental": {
+          "mode": "blocked",
+          "register_ok": true,
+          "elapsed_s": 0.004,
+          "peers": {
+            "ok": true,
+            "elapsed_s": 0.003
+          }
+        },
+        "experimental_stop": {
+          "duration_s": 0.224,
+          "forced_connections": 0,
+          "threads_alive": [],
+          "clean": true
+        }
+      },
+      "note": ""
+    },
+    {
+      "check": "auth_and_contract_parity",
+      "mission_item": "18/19/27/28",
+      "verdict": "PASS",
+      "original": "BASELINE",
+      "measurements": {
+        "cases": 25,
+        "differences": [
+          "get_unknown_path"
+        ],
+        "statuses": {
+          "register_valid": [
+            200,
+            200
+          ],
+          "register_replay": [
+            401,
+            401
+          ],
+          "heartbeat_valid": [
+            200,
+            200
+          ],
+          "register_tampered": [
+            401,
+            401
+          ],
+          "register_wrong_secret": [
+            401,
+            401
+          ],
+          "register_expired": [
+            401,
+            401
+          ],
+          "register_future": [
+            401,
+            401
+          ],
+          "register_sender_mismatch": [
+            400,
+            400
+          ],
+          "register_bad_role": [
+            400,
+            400
+          ],
+          "register_wrong_type": [
+            400,
+            400
+          ],
+          "register_missing_field": [
+            401,
+            401
+          ],
+          "heartbeat_unregistered": [
+            400,
+            400
+          ],
+          "heartbeat_wrong_secret": [
+            401,
+            401
+          ],
+          "envelope_not_object": [
+            400,
+            400
+          ],
+          "invalid_json": [
+            400,
+            400
+          ],
+          "bad_utf8": [
+            400,
+            400
+          ],
+          "missing_length": [
+            400,
+            400
+          ],
+          "zero_length": [
+            400,
+            400
+          ],
+          "oversized_length": [
+            400,
+            400
+          ],
+          "non_numeric_length": [
+            400,
+            400
+          ],
+          "post_unknown_path": [
+            404,
+            404
+          ],
+          "get_peers": [
+            200,
+            200
+          ],
+          "get_unknown_path": [
+            "RemoteDisconnected",
+            404
+          ],
+          "put_method": [
+            501,
+            501
+          ],
+          "delete_method": [
+            501,
+            501
+          ]
+        }
+      },
+      "note": "only deliberate difference: unknown GET path gets 404 instead of no response"
+    },
+    {
+      "check": "s1_s5_cluster_with_experimental_hub",
+      "mission_item": "38",
+      "verdict": "BLOCKED",
+      "original": "n/a",
+      "measurements": {
+        "free_memory_mb": 952.4,
+        "required_mb": 2048
+      },
+      "note": "multiprocess cluster run not executed: memory gate and no integration authorization"
+    }
+  ]
+}

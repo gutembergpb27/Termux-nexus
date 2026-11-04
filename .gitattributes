@@ -1,2 +1,4 @@
 nirt/NIRT-01.md text eol=lf
 scripts/run-nirt01.ps1 text eol=lf
+validation/s1-s5-harness/** -text
+validation/hub-hardening/** -text
