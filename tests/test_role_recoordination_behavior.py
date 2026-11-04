@@ -34,6 +34,11 @@ def make_core(role="MASTER", node_id="NODE-A"):
     core.hub_url = "http://127.0.0.1:8500"
     core.peers = {}
     core.last_master_heartbeat = 0.0
+    # Legacy single-member sync path (QS-C01 allows sync only for N == 1).
+    # Multi-member (N > 1) behavior is covered by
+    # tests/test_master_liveness_probe.py.
+    core.configured_cluster_size = 1
+    core.majority = 1
 
     return core
 

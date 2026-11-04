@@ -57,6 +57,88 @@ layer.
 The architecture does not claim TLS, PKI, mTLS or per-node
 cryptographic identity.
 
+## Post-RC2 Work: QS-C01 Fail-Closed and P1 Master Liveness
+
+Status: implemented on branch `fix/v2700-qs-c01-master-liveness`;
+not yet released, not yet physically revalidated.
+
+### QS-C01 fail-closed distributed sync and writes
+
+No quorum-commit protocol exists yet. When `NEXUS_CLUSTER_SIZE` is not
+exactly the integer `1`, the runtime refuses:
+
+- applying `SYNC_BATCH` (`handle_sync_batch`);
+- serving blocks for `STATE_SUMMARY` (`handle_state_summary`);
+- pulling state from the MASTER (`sync_from_peer`);
+- persisting intake writes (`shell_intake_loop`), with an explicit
+  terminal message stating that the payload was not persisted.
+
+`NEXUS_CLUSTER_SIZE=1` keeps the legacy single-member behavior.
+
+### P1 regression and fix
+
+The first QS-C01 version made MASTER liveness depend on
+`sync_from_peer`, which was now always blocked for N > 1. With a
+three-member configuration, a FOLLOWER therefore never refreshed MASTER
+liveness and promoted itself after 15 s while the legitimate MASTER was
+alive.
+
+The fix separates liveness from replication:
+
+- N = 1: liveness still comes from successful sync (legacy path).
+- N > 1: sync stays blocked; the FOLLOWER sends an authenticated
+  `MASTER_PROBE` over TCP and refreshes liveness only after a
+  `MASTER_PROBE_ACK` that passes HMAC, TTL and replay checks, comes from
+  the advertised MASTER identity, is bound to the probe request and
+  sender, and reports role `MASTER`.
+- The probe never reads or writes persistent state.
+- Hub advertisement alone still does not refresh liveness.
+
+### Local validation (isolated copy, not CI, not physical)
+
+- Behavioral reproduction with a real MASTER on loopback TCP:
+  N = 3 with live MASTER ends `FOLLOWER` (pre-fix: `MASTER`);
+  N = 3 with dead MASTER still fails over; N = 1 unchanged.
+- 48 new tests (`tests/test_master_liveness_probe.py`,
+  `tests/test_qs_c01_fail_closed.py`), stable across repeated runs.
+- Full suite (versioned tests only): 858 passed, 1 xfailed, as in CI
+  run 41560608327. An earlier local figure of 870 included 12 tests
+  from a file that is not under version control.
+
+### Known limitations
+
+- The probe proves liveness only. It is not an election term, vote or
+  quorum commit. Concurrent MASTER roles are **not** guaranteed to
+  converge:
+  - Quorum is counted from hub visibility, and the advertised MASTER
+    counts toward it even when its probe has just failed.
+  - Asymmetric partition (a MASTER still heartbeating the hub but
+    unreachable from the followers): the highest-id eligible follower
+    promotes while the old MASTER is still advertised, so two MASTER
+    roles coexist.
+  - If the isolated MASTER has the lower id, it yields once it sees the
+    new MASTER (`reconcile_master_role`), provided it can still reach
+    the hub.
+  - If the isolated MASTER has the highest id, the promoted follower
+    oscillates for as long as the partition lasts: every 5 s polling
+    cycle it yields to the old MASTER and promotes again, because the
+    15 s liveness window has already expired. Each promotion starts a
+    new intake thread. In a review simulation of the real polling loop,
+    the follower was promoted 13 times and demoted 12 times in 16
+    cycles. The same behavior exists on `main` before this change.
+  - Impact with N > 1 is limited to role instability and thread
+    accumulation, because distributed writes and sync stay blocked
+    (QS-C01). It becomes a safety issue as soon as writes are enabled;
+    terms, votes and fencing are required first.
+- Authentication is a cluster-wide shared secret: any holder of the
+  secret can sign an ACK. There is no per-node identity and no TLS.
+- The Axis 10/11 timing results were measured before this change and do
+  not characterize it. A new three-node physical validation is required.
+- With `NEXUS_CLUSTER_SIZE=1`, `SYNC_BATCH` and `STATE_SUMMARY` remain
+  unauthenticated (pre-existing, tracked separately).
+
+This work is not a production-readiness certification.
+
 ## Physical Multi-Node Validation
 
 The V2700 validation history includes physical and real-process cluster
