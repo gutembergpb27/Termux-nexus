@@ -83,3 +83,107 @@ jobs:
           Set-Location $env:TEMP
           & "$env:GITHUB_WORKSPACE\.venv-ci\Scripts\nexus.exe" version
           & "$env:GITHUB_WORKSPACE\.venv-ci\Scripts\nexus.exe" doctor
+
+  # W05/W06: tests of the S1/S5 validation harness itself. The orchestration
+  # tests drive stand-in hub/node stubs on 127.0.0.1; they are NOT S1/S5 runs
+  # of the Nexus runtime and prove no distributed consensus.
+  w05-w06-harness:
+    name: W05/W06 S1-S5 harness tests
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      EXPECTED_TESTS: "107"
+      PYTHONDONTWRITEBYTECODE: "1"
+    defaults:
+      run:
+        working-directory: validation/s1-s5-harness
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install pytest
+        run: python -m pip install --upgrade pip pytest
+
+      - name: Unit, gate and classifier tests (no child processes)
+        id: unit
+        run: >
+          python -B -m pytest -p no:cacheprovider -m "not orchestration" -rfEsxX
+          --junitxml=../../ci-results/w05-w06-unit.xml test_s1s5_harness.py
+
+      - name: Memory pre-check for orchestration tests
+        id: memory
+        if: success() || failure()
+        run: python -B ../../.github/scripts/ci_memory_check.py s1s5_harness.py
+
+      - name: Orchestration tests with stand-in processes (sequential)
+        if: (success() || failure()) && steps.memory.outcome == 'success'
+        run: >
+          python -B -m pytest -p no:cacheprovider -m orchestration -rfEsxX
+          --junitxml=../../ci-results/w05-w06-orchestration.xml test_s1s5_harness.py
+
+      - name: Result summary
+        if: always()
+        working-directory: .
+        run: >
+          python -B .github/scripts/junit_summary.py "W05/W06 S1-S5 harness"
+          ${{ env.EXPECTED_TESTS }}
+          ci-results/w05-w06-unit.xml ci-results/w05-w06-orchestration.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w05-w06-harness-results
+          path: ci-results/
+          if-no-files-found: warn
+
+  # W07: isolated experimental hub (loopback only); the original
+  # nexus_rendezvous.py is exercised in-process, never modified.
+  w07-hub-hardening:
+    name: W07 experimental hub hardening tests
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      EXPECTED_TESTS: "60"
+      PYTHONDONTWRITEBYTECODE: "1"
+    defaults:
+      run:
+        working-directory: validation/hub-hardening
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install pytest
+        run: python -m pip install --upgrade pip pytest
+
+      - name: Hub hardening tests (127.0.0.1 only, ResourceWarning as error)
+        run: >
+          python -B -X dev -m pytest -p no:cacheprovider -W error::ResourceWarning -rfEsxX
+          --junitxml=../../ci-results/w07.xml test_hub_hardening.py
+
+      - name: Result summary
+        if: always()
+        working-directory: .
+        run: >
+          python -B .github/scripts/junit_summary.py "W07 experimental hub hardening"
+          ${{ env.EXPECTED_TESTS }} ci-results/w07.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: w07-hub-hardening-results
+          path: ci-results/
+          if-no-files-found: warn
