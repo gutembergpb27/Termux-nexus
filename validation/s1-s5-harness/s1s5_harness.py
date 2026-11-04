@@ -44,7 +44,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
-HARNESS_VERSION = "w06-1"
+HARNESS_VERSION = "w06-2"
 
 PASS = "PASS"
 FAIL = "FAIL"
@@ -406,19 +406,96 @@ def load_config(path: str | Path) -> HarnessConfig:
 
 
 # ---------------------------------------------------------------------------
+# Local identity (evidence must be publishable as written)
+# ---------------------------------------------------------------------------
+
+REDACTED_HOSTNAME = "<redacted-hostname>"
+REDACTED_TEMP = "<redacted-local-temp>"
+REDACTED_HOME = "<redacted-home>"
+# Generic names carry no identity, and replacing them would corrupt log text.
+_GENERIC_HOSTNAMES = {"", "localhost", "localhost.localdomain"}
+_MIN_HOSTNAME_LEN = 4
+
+
+def host_metadata() -> dict[str, Any]:
+    """Host facts recorded in evidence. The real hostname is never recorded."""
+    return {"platform": platform.platform(), "python": sys.version.split()[0],
+            "hostname": REDACTED_HOSTNAME}
+
+
+def _local_dirs() -> list[tuple[str, str]]:
+    """(directory, marker) pairs for local directories that identify the user."""
+    pairs = []
+    for getter, marker in ((tempfile.gettempdir, REDACTED_TEMP),
+                           (lambda: str(Path.home()), REDACTED_HOME)):
+        try:
+            raw = str(getter()).rstrip("\\/")
+        except (OSError, RuntimeError, KeyError):
+            continue
+        if len(raw) > 3:  # never a bare drive or "/"
+            pairs.append((raw, marker))
+    return pairs
+
+
+def _local_hostname() -> str | None:
+    try:
+        name = socket.gethostname().strip()
+    except OSError:
+        return None
+    if name.lower() in _GENERIC_HOSTNAMES or len(name) < _MIN_HOSTNAME_LEN:
+        return None
+    return name
+
+
+def public_path(path: Path | str) -> str:
+    """Path as recorded in evidence: temp and home prefixes become markers."""
+    text = str(path)
+    folded = os.path.normcase(text)
+    # Longest prefix first: on Windows the temp dir lives under the home dir.
+    for raw, marker in sorted(_local_dirs(), key=lambda p: len(p[0]), reverse=True):
+        base = os.path.normcase(raw)
+        if folded == base or folded.startswith(base + os.sep) or folded.startswith(base + "/"):
+            return marker + text[len(raw):]
+    return text
+
+
+def redact_local_identity(text: str) -> str:
+    """Replace the hostname and the temp/home directories in any text.
+
+    Covers raw, JSON-escaped and forward-slash spellings of the paths, so it
+    also works on JSON documents and child logs.
+    """
+    flags = re.IGNORECASE if os.name == "nt" else 0
+    forms: dict[str, str] = {}
+    for raw, marker in _local_dirs():
+        for form in {raw, json.dumps(raw)[1:-1], raw.replace("\\", "/")}:
+            forms[form] = marker
+    for form in sorted(forms, key=len, reverse=True):
+        text = re.sub(re.escape(form) + r"(?![\w])", lambda _m, m=forms[form]: m, text, flags=flags)
+    host = _local_hostname()
+    if host:
+        text = re.sub(r"(?<![\w-])" + re.escape(host) + r"(?![\w-])",
+                      REDACTED_HOSTNAME, text, flags=re.IGNORECASE)
+    return text
+
+
+# ---------------------------------------------------------------------------
 # Secret handling
 # ---------------------------------------------------------------------------
 
 
 def scrub(text: str, secret: str | None) -> str:
-    """Remove the secret in raw and JSON-escaped form."""
-    if not secret:
-        return text
-    forms = {secret, json.dumps(secret)[1:-1], json.dumps(secret, ensure_ascii=False)[1:-1]}
-    for form in sorted(forms, key=len, reverse=True):
-        if form:
-            text = text.replace(form, "[REDACTED]")
-    return text
+    """Remove the secret in raw and JSON-escaped form, then local identity.
+
+    The secret goes first: redacting a hostname inside it would otherwise
+    break the match and leak the rest of the secret.
+    """
+    if secret:
+        forms = {secret, json.dumps(secret)[1:-1], json.dumps(secret, ensure_ascii=False)[1:-1]}
+        for form in sorted(forms, key=len, reverse=True):
+            if form:
+                text = text.replace(form, "[REDACTED]")
+    return redact_local_identity(text)
 
 
 def secret_gate(secret: str | None) -> dict[str, Any]:
@@ -1707,10 +1784,9 @@ class Run:
             "run_id": self.run_id,
             "scenario": self.scenario,
             "started_utc": utc_now(),
-            "host": {"platform": platform.platform(), "python": sys.version.split()[0],
-                     "hostname": socket.gethostname()},
+            "host": host_metadata(),
             "config": self.cfg.public_dict(),
-            "work_dir": str(self.work_dir),
+            "work_dir": public_path(self.work_dir),
             "secret": "provided via NEXUS_SECRET_KEY environment variable; not recorded",
             "claims": CLAIMS,
         }
@@ -1835,8 +1911,8 @@ def run_node(cfg: HarnessConfig, node_id: str, duration_s: float, evidence_root:
     evidence: dict[str, Any] = {
         "harness_version": HARNESS_VERSION, "run_id": run_id, "mode": "node",
         "node_id": node_id, "started_utc": utc_now(), "config": cfg.public_dict(),
-        "host": {"platform": platform.platform(), "python": sys.version.split()[0]},
-        "work_dir": str(work_dir), "claims": CLAIMS,
+        "host": host_metadata(),
+        "work_dir": public_path(work_dir), "claims": CLAIMS,
     }
     pre = preflight(cfg, [node_id], include_hub=False, secret=secret,
                     check_clock=not cfg.single_host, accept_lan_exposure=accept_lan_exposure)
@@ -1971,7 +2047,7 @@ def _main(argv: list[str] | None, secret: str) -> int:
             report = preflight(cfg, scope, include_hub=cfg.hub.local and not args.node_id,
                                secret=secret, accept_lan_exposure=args.accept_lan_exposure)
             report = {"harness_version": HARNESS_VERSION, "utc": utc_now(),
-                      "host": {"platform": platform.platform(), "python": sys.version.split()[0]},
+                      "host": host_metadata(),
                       "scope": scope, "config": cfg.public_dict(), "claims": CLAIMS, **report}
             root = Path(args.evidence_root)
             root.mkdir(parents=True, exist_ok=True)

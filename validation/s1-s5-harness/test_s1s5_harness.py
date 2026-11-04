@@ -167,6 +167,64 @@ def test_safe_error_scrubs_exception_text():
     assert SECRET not in msg and "[REDACTED]" in msg
 
 
+# --- local identity: evidence must be publishable as written ---------------
+
+FAKE_HOST = "DESKTOP-ALICE42"
+
+
+@pytest.fixture
+def fake_identity(tmp_path, monkeypatch):
+    home = tmp_path / "home" / "alice"
+    temp = home / "AppData" / "Local" / "Temp"
+    temp.mkdir(parents=True)
+    monkeypatch.setattr(h.tempfile, "gettempdir", lambda: str(temp))
+    monkeypatch.setattr(h.Path, "home", classmethod(lambda cls: cls(home)))
+    monkeypatch.setattr(h.socket, "gethostname", lambda: FAKE_HOST)
+    return home, temp
+
+
+def test_host_metadata_never_records_hostname(fake_identity):
+    meta = h.host_metadata()
+    assert set(meta) == {"platform", "python", "hostname"}
+    assert meta["hostname"] == h.REDACTED_HOSTNAME
+    assert FAKE_HOST not in json.dumps(meta)
+
+
+def test_public_path_replaces_temp_and_home_prefixes(fake_identity):
+    home, temp = fake_identity
+    assert h.public_path(temp / "nexus-s1s5-x") == h.REDACTED_TEMP + os.sep + "nexus-s1s5-x"
+    assert h.public_path(home / "repo") == h.REDACTED_HOME + os.sep + "repo"
+    assert h.public_path(home) == h.REDACTED_HOME
+    # neither a sibling with the same prefix nor an unrelated path is touched
+    assert h.public_path(str(home) + "ish") == str(home) + "ish"
+    assert h.public_path(home.parent / "bob") == str(home.parent / "bob")
+
+
+def test_scrub_redacts_local_identity_in_json_and_logs(fake_identity):
+    home, temp = fake_identity
+    doc = {"work_dir": str(temp / "run-1"), "root": str(home / "repo"),
+           "posix": (home / "x").as_posix(), "log": f"node up on {FAKE_HOST.lower()}:8000"}
+    out = h.scrub(json.dumps(doc), None)
+    for raw in (str(temp), str(home), home.as_posix(), json.dumps(str(home))[1:-1]):
+        assert raw not in out
+    assert FAKE_HOST.lower() not in out.lower()
+    back = json.loads(out)
+    assert back["work_dir"].startswith(h.REDACTED_TEMP)
+    assert back["root"].startswith(h.REDACTED_HOME)
+    assert back["log"] == f"node up on {h.REDACTED_HOSTNAME}:8000"
+
+
+def test_scrub_keeps_generic_hostnames(monkeypatch):
+    monkeypatch.setattr(h.socket, "gethostname", lambda: "localhost")
+    assert h.scrub("connect localhost:80", None) == "connect localhost:80"
+
+
+def test_scrub_removes_secret_before_hostname(fake_identity):
+    secret = FAKE_HOST + "-" + "k" * 16
+    out = h.scrub(f"s={secret}", secret)
+    assert out == "s=[REDACTED]"
+
+
 def test_preflight_blocks_without_starting_anything():
     cfg = h.parse_config(base_config())
     report = h.preflight(cfg, [], include_hub=False, secret="", available_mb=600,
@@ -754,6 +812,24 @@ def test_orchestrator_s1_pass_with_stubs(stub_env):
     assert ev["claims"] == h.CLAIMS
     # databases and logs live in the isolated work dir, one per node
     assert all((run.work_dir / n).is_dir() for n in IDS)
+
+
+def test_orchestrator_evidence_has_no_local_identity(stub_env, monkeypatch):
+    cfg, tmp = stub_env
+    monkeypatch.setattr(h.socket, "gethostname", lambda: FAKE_HOST)
+    monkeypatch.setattr(h.tempfile, "gettempdir", lambda: str(tmp))
+    run = make_run(cfg, tmp, "s1")  # work dir is tmp/work-<run_id>: "under temp"
+    _, ev, _ = execute(run)
+    assert_all_children_stopped(run, ev)
+    assert ev["host"]["hostname"] == h.REDACTED_HOSTNAME
+    assert ev["work_dir"] == h.REDACTED_TEMP + os.sep + run.work_dir.name
+    temp = str(tmp)
+    forbidden = {FAKE_HOST.lower(), temp.lower(), json.dumps(temp)[1:-1].lower()}
+    for path in run.evidence_dir.rglob("*"):
+        if path.is_file():
+            text = path.read_text(encoding="utf-8", errors="replace").lower()
+            for item in forbidden:
+                assert item not in text, (path.name, item)
 
 
 def test_orchestrator_s1_early_promotion_is_fail(stub_env, monkeypatch):

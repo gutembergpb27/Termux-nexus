@@ -31,6 +31,7 @@ Um PASS **não** certifica consenso distribuído.
   - SIGTERM, SIGHUP e SIGBREAK viram interrupção controlada.
 - **Encerramento antes da evidência:** toda saída, inclusive exceção e Ctrl+C, para os filhos antes de coletar logs. A evidência registra `shutdown.completed_monotonic_s ≤ evidence_written_monotonic_s`. Se algum filho não for confirmado como parado, o resultado nunca é PASS.
 - **Secret:** só entra pelo ambiente. É redigido em forma crua e em forma escapada para JSON, em logs, exceções e saída do console. Nenhum traceback chega ao console.
+- **Identidade local (a partir de `w06-2`):** a evidência nunca grava o hostname real (`host.hostname` = `<redacted-hostname>`). Todo texto gravado (evidência, amostras, logs dos filhos e erros) passa por `scrub()`, que troca o hostname por `<redacted-hostname>`, o diretório temporário por `<redacted-local-temp>` e o diretório home por `<redacted-home>`, nas formas crua, escapada para JSON e com `/`. Hostnames genéricos (`localhost`) não são trocados. O secret é removido antes, para que a redação do hostname não quebre a correspondência.
 
 ## Gates (BLOCKED, saída 3)
 
@@ -90,7 +91,7 @@ Códigos de saída: 0 PASS/COMPLETED, 1 FAIL, 2 configuração, 3 BLOCKED.
 
 ## Testes
 
-`python -B -m pytest -p no:cacheprovider test_s1s5_harness.py` (101 testes). A camada 3 usa stubs de hub e de nó, escutando só em 127.0.0.1. Ela valida a orquestração do harness e **não** é S1/S5 do runtime.
+`python -B -m pytest -p no:cacheprovider test_s1s5_harness.py` (107 testes). Os testes da camada 3 respeitam o gate de memória durante a execução (≥ 512 MB livres): com menos memória, eles terminam em BLOCKED `memory_pressure` e falham por isso. A camada 3 usa stubs de hub e de nó, escutando só em 127.0.0.1. Ela valida a orquestração do harness e **não** é S1/S5 do runtime.
 
 ## Limitações conhecidas (runtime, fora do escopo do harness)
 
