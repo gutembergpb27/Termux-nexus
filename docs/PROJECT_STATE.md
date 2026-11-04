@@ -101,13 +101,35 @@ The fix separates liveness from replication:
   N = 3 with dead MASTER still fails over; N = 1 unchanged.
 - 48 new tests (`tests/test_master_liveness_probe.py`,
   `tests/test_qs_c01_fail_closed.py`), stable across repeated runs.
-- Full suite: 870 passed, 1 xfailed.
+- Full suite (versioned tests only): 858 passed, 1 xfailed, as in CI
+  run 41560608327. An earlier local figure of 870 included 12 tests
+  from a file that is not under version control.
 
 ### Known limitations
 
 - The probe proves liveness only. It is not an election term, vote or
-  quorum commit; asymmetric partitions can still produce concurrent
-  MASTER roles, resolved afterwards by deterministic recoordination.
+  quorum commit. Concurrent MASTER roles are **not** guaranteed to
+  converge:
+  - Quorum is counted from hub visibility, and the advertised MASTER
+    counts toward it even when its probe has just failed.
+  - Asymmetric partition (a MASTER still heartbeating the hub but
+    unreachable from the followers): the highest-id eligible follower
+    promotes while the old MASTER is still advertised, so two MASTER
+    roles coexist.
+  - If the isolated MASTER has the lower id, it yields once it sees the
+    new MASTER (`reconcile_master_role`), provided it can still reach
+    the hub.
+  - If the isolated MASTER has the highest id, the promoted follower
+    oscillates for as long as the partition lasts: every 5 s polling
+    cycle it yields to the old MASTER and promotes again, because the
+    15 s liveness window has already expired. Each promotion starts a
+    new intake thread. In a review simulation of the real polling loop,
+    the follower was promoted 13 times and demoted 12 times in 16
+    cycles. The same behavior exists on `main` before this change.
+  - Impact with N > 1 is limited to role instability and thread
+    accumulation, because distributed writes and sync stay blocked
+    (QS-C01). It becomes a safety issue as soon as writes are enabled;
+    terms, votes and fencing are required first.
 - Authentication is a cluster-wide shared secret: any holder of the
   secret can sign an ACK. There is no per-node identity and no TLS.
 - The Axis 10/11 timing results were measured before this change and do
