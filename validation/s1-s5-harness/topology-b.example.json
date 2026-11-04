@@ -1,0 +1,12 @@
+{
+  "_comment": "Topology B: Windows runs Hub + NODE-A + NODE-B, Motorola (Termux) runs NODE-C. Replace both placeholders with addresses confirmed on the day of the test. Use a copy of this file on each host with 'local' set for that host's members.",
+  "cluster_size": 3,
+  "hub": {"host": "<WINDOWS_LAN_IP>", "port": 8500, "local": true},
+  "nodes": [
+    {"node_id": "NODE-A", "host": "<WINDOWS_LAN_IP>", "web_port": 8081, "tcp_port": 9091, "initial_role": "MASTER", "local": true},
+    {"node_id": "NODE-B", "host": "<WINDOWS_LAN_IP>", "web_port": 8082, "tcp_port": 9092, "initial_role": "FOLLOWER", "local": true},
+    {"node_id": "NODE-C", "host": "<PHONE_LAN_IP>", "web_port": 8083, "tcp_port": 9093, "initial_role": "FOLLOWER", "local": false}
+  ],
+  "expected_core_git_blob": "eb8a48da88a75f9d58c954f8afeed86c2af27f93",
+  "timing": {"readiness_timeout_s": 240}
+}

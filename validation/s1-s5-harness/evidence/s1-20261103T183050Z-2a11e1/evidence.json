@@ -1,0 +1,207 @@
+{
+  "claims": {
+    "distributed_consensus": "not implemented in the runtime; not claimed",
+    "leader_election": "observed (deterministic max-id rule; hub-visibility quorum check; not a vote, no term)",
+    "liveness_detection": "observed (MASTER_PROBE over TCP, 15 s threshold)",
+    "master_fencing": "not implemented in the runtime; not claimed",
+    "recoordination": "observed (lower-id MASTER yields)",
+    "replication": "not tested: fail-closed with N=3 (QS-C01); the harness only checks that it stays refused"
+  },
+  "config": {
+    "cluster_size": 3,
+    "expected_core_git_blob": "eb8a48da88a75f9d58c954f8afeed86c2af27f93",
+    "hub": {
+      "host": "127.0.0.1",
+      "local": true,
+      "port": 8500
+    },
+    "min_free_mb": 2048,
+    "nodes": [
+      {
+        "host": "127.0.0.1",
+        "initial_role": "MASTER",
+        "local": true,
+        "node_id": "NODE-A",
+        "tcp_port": 9091,
+        "web_port": 8081
+      },
+      {
+        "host": "127.0.0.1",
+        "initial_role": "FOLLOWER",
+        "local": true,
+        "node_id": "NODE-B",
+        "tcp_port": 9092,
+        "web_port": 8082
+      },
+      {
+        "host": "127.0.0.1",
+        "initial_role": "FOLLOWER",
+        "local": true,
+        "node_id": "NODE-C",
+        "tcp_port": 9093,
+        "web_port": 8083
+      }
+    ],
+    "runtime_root": "C:\\Termux-nexus",
+    "timing": {
+      "http_timeout_s": 2.0,
+      "hub_ready_timeout_s": 20.0,
+      "max_observation_gap_s": 10.0,
+      "min_availability": 0.95,
+      "min_promotion_delay_s": 10.0,
+      "readiness_timeout_s": 90.0,
+      "s1_window_s": 120.0,
+      "s5_baseline_s": 20.0,
+      "s5_hold_s": 30.0,
+      "s5_min_observation_s": 35.0,
+      "s5_promotion_deadline_s": 90.0,
+      "sample_interval_s": 1.0,
+      "settle_s": 12.0,
+      "terminate_grace_s": 5.0
+    }
+  },
+  "evidence_written_monotonic_s": 3.027,
+  "evidence_written_utc": "2026-11-03T18:30:53.297+00:00",
+  "harness_version": "w06-1",
+  "host": {
+    "hostname": "<redacted-hostname>",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.14.6"
+  },
+  "interpretation_boundary": "S1/S5 observe liveness, election and recoordination of the V2700 runtime. They do not test replication or consensus: with N=3 replication is fail-closed (QS-C01) and no quorum-commit protocol exists. A PASS is not a distributed-consensus certification.",
+  "log_events": [],
+  "marks": {},
+  "memory": {
+    "min_available_mb": null,
+    "peak_children_rss_mb": 0.0
+  },
+  "preflight": {
+    "blocked_checks": [
+      "exposure",
+      "memory",
+      "secret"
+    ],
+    "checks": {
+      "clock": {
+        "max_abs_offset_s": 1.0,
+        "ntp_minus_local_median_s": -1.933,
+        "reason": "single_host_clock_skew_not_applicable",
+        "samples": [
+          {
+            "offset_s": -1.933,
+            "rtt_ms": 62.7,
+            "server": "a.st1.ntp.br"
+          },
+          {
+            "offset_s": -1.9303,
+            "rtt_ms": 254.8,
+            "server": "pool.ntp.org"
+          },
+          {
+            "offset_s": -1.936,
+            "rtt_ms": 70.6,
+            "server": "time.google.com"
+          }
+        ],
+        "status": "PASS"
+      },
+      "exposure": {
+        "acknowledged": false,
+        "exposed_local_ports": [
+          8500,
+          8081,
+          9091,
+          8082,
+          9092,
+          8083,
+          9093
+        ],
+        "reason": "lan_exposure_not_acknowledged",
+        "status": "BLOCKED",
+        "unauthenticated_surfaces": [
+          "hub GET /peers (roles, IPs, ports)",
+          "node GET /liveness /readiness /health /status /cluster /metrics",
+          "node TCP STATE_SUMMARY/SYNC_BATCH (refused with N=3, unauthenticated with N=1)"
+        ],
+        "wildcard_binds": [
+          {
+            "file": "nexus_rendezvous.py",
+            "line": 407
+          },
+          {
+            "file": "nexus_distributed_core.py",
+            "line": 391
+          },
+          {
+            "file": "web_panel.py",
+            "line": 128
+          }
+        ]
+      },
+      "memory": {
+        "available_mb": 1096.3,
+        "min_free_mb": 2048,
+        "reason": "insufficient_free_memory",
+        "status": "BLOCKED"
+      },
+      "ports": {
+        "checked": [
+          8500,
+          8081,
+          9091,
+          8082,
+          9092,
+          8083,
+          9093
+        ],
+        "in_use": [],
+        "status": "PASS"
+      },
+      "runtime": {
+        "git_blob": {
+          "nexus_distributed_core.py": "eb8a48da88a75f9d58c954f8afeed86c2af27f93",
+          "nexus_protocol.py": "12e38d3ae95a724badb455a02d7ffac48caabfcd",
+          "nexus_rendezvous.py": "d61fedd2d417ed85d6759239e16751fac7920298",
+          "nexus_transport.py": "e99a7797e6235b381f86779aca9bd4331f45bd01",
+          "persistence.py": "85e92e25e5a2e7fa5afac4cf3af5d4cda76470dd",
+          "web_panel.py": "7b12eb9dc0a607c8258edc0ea160b3818ce2b54f"
+        },
+        "git_commit": "30b774da59b6c0a04f8ca468d6bca994cf873a6e",
+        "git_modified_runtime_files": [],
+        "missing": [],
+        "reasons": [],
+        "runtime_root": "C:\\Termux-nexus",
+        "sha256_note": "raw bytes differ between CRLF (Windows) and LF checkouts; identity is the git blob",
+        "sha256_raw_bytes": {
+          "nexus_distributed_core.py": "515d282f47fd2a060dc1fee6a0587ffee9a4679c93cad2290f1275acc518bfd8",
+          "nexus_protocol.py": "5a806978f4585e2a557446973a9edeeec5e9a0d9bbc564dcf87877b387d11790",
+          "nexus_rendezvous.py": "a0e2cfc4eca6c4598219dda37696a79b31dea03eebc22f1be81e74782c13cd92",
+          "nexus_transport.py": "73459523a0bb3b2ece7ffb5c9f1f6f0ff9c97b1d612566c2dda2cfe1ee7c0421",
+          "persistence.py": "90d08f72334ebbfb65121d8b00c15700ed1bba5f298ba43167be60e9444ed19d",
+          "web_panel.py": "00b2aeabb80bd8ef1eb69c8d308a932558b67b299a79cfc7435955d5941a8a15"
+        },
+        "status": "PASS"
+      },
+      "secret": {
+        "reason": "NEXUS_SECRET_KEY_missing",
+        "status": "BLOCKED"
+      }
+    },
+    "status": "BLOCKED"
+  },
+  "result": {
+    "metrics": {},
+    "reasons": [
+      "preflight:exposure",
+      "preflight:memory",
+      "preflight:secret"
+    ],
+    "verdict": "BLOCKED",
+    "warnings": []
+  },
+  "run_id": "s1-20261103T183050Z-2a11e1",
+  "scenario": "s1",
+  "secret": "provided via NEXUS_SECRET_KEY environment variable; not recorded",
+  "started_utc": "2026-11-03T18:30:50.270+00:00",
+  "work_dir": "<redacted-local-temp>\\nexus-s1s5-s1-20261103T183050Z-2a11e1"
+}

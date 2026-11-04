@@ -1,0 +1,12 @@
+{
+  "_comment": "Topology B, phone side (Termux). Same members and ports as topology-b.example.json, with only NODE-C local. Replace both placeholders with the addresses confirmed on the day of the test.",
+  "cluster_size": 3,
+  "hub": {"host": "<WINDOWS_LAN_IP>", "port": 8500, "local": false},
+  "nodes": [
+    {"node_id": "NODE-A", "host": "<WINDOWS_LAN_IP>", "web_port": 8081, "tcp_port": 9091, "initial_role": "MASTER", "local": false},
+    {"node_id": "NODE-B", "host": "<WINDOWS_LAN_IP>", "web_port": 8082, "tcp_port": 9092, "initial_role": "FOLLOWER", "local": false},
+    {"node_id": "NODE-C", "host": "<PHONE_LAN_IP>", "web_port": 8083, "tcp_port": 9093, "initial_role": "FOLLOWER", "local": true}
+  ],
+  "expected_core_git_blob": "eb8a48da88a75f9d58c954f8afeed86c2af27f93",
+  "timing": {"readiness_timeout_s": 240}
+}
