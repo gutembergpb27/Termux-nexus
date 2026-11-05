@@ -77,7 +77,7 @@ Forma sugerida: mover a classe para `nexus_hub_server.py` e fazer o `__main__` d
   - hub indisponível;
   - CLI com sinal.
 - `tests/test_rendezvous_*.py` existentes.
-- A suíte completa (`tests/`): 870 passed, 1 xfailed hoje.
+- A suíte completa (`tests/`): 870 passed, 1 xfailed hoje (contagem local, incluindo testes não versionados; job de CI `tests/`: 858 passed, 1 xfailed — nota de 2026-11-04).
 - `python compare_hubs.py`: 0 FAIL.
 - S1 e S5 (harness W06) com o hub endurecido, antes de mudar o padrão.
 

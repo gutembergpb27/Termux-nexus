@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 200" width="1280" height="200" role="img" aria-labelledby="title desc">
+  <title id="title">Vision to Engineering to Evidence</title>
+  <desc id="desc">Three connected stages of the Nexus Runtime Platform method: Vision (research questions and contracts), Engineering (modular runtime, tests, CI) and Evidence (reproducible runs, audits, limits).</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B1220"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#14203A"/>
+      <stop offset="1" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="flow" gradientUnits="userSpaceOnUse" x1="60" y1="0" x2="1220" y2="0">
+      <stop offset="0" stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#3B82F6" stroke-opacity="0.06" stroke-width="1"/>
+    </pattern>
+    <marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M1 1L11 6L1 11Z" fill="#22D3EE"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="200" rx="20" fill="url(#bg)"/>
+  <rect width="1280" height="200" rx="20" fill="url(#grid)"/>
+  <rect x="0.75" y="0.75" width="1278.5" height="198.5" rx="19.5" fill="none" stroke="#1E3A5F" stroke-width="1.5"/>
+
+  <!-- Flow baseline -->
+  <line x1="60" y1="176" x2="1220" y2="176" stroke="url(#flow)" stroke-width="2" stroke-opacity="0.45"/>
+
+  <g font-family="Segoe UI, Inter, Helvetica Neue, Arial, sans-serif">
+    <!-- Stage 01 -->
+    <g transform="translate(60 36)">
+      <rect width="340" height="120" rx="14" fill="url(#card)" stroke="#2563EB" stroke-width="1.5"/>
+      <rect x="0" y="22" width="4" height="76" rx="2" fill="#2563EB"/>
+      <text x="28" y="38" font-family="SFMono-Regular, Consolas, Menlo, monospace" font-size="16" fill="#94A3B8">01</text>
+      <text x="28" y="72" font-size="28" font-weight="700" letter-spacing="3" fill="#E5E7EB">VISION</text>
+      <text x="28" y="100" font-size="17" fill="#94A3B8">research questions &amp; contracts</text>
+    </g>
+
+    <!-- Stage 02 -->
+    <g transform="translate(470 36)">
+      <rect width="340" height="120" rx="14" fill="url(#card)" stroke="#3B82F6" stroke-width="1.5"/>
+      <rect x="0" y="22" width="4" height="76" rx="2" fill="#3B82F6"/>
+      <text x="28" y="38" font-family="SFMono-Regular, Consolas, Menlo, monospace" font-size="16" fill="#94A3B8">02</text>
+      <text x="28" y="72" font-size="28" font-weight="700" letter-spacing="3" fill="#E5E7EB">ENGINEERING</text>
+      <text x="28" y="100" font-size="17" fill="#94A3B8">modular runtime, tests, CI</text>
+    </g>
+
+    <!-- Stage 03 (highlighted) -->
+    <g transform="translate(880 36)">
+      <rect width="340" height="120" rx="14" fill="url(#card)" stroke="#22D3EE" stroke-width="2"/>
+      <rect x="0" y="22" width="4" height="76" rx="2" fill="#22D3EE"/>
+      <text x="28" y="38" font-family="SFMono-Regular, Consolas, Menlo, monospace" font-size="16" fill="#94A3B8">03</text>
+      <text x="28" y="72" font-size="28" font-weight="700" letter-spacing="3" fill="#22D3EE">EVIDENCE</text>
+      <text x="28" y="100" font-size="17" fill="#94A3B8">reproducible runs, audits, limits</text>
+    </g>
+  </g>
+
+  <!-- Connectors -->
+  <g stroke="url(#flow)" stroke-width="3" stroke-linecap="round" fill="none">
+    <line x1="408" y1="96" x2="460" y2="96" marker-end="url(#arrow)"/>
+    <line x1="818" y1="96" x2="870" y2="96" marker-end="url(#arrow)"/>
+  </g>
+  <g fill="#3B82F6">
+    <circle cx="408" cy="96" r="4"/>
+    <circle cx="818" cy="96" r="4"/>
+  </g>
+</svg>
