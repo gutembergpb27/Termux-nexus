@@ -67,3 +67,25 @@ The expected failure remains explicitly documented and is not converted into an 
 RC2 is a pre-release candidate intended for technical validation and release certification.
 
 The `v2700.0.0-rc2` tag must only be created after the RC2 preparation changes are reviewed, integrated into `v2700-dev`, and the post-merge CI succeeds.
+
+## Erratum (2026-11-04)
+
+The statements above are preserved as the original release record. This
+erratum clarifies them; it does not change the release.
+
+- The tag `v2700.0.0-rc2` was created on 2026-09-17 and is published as a
+  pre-release. The GitHub "Latest" release is still `v2500.0.0`.
+- "Concurrent-promotion safety" and "quorum and split-brain safety" refer
+  to deterministic candidate selection (highest eligible id) and a
+  promotion gate based on the number of peers visible at the rendezvous
+  hub, as observed in controlled runs. They are not distributed
+  consensus: there is no election term, no vote, no leader fencing and no
+  majority commit.
+- The Axis 10 timing result and the Axis 11 statistical campaign were
+  measured before the QS-C01 fail-closed change and the `MASTER_PROBE`
+  liveness check (PR #101, merged 2026-11-04). "Active split-brain
+  observed = false" is an operational observation in the controlled
+  scenario, not a safety property.
+- See
+  [docs/NEXUS_V2700_W08A_CONSENSUS_SAFETY_AUDIT.md](docs/NEXUS_V2700_W08A_CONSENSUS_SAFETY_AUDIT.md)
+  for the W08-A audit findings.
