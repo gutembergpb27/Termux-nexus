@@ -17,6 +17,7 @@ import subprocess
 import sys
 import threading
 import time
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -31,7 +32,7 @@ from nexus_protocol import NexusProtocol  # noqa: E402
 
 REPO_ROOT = HERE.parents[1]
 EXPECTED_BLOBS = {
-    "nexus_rendezvous.py": "d61fedd2d417ed85d6759239e16751fac7920298",
+    "nexus_rendezvous.py": "9379f6b9d07caa20cd9db43a4f8ea5cd29ddcd05",
     "nexus_distributed_core.py": "5bc69c403784ac456ed723fc9237fa7fa7c637eb",
 }
 
@@ -236,6 +237,82 @@ def test_auth_and_contract_matrix_identical(target_factory, secret):
 @pytest.mark.parametrize("kind", ["original", "experimental"])
 def test_oversized_headers_rejected(target_factory, kind):
     assert hp.oversized_header(target_factory(kind)) == {"header_line_70k": 431, "headers_150": 431}
+
+
+# W11: a POST rejected before its body is read must still deliver the error
+# response. Closing with unread bytes resets the connection on Windows, which
+# made the oversized_length case of the matrix test flaky.
+
+def _late_read_rejected_post(target, path: str, declared_length: int):
+    """Send the body in its own segment and read only after the hub has answered."""
+    sock = target.raw_connect(timeout=2.0)
+    data = b""
+    try:
+        sock.sendall(f"POST {path} HTTP/1.1\r\nHost: hub\r\n"
+                     f"Content-Length: {declared_length}\r\n\r\n".encode("ascii"))
+        time.sleep(0.05)  # the hub has parsed the headers and is answering
+        sock.sendall(b"{}")
+        time.sleep(0.15)  # without a drain the hub has already closed with "{}" unread
+        while True:
+            chunk = sock.recv(4096)
+            if not chunk:
+                break
+            data += chunk
+    except OSError as exc:
+        return type(exc).__name__
+    return int(data.split(b" ", 2)[1]) if data else "empty"
+
+
+@pytest.mark.parametrize("kind", ["original", "experimental"])
+@pytest.mark.parametrize("path,declared_length,expected", [
+    ("/register", 70000, 400),   # oversized_length
+    ("/register", 65537, 400),   # one byte over the unchanged 64 KiB limit
+    ("/admin", 2, 404),          # unknown path, body never read
+])
+def test_rejected_post_response_survives_unread_body(target_factory, kind, path,
+                                                     declared_length, expected):
+    target = target_factory(kind)
+    results = [_late_read_rejected_post(target, path, declared_length) for _ in range(5)]
+    assert results == [expected] * 5
+
+
+@pytest.mark.parametrize("kind", ["original", "experimental"])
+def test_unread_body_drain_is_bounded(target_factory, kind):
+    """A client that trickles its body forever and never closes cannot hold the hub."""
+    target = target_factory(kind)
+    sock = target.raw_connect(timeout=3.0)
+    sock.sendall(b"POST /register HTTP/1.1\r\nHost: hub\r\nContent-Length: 70000\r\n\r\n")
+    data = b""
+    while True:
+        chunk = sock.recv(4096)
+        if not chunk:
+            break
+        data += chunk
+    assert data.startswith(b"HTTP/1.0 400"), data[:40]
+    # Keep sending one byte every 20 ms; the hub must close within its drain bound.
+    started = time.monotonic()
+    cut = None
+    while time.monotonic() - started < 3.0:
+        try:
+            sock.sendall(b"x")
+        except OSError:
+            cut = time.monotonic() - started
+            break
+        time.sleep(0.02)
+    assert cut is not None and cut < 1.0, cut
+    peers = hp.get_peers(target.port)
+    assert peers["status"] == 200 and peers["elapsed_s"] < 1.0, peers
+
+
+@pytest.mark.parametrize("kind", ["original", "experimental"])
+def test_oversized_length_repeated_always_400(target_factory, kind):
+    target = target_factory(kind)
+    statuses = Counter(
+        hp.http_call(target.port, "POST", "/register", b"{}", timeout=2.0,
+                     headers={"Content-Length": "70000"}).get("status")
+        for _ in range(300)
+    )
+    assert statuses == Counter({400: 300})
 
 
 def test_unsigned_get_peers_still_public_in_both(target_factory):

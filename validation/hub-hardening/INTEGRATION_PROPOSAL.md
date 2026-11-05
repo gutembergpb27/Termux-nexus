@@ -1,6 +1,6 @@
 # W07: Proposta de integração do hub endurecido
 
-Status: **proposta, não aplicada**. Aplicar exige autorização. `nexus_rendezvous.py` continua no blob `d61fedd2…`.
+Status: **proposta, não aplicada**. Aplicar exige autorização. `nexus_rendezvous.py` continua sem as alterações desta proposta; desde W11 seu blob é `9379f6b9…` (antes `d61fedd2…`), apenas pela drenagem do corpo não lido em POST rejeitado.
 
 ## 1. Alterações necessárias no hub original
 
@@ -64,7 +64,7 @@ Forma sugerida: mover a classe para `nexus_hub_server.py` e fazer o `__main__` d
 
 ## 6. Testes de regressão obrigatórios
 
-- `validation/hub-hardening/test_hub_hardening.py` (60 testes), rodado com `-X dev -W error::ResourceWarning`. Cobre:
+- `validation/hub-hardening/test_hub_hardening.py` (70 testes: 60 de W07 + 10 de regressão W11 para corpo não lido em POST rejeitado), rodado com `-X dev -W error::ResourceWarning`. Cobre:
   - cliente parado, headers parciais e body parcial;
   - slow-drip;
   - concorrência;

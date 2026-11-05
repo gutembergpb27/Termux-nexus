@@ -1,5 +1,6 @@
 import json
 import os
+import socket
 import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
@@ -12,6 +13,10 @@ PEER_TIMEOUT = 30
 PROTOCOL = None
 REPLAY_CACHE = ReplayCache()
 MESSAGE_TTL = 60.0
+
+# Bounds for draining an unread request body after an error response.
+UNREAD_BODY_DRAIN_S = 0.2
+UNREAD_BODY_DRAIN_MAX_BYTES = 65536
 
 
 def normalize_capabilities(value):
@@ -301,8 +306,40 @@ def update_peer_heartbeat(
 
 
 class NexusRendezvousHandler(BaseHTTPRequestHandler):
+    # Set to False by do_POST until the request body has been read.
+    _body_consumed = True
+
     def log_message(self, format, *args):
         pass
+
+    def finish(self):
+        super().finish()
+        if not self._body_consumed:
+            self._drain_unread_body()
+
+    def _drain_unread_body(self) -> None:
+        """Half-close, then briefly read leftover request bytes.
+
+        A rejected POST (bad length, unknown path) leaves its body unread.
+        Closing a socket with unread data sends a reset on Windows, which can
+        discard the error response before the client reads it. Draining is
+        bounded in time and bytes; the rejection itself is unchanged.
+        """
+        try:
+            self.connection.shutdown(socket.SHUT_WR)
+            deadline = time.monotonic() + UNREAD_BODY_DRAIN_S
+            received = 0
+            while received < UNREAD_BODY_DRAIN_MAX_BYTES:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                self.connection.settimeout(remaining)
+                chunk = self.connection.recv(4096)
+                if not chunk:
+                    break
+                received += len(chunk)
+        except OSError:
+            pass
 
     def _send_json(self, status: int, payload: dict[str, Any]) -> None:
         body = json.dumps(payload).encode("utf-8")
@@ -313,6 +350,7 @@ class NexusRendezvousHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
+        self._body_consumed = False
         if self.path not in {"/register", "/heartbeat"}:
             self._send_json(404, {"error": "not found"})
             return
@@ -328,6 +366,7 @@ class NexusRendezvousHandler(BaseHTTPRequestHandler):
                 raise ValueError("invalid content length")
 
             post_data = self.rfile.read(content_length)
+            self._body_consumed = True
             envelope = json.loads(post_data.decode("utf-8"))
 
             if not isinstance(envelope, dict):
