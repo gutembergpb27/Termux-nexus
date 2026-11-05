@@ -64,7 +64,7 @@ Forma sugerida: mover a classe para `nexus_hub_server.py` e fazer o `__main__` d
 
 ## 6. Testes de regressão obrigatórios
 
-- `validation/hub-hardening/test_hub_hardening.py` (60 testes), rodado com `-X dev -W error::ResourceWarning`. Cobre:
+- `validation/hub-hardening/test_hub_hardening.py` (70 testes: 60 de W07 + 10 de regressão W11 para corpo não lido em POST rejeitado), rodado com `-X dev -W error::ResourceWarning`. Cobre:
   - cliente parado, headers parciais e body parcial;
   - slow-drip;
   - concorrência;
