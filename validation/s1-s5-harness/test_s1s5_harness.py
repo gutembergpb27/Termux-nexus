@@ -245,7 +245,7 @@ def test_exposure_audit_finds_runtime_wildcard_binds():
 def test_runtime_integrity_matches_reference_blob():
     report = h.runtime_integrity(h.parse_config(base_config()))
     assert report["missing"] == []
-    assert report["git_blob"]["nexus_distributed_core.py"] == "eb8a48da88a75f9d58c954f8afeed86c2af27f93"
+    assert report["git_blob"]["nexus_distributed_core.py"] == "5bc69c403784ac456ed723fc9237fa7fa7c637eb"
     data = base_config()
     data["expected_core_git_blob"] = "0" * 40
     assert "core_git_blob_mismatch" in h.runtime_integrity(h.parse_config(data))["reasons"]
@@ -1032,4 +1032,5 @@ def test_child_env_passes_secret_only_through_environment():
     env = h.child_env(cfg, SECRET, Path("db"))
     assert env["NEXUS_SECRET_KEY"] == SECRET
     assert env["NEXUS_CLUSTER_SIZE"] == "3"
+    assert env["NEXUS_CLUSTER_MODE"] == "distributed"
     assert "-B" in cmd and env["PYTHONDONTWRITEBYTECODE"] == "1"

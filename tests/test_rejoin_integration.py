@@ -1,12 +1,22 @@
+"""Rejoin over the legacy sync path after W08-B.
+
+Real-process old-master rejoin is not validated (PARKED). These tests
+only check that the legacy TCP sync handler refuses to serve a rejoining
+node, and that two local stores can exchange blocks in-process. They are
+not evidence of network replication or safe rejoin.
+"""
+
 from nexus_distributed_core import NexusDistributedCore
-from nexus_transport import encode_message, recv_message
+from nexus_transport import encode_message
 from persistence import NexusPersistence
 
 
 def make_core(node_id, store):
     core = object.__new__(NexusDistributedCore)
     core.node_id = node_id
-    # Legacy single-member sync path (QS-C01 allows sync only for N == 1).
+    # W08-B: legacy TCP sync is disabled in every cluster mode,
+    # including an explicit single-node deployment.
+    core.cluster_mode = "single"
     core.configured_cluster_size = 1
     core.persistence = store
     return core
@@ -30,15 +40,7 @@ class FakeSocket:
         self.closed = True
 
 
-def decode_sent(data):
-    socket = FakeSocket.__new__(FakeSocket)
-    socket.incoming = data
-    socket.sent = b""
-    socket.closed = False
-    return recv_message(socket)
-
-
-def test_rejoined_follower_converges_with_master(tmp_path):
+def make_stores(tmp_path):
     master_store = NexusPersistence(
         filepath=str(tmp_path / "master.db")
     )
@@ -53,7 +55,34 @@ def test_rejoined_follower_converges_with_master(tmp_path):
     rejoined_store.apply_blocks(
         master_store.blocks_from_height(0)[:1]
     )
+    return master_store, rejoined_store
 
+
+def test_local_store_catch_up_applies_missing_blocks(tmp_path):
+    """Local persistence API only.
+
+    This does not exercise a node rejoining a cluster: there is no
+    network, no runtime and no leadership. It only checks that a
+    lagging local store can apply the missing blocks of another one.
+    """
+    master_store, rejoined_store = make_stores(tmp_path)
+
+    remote_height = rejoined_store.state_summary()["height"]
+    blocks = master_store.blocks_from_height(remote_height)
+
+    assert remote_height == 1
+    assert len(blocks) == 2
+
+    applied = rejoined_store.apply_blocks(blocks)
+
+    assert applied == 2
+    assert rejoined_store.state_summary()["height"] == 3
+    assert rejoined_store.last_hash == master_store.last_hash
+
+
+def test_rejoin_over_legacy_tcp_sync_is_blocked(tmp_path):
+    master_store, rejoined_store = make_stores(tmp_path)
+    rejoined_tip = rejoined_store.last_hash
     master = make_core("NO-MASTER", master_store)
 
     request = FakeSocket(
@@ -63,16 +92,9 @@ def test_rejoined_follower_converges_with_master(tmp_path):
         }
     )
 
-    master.handle_client(request)
-    batch = decode_sent(request.sent)
+    master.handle_client(request)  # logs the block, never raises
 
-    assert batch["type"] == "SYNC_BATCH"
-    assert batch["from_height"] == 1
-    assert len(batch["blocks"]) == 2
-
-    applied = rejoined_store.apply_blocks(batch["blocks"])
-
-    assert applied == 2
-    assert rejoined_store.state_summary()["height"] == 3
-    assert rejoined_store.last_hash == master_store.last_hash
+    assert request.sent == b""
     assert request.closed is True
+    assert rejoined_store.last_hash == rejoined_tip
+    assert rejoined_store.state_summary()["height"] == 1

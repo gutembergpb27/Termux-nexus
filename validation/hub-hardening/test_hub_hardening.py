@@ -32,7 +32,7 @@ from nexus_protocol import NexusProtocol  # noqa: E402
 REPO_ROOT = HERE.parents[1]
 EXPECTED_BLOBS = {
     "nexus_rendezvous.py": "d61fedd2d417ed85d6759239e16751fac7920298",
-    "nexus_distributed_core.py": "eb8a48da88a75f9d58c954f8afeed86c2af27f93",
+    "nexus_distributed_core.py": "5bc69c403784ac456ed723fc9237fa7fa7c637eb",
 }
 
 

@@ -67,6 +67,11 @@ After=network.target
 Type=simple
 WorkingDirectory=$NEXUS_DIR
 Environment=NEXUS_HUB_URL=$NEXUS_HUB_URL
+# W08-B: NEXUS_CLUSTER_MODE is intentionally NOT set here. The node starts
+# fail-closed (no local writes, no peer sync, no promotion) until the
+# operator sets it explicitly (systemctl edit nexus). Never set
+# NEXUS_CLUSTER_MODE=single on more than one node.
+# See docs/NEXUS_V2700_W08B_CLUSTER_MODE_MIGRATION.md
 ExecStart=/usr/bin/python3 nexus_distributed_core.py $NODE_ID $WEB_PORT $TCP_PORT $ROLE
 Restart=always
 RestartSec=5
@@ -87,6 +92,10 @@ echo "✔ PROVISIONAMENTO CONCLUÍDO COM SUCESSO!"
 echo "📍 Diretório de execução: $NEXUS_DIR"
 echo "🛠️ Unidade gerada: $SERVICE_FILE"
 echo "👑 Configuração Atual: ID=$NODE_ID | Papel=[$ROLE] | Portas=$WEB_PORT, TCP=$TCP_PORT"
+echo "⚠ NEXUS_CLUSTER_MODE não definido: o nó inicia em modo fail-closed"
+echo "  (sem escrita local, sem sincronização, sem promoção)."
+echo "  Consulte docs/NEXUS_V2700_W08B_CLUSTER_MODE_MIGRATION.md antes de"
+echo "  definir o modo com 'sudo systemctl edit nexus'."
 echo "=============================================================================="
 echo "💡 Para inicializar o nó na malha de borda física, execute:"
 echo "   sudo systemctl start nexus"

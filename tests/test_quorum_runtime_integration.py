@@ -6,20 +6,35 @@ import pytest
 from nexus_distributed_core import NexusDistributedCore
 
 
-def _make_core(cluster_size):
+@pytest.fixture(autouse=True)
+def _isolated_cwd(tmp_path, monkeypatch):
+    # The core writes nexus_<id>.db and outputs/ relative to the cwd.
+    monkeypatch.chdir(tmp_path)
+
+
+def _make_core(cluster_size, mode=None):
     """
     Construct the real NexusDistributedCore with an explicit
     stable cluster membership size.
+
+    The web server and background threads are patched out so the
+    test never binds sockets or contacts a hub.
     """
 
-    with patch.dict(
-        os.environ,
-        {
-            "NEXUS_CLUSTER_SIZE": str(cluster_size),
-            "NEXUS_SECRET_KEY": "axis8-test-key",
-        },
-        clear=False,
+    env = {
+        "NEXUS_CLUSTER_SIZE": str(cluster_size),
+        "NEXUS_SECRET_KEY": "axis8-test-key",
+    }
+    if mode is not None:
+        env["NEXUS_CLUSTER_MODE"] = mode
+
+    with (
+        patch.dict(os.environ, env, clear=False),
+        patch("nexus_distributed_core.start_web_server"),
+        patch("nexus_distributed_core.threading.Thread"),
     ):
+        if mode is None:
+            os.environ.pop("NEXUS_CLUSTER_MODE", None)
         return NexusDistributedCore(
             node_id="NODE-A",
             web_port=8081,
@@ -29,23 +44,33 @@ def _make_core(cluster_size):
 
 
 @pytest.mark.parametrize(
-    "cluster_size,expected_majority",
+    "cluster_size,mode,expected_majority",
     [
-        (1, 1),
-        (2, 2),
-        (3, 2),
-        (4, 3),
-        (5, 3),
+        (1, "single", 1),
+        (2, None, 2),
+        (3, None, 2),
+        (4, "distributed", 3),
+        (5, "distributed", 3),
     ],
 )
 def test_real_runtime_derives_majority_from_configured_membership(
     cluster_size,
+    mode,
     expected_majority,
 ):
-    core = _make_core(cluster_size)
+    core = _make_core(cluster_size, mode)
 
     assert core.configured_cluster_size == cluster_size
     assert core.majority == expected_majority
+
+
+def test_real_runtime_n1_without_explicit_mode_has_no_majority():
+    """W08-B: N == 1 alone is unconfigured and can never promote."""
+    core = _make_core(1)
+
+    assert core.cluster_mode == "unconfigured"
+    assert core.configured_cluster_size == 1
+    assert core.majority is None
 
 
 def test_real_runtime_three_member_cluster_requires_two_members():
