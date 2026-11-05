@@ -42,7 +42,7 @@ links are wired into the runtime; dashed links are experimental components
 that exist in the repository but are **not** wired into the live runtime.
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph OPS["Operator side"]
         CLI["nexus CLI"]
         CLIENT["RuntimeClient / NexusClient"]

@@ -44,7 +44,7 @@ experimentais que existem no repositório, mas **não** estão integrados ao
 runtime em execução.
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph OPS["Lado do operador"]
         CLI["CLI nexus"]
         CLIENT["RuntimeClient / NexusClient"]
