@@ -184,6 +184,7 @@ Status as of `main` at `dc180e4` (2026-11-04).
 | Hash-chained append log | Implemented |
 | HMAC envelopes with TTL and replay protection (shared secret) | Implemented |
 | QS-C01 block of distributed sync and writes for `NEXUS_CLUSTER_SIZE` ≠ 1 | Implemented (not physically revalidated) |
+| Explicit fail-closed cluster mode (`NEXUS_CLUSTER_MODE`, W08-B, PR #104) | Implemented (not physically revalidated) |
 | Authenticated MASTER liveness probe (`MASTER_PROBE`) | Implemented (not physically revalidated) |
 | Compute task worker | Implemented |
 | S1–S5 validation harness | Experimental |
@@ -208,6 +209,11 @@ for file and line references.
   that omits it runs with majority 1, local writes enabled and the legacy
   unauthenticated sync enabled; QS-C01 does not apply. An explicit
   fail-closed cluster mode is planned (PR-B, in preparation).
+  **Resolved (2026-11-05) by PR #104** (merge `9218889`): `NEXUS_CLUSTER_MODE`
+  is now explicit; a missing mode blocks writes, peer sync and promotion;
+  legacy sync is disabled in every mode; invalid configuration refuses to
+  start. `single` remains an operator assertion. See
+  [NEXUS_V2700_W08B_CLUSTER_MODE_MIGRATION.md](NEXUS_V2700_W08B_CLUSTER_MODE_MIGRATION.md).
 - **F2:** promotion is not an election. "Quorum" is the hub-visible peer
   count from an unauthenticated `GET /peers`; no votes, no term.
 - **F3:** two MASTER roles can coexist under asymmetric partition and are
