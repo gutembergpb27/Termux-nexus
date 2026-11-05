@@ -1,6 +1,6 @@
 # W07: Proposta de integração do hub endurecido
 
-Status: **proposta, não aplicada**. Aplicar exige autorização. `nexus_rendezvous.py` continua no blob `d61fedd2…`.
+Status: **proposta, não aplicada**. Aplicar exige autorização. `nexus_rendezvous.py` continua sem as alterações desta proposta; desde W11 seu blob é `9379f6b9…` (antes `d61fedd2…`), apenas pela drenagem do corpo não lido em POST rejeitado.
 
 ## 1. Alterações necessárias no hub original
 

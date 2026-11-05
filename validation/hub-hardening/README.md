@@ -1,12 +1,12 @@
 # W07: Hub hardening (experimental, isolado)
 
-Este diretório **não** altera o runtime. `nexus_rendezvous.py` (blob `d61fedd2…`) e `nexus_distributed_core.py` não são alterados por este diretório; o blob de referência do core passou a ser `5bc69c40…` em W08-B / PR-B (modo de cluster explícito; antes `eb8a48da…`). Nada aqui inicia o hub real nem o cluster.
+Este diretório **não** altera o runtime. `nexus_rendezvous.py` (blob `9379f6b9…` desde W11; antes `d61fedd2…`) e `nexus_distributed_core.py` não são alterados por este diretório; o blob de referência do core passou a ser `5bc69c40…` em W08-B / PR-B (modo de cluster explícito; antes `eb8a48da…`). Nada aqui inicia o hub real nem o cluster.
 
 | Arquivo | Papel |
 |---|---|
 | `experimental_hub.py` | `HardenedHub`: concorrência limitada, timeouts, prazo por requisição, limite por cliente, allowlist, bind em 127.0.0.1 por padrão, bind exclusivo, lock de estado, reaper robusto, shutdown controlado, contadores. A validação HMAC é **importada** do original, não copiada. |
 | `hub_probes.py` | Sondas de loopback compartilhadas por testes e comparador. O alvo "original" é o `NexusRendezvousHandler` original num `HTTPServer` em 127.0.0.1 com porta efêmera; o `__main__` dele nunca roda. |
-| `test_hub_hardening.py` | 60 testes. `test_original_*` passam quando a limitação do original é reproduzida. |
+| `test_hub_hardening.py` | 70 testes (60 de W07 + 10 de regressão W11). `test_original_*` passam quando a limitação do original é reproduzida. |
 | `compare_hubs.py` | Gera `evidence/hub-compare-*.json`, com PASS/FAIL/BLOCKED por verificação. |
 | `INTEGRATION_PROPOSAL.md` | Proposta de integração (não aplicada). |
 
@@ -24,7 +24,7 @@ python -B compare_hubs.py
 ## Evidências
 
 O repositório versiona somente a evidência final:
-- `hub-compare-20261103T200806Z-4878156d.json`: versão final. O `artifacts_sha256` dela confere com os quatro módulos deste diretório.
+- `hub-compare-20261103T200806Z-4878156d.json`: versão final. O `artifacts_sha256` dela registra os módulos na data da coleta; `experimental_hub.py`, `test_hub_hardening.py` e o hub original mudaram depois (W11).
 
 As duas execuções intermediárias permanecem **somente no disco local** de quem executou a W07 e não são versionadas:
 - `hub-compare-20261103T193921Z-7f37c46a.json`: versão sem a thread de rejeição;
@@ -33,3 +33,7 @@ As duas execuções intermediárias permanecem **somente no disco local** de que
 O campo `artifacts_sha256` identifica a versão de cada execução.
 
 Escopo: disponibilidade e robustez HTTP do hub. **Não** valida consenso, replicação nem fencing.
+
+## W11: corpo não lido em POST rejeitado
+
+Um POST rejeitado antes da leitura do corpo (Content-Length inválido ou acima de 64 KiB, caminho desconhecido, 503) deixava bytes não lidos no socket. No Windows, fechar o socket nesse estado envia RST, que podia descartar a resposta de erro antes de o cliente lê-la: era a falha intermitente do caso `oversized_length`. Os dois hubs agora fazem *half-close* e drenam o restante por no máximo 0,2 s e 64 KiB, só nesse caso. Códigos, corpos de resposta e o limite de 64 KiB não mudaram. Testes: `test_rejected_post_response_survives_unread_body`, `test_unread_body_drain_is_bounded`, `test_oversized_length_repeated_always_400`.

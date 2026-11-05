@@ -147,7 +147,37 @@ class HardenedHubHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
         self.server.stats.incr(f"status_{status}")
 
+    # Set to False by do_POST until the request body has been read.
+    _body_consumed = True
+
+    def finish(self) -> None:
+        super().finish()
+        if not self._body_consumed and not self.server._closing.is_set():
+            self._drain_unread_body()
+
+    def _drain_unread_body(self) -> None:
+        """Half-close, then briefly read leftover request bytes so close() does not RST.
+
+        Same bounds as the admission rejecter; skipped while shutting down.
+        """
+        try:
+            self.connection.shutdown(socket.SHUT_WR)
+            deadline = time.monotonic() + REJECT_DRAIN_S
+            received = 0
+            while received < 65536:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                self.connection.settimeout(remaining)
+                chunk = self.connection.recv(4096)
+                if not chunk:
+                    break
+                received += len(chunk)
+        except OSError:
+            pass
+
     def do_POST(self):
+        self._body_consumed = False
         self._guarded(self._do_post, "post")
 
     def do_GET(self):
@@ -188,6 +218,7 @@ class HardenedHubHandler(BaseHTTPRequestHandler):
             if content_length <= 0 or content_length > server.limits.max_body_bytes:
                 raise ValueError("invalid content length")
             post_data = self.rfile.read(content_length)
+            self._body_consumed = True
             if len(post_data) != content_length:
                 server.stats.incr("incomplete_body")
                 raise ValueError("incomplete body")

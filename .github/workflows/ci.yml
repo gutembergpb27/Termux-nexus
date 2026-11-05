@@ -150,7 +150,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 25
     env:
-      EXPECTED_TESTS: "60"
+      EXPECTED_TESTS: "70"
       PYTHONDONTWRITEBYTECODE: "1"
     defaults:
       run:
