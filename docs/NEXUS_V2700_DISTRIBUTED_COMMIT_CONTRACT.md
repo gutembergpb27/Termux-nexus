@@ -2,7 +2,7 @@
 
 Status: PROPOSED
 Scope: Distributed consensus and persistence
-Runtime activation: DISABLED
+Runtime activation: DISABLED for `NEXUS_CLUSTER_SIZE` ≠ 1 (see §15)
 
 ## 1. Objective
 
@@ -144,8 +144,10 @@ mechanisms and must stay separate.
   blocked for N > 1, followers promoted themselves while
   the legitimate MASTER was alive.
 
-Current implementation (branch
-`fix/v2700-qs-c01-master-liveness`, not yet released):
+Current implementation (merged to `main` via PR #101 on
+2026-11-04; not tagged; not physically revalidated on three
+nodes). Originally recorded as: branch
+`fix/v2700-qs-c01-master-liveness`, not yet released.
 
 - N > 1: authenticated `MASTER_PROBE` / `MASTER_PROBE_ACK`
   exchange (HMAC, TTL, replay protection, identity check,
@@ -166,3 +168,13 @@ any value of `NEXUS_CLUSTER_SIZE` other than the integer
 The behavior is covered by automated tests
 (`tests/test_qs_c01_fail_closed.py`) and has not yet been
 revalidated on a physical three-node deployment.
+
+Note (2026-11-04, W08-A finding F1): `NEXUS_CLUSTER_SIZE`
+defaults to `1` when the variable is not set. A multi-node
+deployment that omits it therefore runs with majority 1,
+local intake writes enabled and the legacy unauthenticated
+`STATE_SUMMARY` / `SYNC_BATCH` sync path enabled; this
+section does not protect it. An explicit fail-closed
+cluster mode is planned (PR-B, in preparation) and is not
+on `main`. See
+[NEXUS_V2700_W08A_CONSENSUS_SAFETY_AUDIT.md](NEXUS_V2700_W08A_CONSENSUS_SAFETY_AUDIT.md).

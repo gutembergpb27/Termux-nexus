@@ -4,12 +4,12 @@
 
 ### Distributed runtime infrastructure for resilient systems
 
-**Runtime · Cluster · Replication · Diagnostics · Observability**
+**Runtime · Cluster · Replication (single-node legacy path only) · Diagnostics · Observability**
 
 ![Version](https://img.shields.io/badge/version-2700.0.0--rc2-2563eb)
 ![Python](https://img.shields.io/badge/python-3.14%2B-3776ab)
 ![Status](https://img.shields.io/badge/status-release%20candidate-f59e0b)
-![Tests](https://img.shields.io/badge/tests-810%20passed%2C%201%20xfailed-16a34a)
+![Tests](https://img.shields.io/badge/CI%20tests-1025%20passed%2C%201%20xfailed-16a34a)
 
 </div>
 
@@ -21,8 +21,9 @@ Nexus Runtime Platform is an experimental distributed runtime designed for
 research, validation and development of resilient computing infrastructure.
 
 The platform combines runtime lifecycle management, cluster orchestration,
-state replication, diagnostics, health inspection and observability through
-a modular Python architecture.
+state replication (single-node legacy path only; blocked for N > 1 — see
+[Known limitations](#known-limitations)), diagnostics, health inspection and
+observability through a modular Python architecture.
 
 > Current release candidate: **v2700.0.0-rc2**
 
@@ -33,7 +34,7 @@ a modular Python architecture.
 | Area | Capabilities |
 |---|---|
 | Runtime | Engine, configuration, state and events |
-| Cluster | Node management, orchestration and replication |
+| Cluster | Node management, orchestration and replication (single-node legacy path only; blocked for N > 1 — see [Known limitations](#known-limitations)) |
 | Diagnostics | Local environment and remote runtime inspection |
 | Health | Runtime and storage-integrity checks |
 | Observability | Logging, metrics, telemetry and tracing |
@@ -91,6 +92,33 @@ The Axis 11 campaign contains **29 physical samples (run011-run039)**:
 `run010` is preserved as incomplete and is not counted as a physical sample. No `run040` was created.
 
 These results apply to the documented experiment contract. They are not production certification, universal fault-tolerance claims, or a direct performance comparison with etcd, Consul, Raft implementations, or other distributed systems.
+
+## Known limitations
+
+Status as of 2026-11-04 (`main` at `dc180e4`). Details, with file and line
+references, are in [PROJECT_STATE](docs/PROJECT_STATE.md) and the
+[W08-A consensus safety audit](docs/NEXUS_V2700_W08A_CONSENSUS_SAFETY_AUDIT.md).
+
+- **No distributed consensus.** There is no election term, no vote, no
+  leader fencing and no majority commit.
+- **Quorum is a hub-visible count.** Promotion counts the peers listed by the
+  rendezvous hub's unauthenticated `GET /peers`; it is not a vote.
+- **Dual MASTER is possible** under an asymmetric partition (all nodes reach
+  the hub, a follower cannot reach the master). It is resolved afterwards by
+  lexicographic id.
+- **`NEXUS_CLUSTER_SIZE` defaults to `1`.** A multi-node deployment that does
+  not set it runs with local writes and the legacy unauthenticated sync path
+  enabled; the QS-C01 block for N ≠ 1 does not apply. An explicit
+  fail-closed cluster mode is planned.
+- **Log rotation loses history.** Each rotation deletes the previously
+  rotated file.
+- **Axis 10/11 predate QS-C01.** The resilience results above were measured
+  before the QS-C01 fail-closed change and the `MASTER_PROBE` liveness check
+  (PR #101). "0 operational split-brain observations" is an observation in
+  the controlled scenario, not a safety property.
+- **Release status.** The GitHub "Latest" release is still `v2500.0.0`;
+  `v2700.0.0-rc2` is a pre-release. Post-RC2 work (PR #101, PR #102) is on
+  `main` but not tagged.
 
 ## Architecture
 
@@ -335,7 +363,22 @@ The project remains experimental. Published evidence supports the documented con
 
 ## Development validation
 
-The V2700 certification baseline completed the repository regression suite with:
+Current CI on `main` (workflow "Nexus Runtime CI", run 41912549086,
+2026-11-04), required checks:
+
+| Check | Result |
+|---|---|
+| `test-and-build` (`tests/`) | 858 passed, 1 xfailed |
+| `W05/W06 S1-S5 harness tests` | 107 passed (90 + 17) |
+| `W07 experimental hub hardening tests` | 60 passed |
+| Total | 1,025 passed, 1 xfailed |
+
+CI runs only on `windows-latest` with Python 3.14. The expected failure is
+`tests/test_integrity.py:411` (coordinated log and checkpoint rollback
+requires an external anchor) and is unrelated to consensus.
+
+Historical RC2 figure: the V2700 certification baseline completed the
+repository regression suite with:
 
 ```text
 810 passed, 1 xfailed
@@ -367,6 +410,7 @@ timeline
     v2500 RC1 : Unified runtime and cluster architecture
     v2600 Alpha 1 : Compute lifecycle, durable state and startup recovery
     v2700 RC1 : Durable execution, distributed coordination, readiness and transport hardening
+    post-RC2 : QS-C01 (PR 101), W05–W07 harness (PR 102), W08 safety audit
 ```
 
 Future work may include:
@@ -374,7 +418,7 @@ Future work may include:
 - expanded multi-node testing;
 - stronger network-failure simulation;
 - improved replication protocols;
-- authentication and transport security;
+- TLS and per-node identity (HMAC envelope authentication already exists);
 - packaged releases;
 - additional operating-system validation;
 - formal production-readiness criteria.
