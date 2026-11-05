@@ -5,6 +5,12 @@ from nexus.compute.task import ComputeTask
 from nexus.compute.task_completion import TaskCompletionRegistry
 from nexus.compute.task_queue import TaskQueue
 from nexus.compute.task_worker import TaskWorker
+from nexus_cluster_mode import (
+    MODE_DISTRIBUTED,
+    MODE_SINGLE,
+    MODE_UNCONFIGURED,
+    resolve_cluster_mode,
+)
 from nexus_protocol import NexusProtocol, ReplayCache
 from nexus_transport import recv_message, send_message
 from persistence import NexusPersistence
@@ -69,17 +75,22 @@ class NexusDistributedCore:
         self.tcp_port = int(tcp_port)
         self.role = role
 
-        self.configured_cluster_size = int(
-            os.getenv("NEXUS_CLUSTER_SIZE", "1")
+        # W08-B: explicit, fail-closed cluster mode. Invalid values raise
+        # here, before any file, socket or thread is created.
+        cluster = resolve_cluster_mode(os.environ)
+        self.cluster_mode = cluster.mode
+        self.configured_cluster_size = cluster.cluster_size
+        # None blocks leadership promotion (unconfigured mode).
+        self.majority = cluster.majority
+        logger.info(
+            "cluster_mode_resolved node=%s mode=%s cluster_size=%s "
+            "majority=%s local_writes=%s peer_sync=disabled",
+            node_id,
+            cluster.mode,
+            cluster.cluster_size,
+            cluster.majority,
+            "allowed" if cluster.local_writes_allowed else "blocked",
         )
-        if self.configured_cluster_size < 1:
-            raise ValueError(
-                "NEXUS_CLUSTER_SIZE must be greater than zero"
-            )
-
-        self.majority = (
-            self.configured_cluster_size // 2
-        ) + 1
 
         self.hub_url = os.getenv("NEXUS_HUB_URL", "http://127.0.0.1:8500")
         secret = os.getenv("NEXUS_SECRET_KEY", "").strip()
@@ -402,13 +413,52 @@ class NexusDistributedCore:
     # ------------------------------------------------------------------
 
     def _distributed_sync_enabled(self):
-        """Return True only for the legacy single-member configuration.
+        """Legacy peer sync is disabled in every cluster mode.
 
-        Any other value (N > 1, missing or non-int) fails closed until a
+        STATE_SUMMARY / SYNC_BATCH are unauthenticated and carry no term
+        or quorum. Before W08-B they were enabled whenever the cluster
+        size was 1, which was also the default when NEXUS_CLUSTER_SIZE was
+        missing. An explicit single-node deployment has no peer to sync
+        with, so the path stays fail-closed until an authenticated
         quorum-commit protocol exists.
         """
-        size = getattr(self, "configured_cluster_size", None)
-        return type(size) is int and size == 1
+        return False
+
+    def _local_write_block_reason(self):
+        """Return None when a local write is allowed, else a reason code.
+
+        Only an explicit single-node deployment may write. Hub peer
+        visibility can only restrict this decision, never authorize it:
+        an empty or unreachable hub view does not prove the node is
+        alone (single mode is an operator assertion, not a safety
+        mechanism against hidden or partitioned nodes).
+        """
+        mode = getattr(self, "cluster_mode", None)
+
+        if mode == MODE_SINGLE:
+            size = getattr(self, "configured_cluster_size", None)
+            if not (type(size) is int and size == 1):
+                return "cluster_mode_invalid"
+
+            peers = getattr(self, "peers", None)
+            if peers is not None and not isinstance(peers, dict):
+                return "single_mode_hub_view_invalid"
+
+            local_id = str(getattr(self, "node_id", ""))
+            if peers and any(
+                str(peer_id) != local_id for peer_id in peers
+            ):
+                return "single_mode_peer_conflict"
+
+            return None
+
+        if mode == MODE_DISTRIBUTED:
+            return "quorum_commit_not_implemented"
+
+        if mode in (None, MODE_UNCONFIGURED):
+            return "cluster_mode_unconfigured"
+
+        return "cluster_mode_invalid"
 
     def _block_distributed_sync(self, operation):
         logger.warning(
@@ -1031,9 +1081,9 @@ class NexusDistributedCore:
                 if master_node and self.role == "FOLLOWER":
                     try:
                         # Liveness and sync are separate concerns.
-                        # N == 1 keeps the legacy sync path; N > 1
-                        # keeps sync blocked (QS-C01) and proves
-                        # MASTER liveness with an authenticated probe.
+                        # Legacy sync is disabled in every mode
+                        # (QS-C01 / W08-B), so MASTER liveness is
+                        # always proved with an authenticated probe.
                         if self._distributed_sync_enabled():
                             self.sync_from_peer(raw_peers[master_node])
                         else:
@@ -1100,6 +1150,37 @@ class NexusDistributedCore:
                         }
                         visible_member_ids.add(str(self.node_id))
 
+                        # W08-B: an unconfigured or invalid cluster
+                        # mode has no majority and never promotes.
+                        # A single-node deployment that sees other
+                        # members is misconfigured and must not
+                        # promote either.
+                        # Pre-existing behavior kept below: distributed
+                        # promotion still counts hub-visible members.
+                        # That count is not quorum proof; the MASTER
+                        # role it yields is a label with no write or
+                        # sync authority (both stay blocked).
+                        majority = getattr(self, "majority", None)
+                        single_conflict = (
+                            getattr(self, "cluster_mode", None)
+                            == MODE_SINGLE
+                            and len(visible_member_ids) > 1
+                        )
+                        if (
+                            type(majority) is not int
+                            or majority < 1
+                            or single_conflict
+                        ):
+                            logger.warning(
+                                "leadership_promotion_blocked_cluster_mode "
+                                "node=%s mode=%s majority=%s visible=%s",
+                                getattr(self, "node_id", "unknown"),
+                                getattr(self, "cluster_mode", None),
+                                majority,
+                                len(visible_member_ids),
+                            )
+                            continue
+
                         quorum_count = len(visible_member_ids)
                         quorum_available = (
                             quorum_count >= self.majority
@@ -1146,21 +1227,27 @@ class NexusDistributedCore:
                 if not payload:
                     continue
 
-                # QS-C01 / STAGE A:
+                # QS-C01 / STAGE A and W08-B:
                 # A multi-node deployment must not report local
-                # persistence as a distributed commit.
-                # Fail closed until a certified quorum-commit
-                # protocol is available.
-                if not self._distributed_sync_enabled():
+                # persistence as a distributed commit, and a missing
+                # or invalid cluster mode must not be mistaken for a
+                # single-node deployment. Only an explicit
+                # NEXUS_CLUSTER_MODE=single may write locally.
+                block_reason = self._local_write_block_reason()
+                if block_reason is not None:
                     logger.warning(
-                        "distributed_write_blocked "
-                        "node=%s reason=quorum_commit_not_implemented",
+                        "distributed_write_blocked node=%s reason=%s",
                         self.node_id,
+                        block_reason,
                     )
                     print(
-                        f"[{self.node_id} Intake] Escrita BLOQUEADA: "
-                        "commit distribuído por quorum ainda não "
-                        "implementado (NEXUS_CLUSTER_SIZE="
+                        f"[{self.node_id} Intake] Escrita BLOQUEADA "
+                        f"({block_reason}): somente "
+                        "NEXUS_CLUSTER_MODE=single explícito permite "
+                        "escrita local; commit distribuído por quorum "
+                        "ainda não implementado (NEXUS_CLUSTER_MODE="
+                        f"{getattr(self, 'cluster_mode', None)}, "
+                        "NEXUS_CLUSTER_SIZE="
                         f"{getattr(self, 'configured_cluster_size', None)}"
                         "). Payload não persistido.",
                         flush=True,

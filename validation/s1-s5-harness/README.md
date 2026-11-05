@@ -1,7 +1,7 @@
 # Nexus V2700 — Harness S1/S5 (W06)
 
 Status: **endurecido e validado localmente**: lógica, gates, I/O e orquestração (com processos substitutos). Nenhuma execução S1/S5 do runtime Nexus foi realizada.
-Runtime alvo: commit `30b774da`, `nexus_distributed_core.py` blob Git `eb8a48da88a75f9d58c954f8afeed86c2af27f93`.
+Runtime alvo: W08-B / PR-B (originalmente commit `30b774da`), `nexus_distributed_core.py` blob Git `5bc69c403784ac456ed723fc9237fa7fa7c637eb` (W08-B / PR-B, modo de cluster explícito; o blob original W05–W07 era `eb8a48da88a75f9d58c954f8afeed86c2af27f93`).
 A versão W05 está preservada em `history/`.
 
 Evidência versionada: `evidence/preflight-20261103T183049Z-a675f9.json` e `evidence/s1-20261103T183050Z-2a11e1/` (BLOCKED nos gates de preflight). Antes da publicação, dois campos de `evidence.json` foram redigidos: `host.hostname` → `<redacted-hostname>` e o prefixo pessoal de `work_dir` → `<redacted-local-temp>`. O `SHA256SUMS` foi regenerado depois da redação; nenhum outro byte mudou. Os preflights W05 anteriores permanecem somente no disco local.

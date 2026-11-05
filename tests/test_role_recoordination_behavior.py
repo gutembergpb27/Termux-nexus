@@ -34,9 +34,9 @@ def make_core(role="MASTER", node_id="NODE-A"):
     core.hub_url = "http://127.0.0.1:8500"
     core.peers = {}
     core.last_master_heartbeat = 0.0
-    # Legacy single-member sync path (QS-C01 allows sync only for N == 1).
-    # Multi-member (N > 1) behavior is covered by
-    # tests/test_master_liveness_probe.py.
+    # W08-B: legacy sync is disabled in every mode, so MASTER contact
+    # goes through the liveness probe (stubbed below). Probe protocol
+    # details are covered by tests/test_master_liveness_probe.py.
     core.configured_cluster_size = 1
     core.majority = 1
 
@@ -75,13 +75,19 @@ def run_one_polling_iteration(core, peers, post_results):
             "role": core.role,
         }
 
-    def sync(peer):
+    def probe(_master_id, peer):
+        # Records each successful MASTER contact.
         sync_calls.append(peer)
+        return True
+
+    def forbidden_sync(_peer):
+        raise AssertionError("legacy sync must stay disabled (W08-B)")
 
     core.post_envelope = post_envelope
     core.build_registration_envelope = registration
     core.build_heartbeat_envelope = heartbeat
-    core.sync_from_peer = sync
+    core.probe_master_liveness = probe
+    core.sync_from_peer = forbidden_sync
     core.shell_intake_loop = lambda: None
 
     sleep_count = 0

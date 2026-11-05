@@ -1,11 +1,22 @@
 from __future__ import annotations
 
+import pytest
+
 from nexus.compute import (
     ComputeTask,
     TaskQueue,
     build_default_task_registry,
 )
 from nexus_distributed_core import NexusDistributedCore
+
+
+@pytest.fixture(autouse=True)
+def _isolated_cwd(tmp_path, monkeypatch):
+    # The real core constructor writes nexus_<id>.db relative to the cwd.
+    monkeypatch.chdir(tmp_path)
+    # A developer's cluster variables must not change these tests.
+    monkeypatch.delenv("NEXUS_CLUSTER_MODE", raising=False)
+    monkeypatch.delenv("NEXUS_CLUSTER_SIZE", raising=False)
 
 
 def test_core_executes_task_through_queue() -> None:

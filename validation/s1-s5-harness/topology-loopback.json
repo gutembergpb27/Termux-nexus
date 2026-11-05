@@ -7,5 +7,5 @@
     {"node_id": "NODE-B", "host": "127.0.0.1", "web_port": 8082, "tcp_port": 9092, "initial_role": "FOLLOWER", "local": true},
     {"node_id": "NODE-C", "host": "127.0.0.1", "web_port": 8083, "tcp_port": 9093, "initial_role": "FOLLOWER", "local": true}
   ],
-  "expected_core_git_blob": "eb8a48da88a75f9d58c954f8afeed86c2af27f93"
+  "expected_core_git_blob": "5bc69c403784ac456ed723fc9237fa7fa7c637eb"
 }

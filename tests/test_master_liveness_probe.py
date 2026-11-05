@@ -1,6 +1,7 @@
 """P1 regression: MASTER liveness must not depend on blocked sync.
 
-With NEXUS_CLUSTER_SIZE > 1 distributed sync is fail-closed (QS-C01).
+Distributed sync is fail-closed (QS-C01); since W08-B the legacy sync
+path is disabled in every cluster mode, including N == 1.
 A FOLLOWER must still prove that the advertised MASTER is alive through
 an authenticated, request-bound probe, and must not promote itself while
 the legitimate MASTER is alive.
@@ -597,12 +598,13 @@ def test_n3_lower_id_follower_defers_promotion():
 # ----------------------------------------------------------------------
 
 
-def test_n1_keeps_legacy_sync_liveness_path():
+def test_n1_uses_authenticated_probe_not_legacy_sync():
+    """W08-B: N == 1 no longer enables the unauthenticated sync path."""
     follower = make_core("NODE-C", "FOLLOWER", cluster_size=1)
-    syncs = []
-    follower.sync_from_peer = lambda peer: syncs.append(peer) or 0
-    follower.probe_master_liveness = lambda *_: pytest.fail(
-        "N == 1 must keep the legacy sync path"
+    forbid_sync(follower)
+    probes = []
+    follower.probe_master_liveness = (
+        lambda master_id, peer: probes.append(master_id) or True
     )
 
     run_polling(
@@ -611,4 +613,4 @@ def test_n1_keeps_legacy_sync_liveness_path():
     )
 
     assert follower.role == "FOLLOWER"
-    assert len(syncs) == 6
+    assert probes == ["NODE-A"] * 6

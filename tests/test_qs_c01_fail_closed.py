@@ -1,4 +1,9 @@
-"""QS-C01: distributed sync and writes stay fail-closed for N != 1."""
+"""QS-C01: distributed sync and writes stay fail-closed.
+
+W08-B: legacy peer sync is disabled in every cluster mode, and only an
+explicit NEXUS_CLUSTER_MODE=single may write locally. N == 1 alone no
+longer enables either path.
+"""
 
 import hashlib
 from pathlib import Path
@@ -40,11 +45,18 @@ class RecordingConnection:
         pass
 
 
-def make_core(cluster_size=3, persistence=None, role="MASTER"):
+def make_core(
+    cluster_size=3,
+    persistence=None,
+    role="MASTER",
+    cluster_mode="distributed",
+):
     core = object.__new__(NexusDistributedCore)
     core.node_id = "NODE-A"
     core.role = role
+    core.cluster_mode = cluster_mode
     core.configured_cluster_size = cluster_size
+    core.peers = {}
     core.persistence = (
         persistence if persistence is not None else RecordingPersistence()
     )
@@ -60,21 +72,23 @@ PEER = {"node_id": "NODE-B", "ip": "127.0.0.1", "tcp_port": 9001}
 
 
 @pytest.mark.parametrize(
-    "size,enabled",
+    "size,mode",
     [
-        (1, True),
-        (2, False),
-        (3, False),
-        (5, False),
-        ("1", False),   # non-int fails closed
-        (True, False),  # bool is not int for this purpose
-        (1.0, False),
-        (None, False),
+        (1, "single"),  # W08-B: explicit single no longer enables sync
+        (1, None),      # W08-B: N == 1 alone no longer enables sync
+        (1, "unconfigured"),
+        (2, "distributed"),
+        (3, "distributed"),
+        (5, "distributed"),
+        ("1", "single"),
+        (True, "single"),
+        (1.0, "single"),
+        (None, None),
     ],
 )
-def test_sync_enabled_only_for_single_member(size, enabled):
-    core = make_core(cluster_size=size)
-    assert core._distributed_sync_enabled() is enabled
+def test_legacy_sync_disabled_in_every_mode(size, mode):
+    core = make_core(cluster_size=size, cluster_mode=mode)
+    assert core._distributed_sync_enabled() is False
 
 
 def test_missing_cluster_size_fails_closed():
@@ -169,7 +183,7 @@ def test_n3_intake_blocks_write_with_explicit_feedback(capsys):
 
 
 def test_intake_blocks_write_after_role_change(capsys):
-    core = make_core(cluster_size=1)
+    core = make_core(cluster_size=1, cluster_mode="single")
 
     def fake_input(_prompt):
         if core.persistence.calls or getattr(core, "_asked", False):
@@ -185,13 +199,25 @@ def test_intake_blocks_write_after_role_change(capsys):
     assert "não é mais MASTER" in capsys.readouterr().out
 
 
-def test_n1_intake_keeps_legacy_write(capsys):
-    core = make_core(cluster_size=1)
+def test_explicit_single_mode_intake_writes_locally(capsys):
+    core = make_core(cluster_size=1, cluster_mode="single")
 
     run_intake(core, ["payload-1"])
 
     assert core.persistence.calls == ["append_transaction"]
     assert "BLOQUEADA" not in capsys.readouterr().out
+
+
+def test_n1_without_explicit_mode_blocks_write(capsys):
+    """W08-B regression: the old default (N == 1) no longer writes."""
+    core = make_core(cluster_size=1, cluster_mode=None)
+
+    run_intake(core, ["payload-1"])
+
+    assert core.persistence.calls == []
+    out = capsys.readouterr().out
+    assert "cluster_mode_unconfigured" in out
+    assert "Payload não persistido" in out
 
 
 # ----------------------------------------------------------------------

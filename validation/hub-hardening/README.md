@@ -1,6 +1,6 @@
 # W07: Hub hardening (experimental, isolado)
 
-Este diretório **não** altera o runtime. `nexus_rendezvous.py` (blob `d61fedd2…`) e `nexus_distributed_core.py` (blob `eb8a48da…`) estão intactos. Nada aqui inicia o hub real nem o cluster.
+Este diretório **não** altera o runtime. `nexus_rendezvous.py` (blob `d61fedd2…`) e `nexus_distributed_core.py` não são alterados por este diretório; o blob de referência do core passou a ser `5bc69c40…` em W08-B / PR-B (modo de cluster explícito; antes `eb8a48da…`). Nada aqui inicia o hub real nem o cluster.
 
 | Arquivo | Papel |
 |---|---|

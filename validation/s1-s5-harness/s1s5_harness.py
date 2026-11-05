@@ -87,6 +87,7 @@ LOG_EVENTS = (
     "master_missing",
     "leadership_promotion_deferred",
     "leadership_promotion_blocked_no_quorum",
+    "leadership_promotion_blocked_cluster_mode",
     "leadership_promotion_started",
     "leadership_promoted",
     "peer_sync_failed",
@@ -1380,6 +1381,7 @@ def child_env(cfg: HarnessConfig, secret: str, db_path: Path | None) -> dict[str
     env = dict(os.environ)
     env["NEXUS_SECRET_KEY"] = secret          # passed by environment, never argv
     env["NEXUS_CLUSTER_SIZE"] = str(cfg.cluster_size)
+    env["NEXUS_CLUSTER_MODE"] = "distributed"   # W08-B: explicit, never inherited
     env["NEXUS_HUB_URL"] = cfg.hub.url
     env["PYTHONUNBUFFERED"] = "1"
     env["PYTHONDONTWRITEBYTECODE"] = "1"

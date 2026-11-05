@@ -1,7 +1,19 @@
 import time
+from unittest.mock import patch
+
+import pytest
 
 from nexus_distributed_core import NexusDistributedCore
 from persistence import NexusPersistence
+
+
+@pytest.fixture(autouse=True)
+def _isolated_cwd(tmp_path, monkeypatch):
+    # The core writes nexus_<id>.db and outputs/ relative to the cwd.
+    monkeypatch.chdir(tmp_path)
+    # A developer's cluster variables must not change these tests.
+    monkeypatch.delenv("NEXUS_CLUSTER_MODE", raising=False)
+    monkeypatch.delenv("NEXUS_CLUSTER_SIZE", raising=False)
 
 
 def make_follower(tmp_path, monkeypatch):
@@ -10,12 +22,17 @@ def make_follower(tmp_path, monkeypatch):
         "axis9-test-key",
     )
 
-    core = NexusDistributedCore(
-        node_id="NODE-A",
-        web_port=8081,
-        tcp_port=9091,
-        role="FOLLOWER",
-    )
+    # No real web server, TCP server or polling thread.
+    with (
+        patch("nexus_distributed_core.start_web_server"),
+        patch("nexus_distributed_core.threading.Thread"),
+    ):
+        core = NexusDistributedCore(
+            node_id="NODE-A",
+            web_port=8081,
+            tcp_port=9091,
+            role="FOLLOWER",
+        )
 
     core.store = NexusPersistence(
         filepath=str(tmp_path / "degraded-state.db")
