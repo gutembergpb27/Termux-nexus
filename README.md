@@ -30,7 +30,7 @@ every known gap is stated explicitly.
 > **Status at a glance**
 > - Experimental research runtime — not production software.
 > - **No distributed consensus**: no election term, vote, leader fencing or majority commit.
-> - Multi-node writes are **blocked by design** when `NEXUS_CLUSTER_SIZE ≠ 1` (QS-C01 fail-closed gate). On `main` the variable defaults to `1`, which leaves that gate off — see [Known limitations](#known-limitations); an explicit cluster mode is prepared but not yet on `main` (W08-B).
+> - Multi-node writes are **blocked by design** when `NEXUS_CLUSTER_SIZE ≠ 1` (QS-C01 fail-closed gate). On `main` the variable defaults to `1`, which leaves that gate off — see [Known limitations](#known-limitations); an explicit cluster mode is proposed in PR #104 (W08-B, not merged).
 > - Latest pre-release: [`v2700.0.0-rc2`](https://github.com/gutembergpb27/Termux-nexus/releases/tag/v2700.0.0-rc2). The GitHub "Latest" release is still `v2500.0.0`; post-RC2 work on `main` is not tagged.
 
 ---
@@ -238,9 +238,9 @@ Methodology, timing statistics and reproducibility details:
 
 ## Known limitations
 
-Status as of 2026-11-04 (`main` at `dc180e4`). Details are in
-[PROJECT_STATE](docs/PROJECT_STATE.md) and, once merged, the W08-A consensus
-safety audit (pending PR-A).
+Status as of 2026-11-05 (`main` at `e8a92f9`; runtime code unchanged since `dc180e4`). Details are in
+[PROJECT_STATE](docs/PROJECT_STATE.md) and the
+[W08-A consensus safety audit](docs/NEXUS_V2700_W08A_CONSENSUS_SAFETY_AUDIT.md) (PR #103).
 
 - **No distributed consensus.** There is no election term, no vote, no leader
   fencing and no majority commit.
@@ -252,7 +252,7 @@ safety audit (pending PR-A).
 - **`NEXUS_CLUSTER_SIZE` defaults to `1`.** A multi-node deployment that does
   not set it runs with local writes and the legacy unauthenticated sync path
   enabled; the QS-C01 block for N ≠ 1 does not apply. An explicit fail-closed
-  cluster mode (`NEXUS_CLUSTER_MODE`) is prepared in a separate pull request
+  cluster mode (`NEXUS_CLUSTER_MODE`) is proposed in PR #104
   (W08-B) and is **not on `main` yet**.
 - **Log rotation loses history.** Each rotation deletes the previously rotated
   file.
@@ -437,7 +437,7 @@ docs/                       # technical documentation
 | [Hub hardening](validation/hub-hardening/README.md) | W07 experimental hub prototype |
 | [V2700 RC2 Release Notes](RELEASE_NOTES_v2700.0.0-rc2.md) | Release-candidate record |
 | [v2500 architecture map](docs/NEXUS_V2500_ARCHITECTURE_MAP.md) | Historical architecture reference |
-| W08-A Consensus Safety Audit — `docs/NEXUS_V2700_W08A_CONSENSUS_SAFETY_AUDIT.md` | **Prepared, not yet on `main` (PR-A)** |
+| [W08-A Consensus Safety Audit](docs/NEXUS_V2700_W08A_CONSENSUS_SAFETY_AUDIT.md) | Read-only audit of the authority, quorum and fencing code (findings F1–F10, invariants INV-01..INV-07) |
 
 ### External evaluation path
 
@@ -484,7 +484,8 @@ Selected milestones from the repository tags and merged pull requests.
 | 2026-09-17 | `v2700.0.0-rc2` (pre-release) |
 | 2026-11-04 | PR #101 — QS-C01 fail-closed gate and MASTER liveness probe (on `main`, untagged) |
 | 2026-11-04 | PR #102 — W05–W07 validation harness and experimental hub hardening (on `main`, untagged) |
-| pending | W08-A consensus safety audit (PR-A) · W08-B explicit fail-closed cluster mode (PR-B) |
+| 2026-11-05 | PR #103 — W08-A consensus safety audit and post-RC2 status (documentation) |
+| pending | PR #104 — W08-B explicit fail-closed cluster mode (open, not merged) |
 
 Release focus, as recorded in the original roadmap: early versions —
 persistence and runtime experiments; v2200 — distributed nodes and rendezvous

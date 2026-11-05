@@ -31,7 +31,7 @@ toda lacuna conhecida é declarada explicitamente.
 > **Status em resumo**
 > - Runtime experimental de pesquisa — não é software de produção.
 > - **Sem consenso distribuído**: não há termo de eleição, voto, fencing de líder nem commit por maioria.
-> - Escritas multinó são **bloqueadas por projeto** quando `NEXUS_CLUSTER_SIZE ≠ 1` (gate fail-closed QS-C01). Na `main` a variável tem padrão `1`, o que deixa esse gate desligado — veja [Limitações conhecidas](#limitações-conhecidas); um modo de cluster explícito está preparado, mas ainda não está na `main` (W08-B).
+> - Escritas multinó são **bloqueadas por projeto** quando `NEXUS_CLUSTER_SIZE ≠ 1` (gate fail-closed QS-C01). Na `main` a variável tem padrão `1`, o que deixa esse gate desligado — veja [Limitações conhecidas](#limitações-conhecidas); um modo de cluster explícito está proposto na PR #104 (W08-B, sem merge).
 > - Pré-release mais recente: [`v2700.0.0-rc2`](https://github.com/gutembergpb27/Termux-nexus/releases/tag/v2700.0.0-rc2). A release "Latest" do GitHub ainda é a `v2500.0.0`; o trabalho pós-RC2 na `main` não possui tag.
 
 ---
@@ -240,9 +240,9 @@ Metodologia, estatísticas de tempo e detalhes de reprodutibilidade:
 
 ## Limitações conhecidas
 
-Status em 2026-11-04 (`main` em `dc180e4`). Os detalhes estão em
-[PROJECT_STATE](docs/PROJECT_STATE.md) e, após o merge, na auditoria de
-segurança de consenso W08-A (PR-A pendente).
+Status em 2026-11-05 (`main` em `e8a92f9`; código do runtime inalterado desde `dc180e4`). Os detalhes estão em
+[PROJECT_STATE](docs/PROJECT_STATE.md) e na
+[auditoria de segurança de consenso W08-A](docs/NEXUS_V2700_W08A_CONSENSUS_SAFETY_AUDIT.md) (PR #103).
 
 - **Sem consenso distribuído.** Não há termo de eleição, voto, fencing de
   líder nem commit por maioria.
@@ -254,8 +254,8 @@ segurança de consenso W08-A (PR-A pendente).
 - **`NEXUS_CLUSTER_SIZE` tem `1` como padrão.** Uma implantação multinó que não
   o defina roda com escritas locais e o caminho legado de sincronização não
   autenticado habilitados; o bloqueio QS-C01 para N ≠ 1 não se aplica. Um modo
-  de cluster fail-closed explícito (`NEXUS_CLUSTER_MODE`) está preparado em um
-  pull request separado (W08-B) e **ainda não está na `main`**.
+  de cluster fail-closed explícito (`NEXUS_CLUSTER_MODE`) está proposto na
+  PR #104 (W08-B) e **ainda não está na `main`**.
 - **A rotação de log perde histórico.** Cada rotação apaga o arquivo
   rotacionado anteriormente.
 - **Os Eixos 10/11 são anteriores ao QS-C01.** Veja o aviso acima.
@@ -440,7 +440,7 @@ docs/                       # technical documentation
 | [Hub hardening](validation/hub-hardening/README.md) | Protótipo experimental de hub W07 |
 | [V2700 RC2 Release Notes](RELEASE_NOTES_v2700.0.0-rc2.md) | Registro da release candidate |
 | [v2500 architecture map](docs/NEXUS_V2500_ARCHITECTURE_MAP.md) | Referência histórica de arquitetura |
-| Auditoria de segurança de consenso W08-A — `docs/NEXUS_V2700_W08A_CONSENSUS_SAFETY_AUDIT.md` | **Preparado, ainda fora da `main` (PR-A)** |
+| [W08-A Consensus Safety Audit](docs/NEXUS_V2700_W08A_CONSENSUS_SAFETY_AUDIT.md) | Auditoria somente leitura do código de autoridade, quorum e fencing (achados F1–F10, invariantes INV-01..INV-07) |
 
 ### Roteiro de avaliação externa
 
@@ -487,7 +487,8 @@ Marcos selecionados a partir das tags do repositório e dos pull requests integr
 | 2026-09-17 | `v2700.0.0-rc2` (pré-release) |
 | 2026-11-04 | PR #101 — gate fail-closed QS-C01 e sonda de liveness do MASTER (na `main`, sem tag) |
 | 2026-11-04 | PR #102 — harness de validação W05–W07 e endurecimento experimental do hub (na `main`, sem tag) |
-| pendente | Auditoria de segurança de consenso W08-A (PR-A) · modo de cluster fail-closed explícito W08-B (PR-B) |
+| 2026-11-05 | PR #103 — auditoria de segurança de consenso W08-A e status pós-RC2 (documentação) |
+| pendente | PR #104 — modo de cluster fail-closed explícito W08-B (aberta, sem merge) |
 
 Foco das versões, conforme registrado no roadmap original: versões iniciais —
 experimentos de persistência e runtime; v2200 — nós distribuídos e hub de
