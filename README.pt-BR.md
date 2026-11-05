@@ -7,7 +7,7 @@
   <a href="https://github.com/gutembergpb27/Termux-nexus/releases"><img src="https://img.shields.io/github/v/release/gutembergpb27/Termux-nexus?include_prereleases&label=release" alt="Release (incluindo pré-releases)"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/gutembergpb27/Termux-nexus" alt="Licença"></a>
   <img src="https://img.shields.io/badge/python-3.14%20%7C%20CI-3776ab" alt="Python 3.14 na CI">
-  <a href="https://github.com/gutembergpb27/Termux-nexus/actions/runs/41912549086"><img src="https://img.shields.io/badge/tests-1025%20passed%20%C2%B7%201%20xfailed%20%40%20dc180e4-16a34a" alt="Testes: 1025 aprovados, 1 xfailed em dc180e4"></a>
+  <a href="https://github.com/gutembergpb27/Termux-nexus/actions/runs/42006263229"><img src="https://img.shields.io/badge/tests-1093%20passed%20%C2%B7%201%20xfailed%20%40%209218889-16a34a" alt="Testes: 1093 aprovados, 1 xfailed em 9218889"></a>
 </p>
 
 ---
@@ -17,7 +17,7 @@
 Nexus Runtime Platform é um **runtime distribuído experimental** para pesquisa
 e validação de infraestrutura computacional resiliente. Ele combina
 gerenciamento do ciclo de vida do runtime, mensagens de computação e liveness
-autenticadas por HMAC (o caminho de sincronização legado não é autenticado),
+autenticadas por HMAC (o caminho de sincronização legado, sem autenticação, está desativado),
 persistência encadeada por hash, um pipeline de tarefas de computação,
 diagnóstico e observabilidade em uma base de código Python modular.
 
@@ -31,7 +31,7 @@ toda lacuna conhecida é declarada explicitamente.
 > **Status em resumo**
 > - Runtime experimental de pesquisa — não é software de produção.
 > - **Sem consenso distribuído**: não há termo de eleição, voto, fencing de líder nem commit por maioria.
-> - Escritas multinó são **bloqueadas por projeto** quando `NEXUS_CLUSTER_SIZE ≠ 1` (gate fail-closed QS-C01). Na `main` a variável tem padrão `1`, o que deixa esse gate desligado — veja [Limitações conhecidas](#limitações-conhecidas); um modo de cluster explícito está proposto na PR #104 (W08-B, sem merge).
+> - **Fail-closed por padrão** (W08-B, PR #104): escritas locais exigem `NEXUS_CLUSTER_MODE=single` explícito; sem modo de cluster, escritas, sincronização entre nós e promoção ficam bloqueadas; o modo distribuído nunca escreve; configuração inválida impede a inicialização. Veja o [guia de migração](docs/NEXUS_V2700_W08B_CLUSTER_MODE_MIGRATION.md).
 > - Pré-release mais recente: [`v2700.0.0-rc2`](https://github.com/gutembergpb27/Termux-nexus/releases/tag/v2700.0.0-rc2). A release "Latest" do GitHub ainda é a `v2500.0.0`; o trabalho pós-RC2 na `main` não possui tag.
 
 ---
@@ -44,7 +44,7 @@ experimentais que existem no repositório, mas **não** estão integrados ao
 runtime em execução.
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph OPS["Lado do operador"]
         CLI["CLI nexus"]
         CLIENT["RuntimeClient / NexusClient"]
@@ -53,9 +53,9 @@ flowchart LR
     subgraph NODE["Nó de runtime · NexusDistributedCore"]
         WEB["Painel web HTTP · /liveness /readiness /health /status /cluster /metrics"]
         POLL["Loop de polling"]
-        TCP["Servidor TCP · HMAC para COMPUTE_TASK e MASTER_PROBE · sincronização legada sem autenticação"]
+        TCP["Servidor TCP · HMAC para COMPUTE_TASK e MASTER_PROBE · sincronização legada recusada"]
         INTAKE["Recepção e despacho de mensagens"]
-        GATE{"Gate QS-C01 · NEXUS_CLUSTER_SIZE = 1 ?"}
+        GATE{"Gate de modo de cluster · single explícito e nenhum outro nó visível ?"}
         BLOCKED["Sincronização distribuída e escritas recusadas · fail-closed"]
         subgraph STORE["Persistência"]
             LOG["Log de acréscimos encadeado por hash"]
@@ -80,8 +80,8 @@ flowchart LR
     POLL -->|"MASTER_PROBE / MASTER_PROBE_ACK · HMAC"| PEER
     TCP --> INTAKE
     INTAKE --> GATE
-    GATE -->|"sim · N = 1, também o padrão"| LOG
-    GATE -->|"não · N ≠ 1"| BLOCKED
+    GATE -->|"sim · NEXUS_CLUSTER_MODE=single"| LOG
+    GATE -->|"não · sem configuração ou distribuído"| BLOCKED
     LOG --> CKPT
     CKPT -.-> ANCHOR
     INTAKE --> QUEUE
@@ -136,7 +136,7 @@ O anúncio no hub é tratado como descoberta, não como prova de liveness. O
 
 ## Matriz de capacidades
 
-Estado da `main` em `dc180e4`.
+Estado da `main` em `9218889`.
 
 ### ✅ Implementado
 
@@ -144,7 +144,7 @@ Estado da `main` em `dc180e4`.
 |---|---|
 | Log de acréscimos encadeado por hash | Com checkpoint e âncora externa opcional |
 | Envelopes de mensagem HMAC | TTL e proteção contra replay; um único segredo compartilhado por todo o cluster |
-| Gate fail-closed QS-C01 | Bloqueia sincronização distribuída e escritas quando `NEXUS_CLUSTER_SIZE ≠ 1` — ainda não revalidado fisicamente |
+| Modo de cluster fail-closed (QS-C01 + W08-B) | Escritas locais apenas com `NEXUS_CLUSTER_MODE=single` explícito; sincronização legada desativada em todos os modos; sem configuração, escritas, sincronização e promoção ficam bloqueadas; configuração inválida impede a inicialização — ainda não revalidado fisicamente |
 | Sonda autenticada de liveness do MASTER | `MASTER_PROBE` / `MASTER_PROBE_ACK` — ainda não revalidada fisicamente |
 | Pipeline de tarefas de computação | Fila de tarefas, worker e registro de conclusões |
 | CLI | `version`, `doctor`, `status`, `peers`, `cluster` |
@@ -170,7 +170,7 @@ Estado da `main` em `dc180e4`.
 | Segurança sob partição | Não demonstrada |
 | Identidade criptográfica por nó / TLS | Ausente |
 | Durabilidade dos dados na troca de líder | Não demonstrada |
-| Replicação segura para N > 1 | Não demonstrada — escritas bloqueadas pelo QS-C01 apenas quando `NEXUS_CLUSTER_SIZE` é definida como N |
+| Replicação segura para N > 1 | Não demonstrada — escritas distribuídas bloqueadas em todos os modos |
 
 ---
 
@@ -179,16 +179,16 @@ Estado da `main` em `dc180e4`.
 ### Integração contínua
 
 Workflow **"Nexus Runtime CI"** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)),
-execução [41912549086](https://github.com/gutembergpb27/Termux-nexus/actions/runs/41912549086)
-na `main` no commit `dc180e4` — **sucesso**. Os três jobs são checks
+execução [42006263229](https://github.com/gutembergpb27/Termux-nexus/actions/runs/42006263229)
+na `main` no commit `9218889` — **sucesso**. Os três jobs são checks
 obrigatórios no ruleset `main-protection-v2700`.
 
 | Check obrigatório | Resultado |
 |---|---|
-| `test-and-build` (`tests/`) | 858 aprovados, 1 xfailed |
+| `test-and-build` (`tests/`) | 926 aprovados, 1 xfailed |
 | `W05/W06 S1-S5 harness tests` | 107 aprovados (90 + 17) |
 | `W07 experimental hub hardening tests` | 60 aprovados |
-| **Total** | **1.025 aprovados, 1 xfailed** |
+| **Total** | **1.093 aprovados, 1 xfailed** |
 
 > [!NOTE]
 > A CI roda apenas em `windows-latest` com Python 3.14. O `pyproject.toml`
@@ -240,7 +240,7 @@ Metodologia, estatísticas de tempo e detalhes de reprodutibilidade:
 
 ## Limitações conhecidas
 
-Status em 2026-11-05 (`main` em `e8a92f9`; código do runtime inalterado desde `dc180e4`). Os detalhes estão em
+Status em 2026-11-05 (`main` em `9218889`, após a PR #104). Os detalhes estão em
 [PROJECT_STATE](docs/PROJECT_STATE.md) e na
 [auditoria de segurança de consenso W08-A](docs/NEXUS_V2700_W08A_CONSENSUS_SAFETY_AUDIT.md) (PR #103).
 
@@ -251,11 +251,11 @@ Status em 2026-11-05 (`main` em `e8a92f9`; código do runtime inalterado desde `
 - **MASTER duplo é possível** sob uma partição assimétrica (todos os nós
   alcançam o hub, um follower não alcança o master). Ele é resolvido depois
   pelo id em ordem lexicográfica.
-- **`NEXUS_CLUSTER_SIZE` tem `1` como padrão.** Uma implantação multinó que não
-  o defina roda com escritas locais e o caminho legado de sincronização não
-  autenticado habilitados; o bloqueio QS-C01 para N ≠ 1 não se aplica. Um modo
-  de cluster fail-closed explícito (`NEXUS_CLUSTER_MODE`) está proposto na
-  PR #104 (W08-B) e **ainda não está na `main`**.
+- **O modo `single` é uma declaração do operador, não um mecanismo de
+  segurança.** O runtime não consegue provar que não existe outro nó: a lista
+  de peers do hub não é autenticada e uma lista vazia não prova nada. Usar
+  `single` em mais de um nó cria escritores independentes e divergentes. (O
+  padrão inseguro anterior `NEXUS_CLUSTER_SIZE=1` foi removido pela PR #104.)
 - **A rotação de log perde histórico.** Cada rotação apaga o arquivo
   rotacionado anteriormente.
 - **Os Eixos 10/11 são anteriores ao QS-C01.** Veja o aviso acima.
@@ -324,12 +324,11 @@ nexus doctor
 - `NEXUS_SECRET_KEY` deve ser definida para o runtime e mantida privada; é um
   único segredo compartilhado por todo o cluster.
 - Não execute implantações multinó esperando escritas replicadas seguras. Não
-  há consenso. As escritas só são bloqueadas quando `NEXUS_CLUSTER_SIZE` é
-  definida com o número real de nós (N ≠ 1).
-- `NEXUS_CLUSTER_SIZE` não definida assume o padrão `1`: mesmo com vários nós
-  em execução, as escritas locais e a sincronização legada sem autenticação
-  continuam habilitadas. Defina-a com o número real de nós para falhar de forma
-  segura. Um modo de cluster fail-closed explícito está pendente (W08-B).
+  há consenso, e as escritas distribuídas são bloqueadas em todos os modos.
+- Sem `NEXUS_CLUSTER_MODE`, o nó inicia em fail-closed (sem escritas, sem
+  sincronização entre nós, sem promoção). Defina `NEXUS_CLUSTER_MODE=single`
+  somente em um nó que esteja realmente sozinho; leia antes o
+  [guia de migração](docs/NEXUS_V2700_W08B_CLUSTER_MODE_MIGRATION.md).
 
 ---
 
@@ -441,6 +440,7 @@ docs/                       # technical documentation
 | [V2700 RC2 Release Notes](RELEASE_NOTES_v2700.0.0-rc2.md) | Registro da release candidate |
 | [v2500 architecture map](docs/NEXUS_V2500_ARCHITECTURE_MAP.md) | Referência histórica de arquitetura |
 | [W08-A Consensus Safety Audit](docs/NEXUS_V2700_W08A_CONSENSUS_SAFETY_AUDIT.md) | Auditoria somente leitura do código de autoridade, quorum e fencing (achados F1–F10, invariantes INV-01..INV-07) |
+| [W08-B Cluster Mode Migration](docs/NEXUS_V2700_W08B_CLUSTER_MODE_MIGRATION.md) | Comportamento de `NEXUS_CLUSTER_MODE`, limites do `single`, migração e scripts afetados |
 
 ### Roteiro de avaliação externa
 
@@ -488,7 +488,8 @@ Marcos selecionados a partir das tags do repositório e dos pull requests integr
 | 2026-11-04 | PR #101 — gate fail-closed QS-C01 e sonda de liveness do MASTER (na `main`, sem tag) |
 | 2026-11-04 | PR #102 — harness de validação W05–W07 e endurecimento experimental do hub (na `main`, sem tag) |
 | 2026-11-05 | PR #103 — auditoria de segurança de consenso W08-A e status pós-RC2 (documentação) |
-| pendente | PR #104 — modo de cluster fail-closed explícito W08-B (aberta, sem merge) |
+| 2026-11-05 | PR #104 — modo de cluster fail-closed explícito W08-B |
+| 2026-11-05 | PR #105 — apresentação bilíngue e identidade visual W09 |
 
 Foco das versões, conforme registrado no roadmap original: versões iniciais —
 experimentos de persistência e runtime; v2200 — nós distribuídos e hub de
@@ -506,7 +507,7 @@ Sequência W08-B, em ordem, sem datas prometidas. **As escritas distribuídas
 permanecem bloqueadas até que os invariantes correspondentes sejam
 demonstrados.**
 
-- [ ] Modo de cluster fail-closed explícito (`NEXUS_CLUSTER_MODE=single|distributed`)
+- [x] Modo de cluster fail-closed explícito (`NEXUS_CLUSTER_MODE=single|distributed`) — PR #104
 - [ ] Persistência de log sem perda de histórico
 - [ ] Quarentena de cópias obsoletas do runtime
 - [ ] Timeouts TCP e correções de concorrência

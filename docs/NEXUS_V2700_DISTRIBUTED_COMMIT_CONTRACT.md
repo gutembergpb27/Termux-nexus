@@ -2,7 +2,7 @@
 
 Status: PROPOSED
 Scope: Distributed consensus and persistence
-Runtime activation: DISABLED for `NEXUS_CLUSTER_SIZE` ≠ 1 (see §15)
+Runtime activation: DISABLED in every cluster mode since PR #104 (see §15)
 
 ## 1. Objective
 
@@ -178,3 +178,11 @@ section does not protect it. An explicit fail-closed
 cluster mode is planned (PR-B, in preparation) and is not
 on `main`. See
 [NEXUS_V2700_W08A_CONSENSUS_SAFETY_AUDIT.md](NEXUS_V2700_W08A_CONSENSUS_SAFETY_AUDIT.md).
+
+Update (2026-11-05): F1 was resolved by PR #104 (merge
+`9218889`). The legacy `STATE_SUMMARY` / `SYNC_BATCH` path is
+now disabled in every cluster mode, a missing
+`NEXUS_CLUSTER_MODE` blocks writes, sync and promotion, and only
+an explicit `NEXUS_CLUSTER_MODE=single` may write locally. No
+quorum-commit protocol exists; this contract remains a
+specification. See [NEXUS_V2700_W08B_CLUSTER_MODE_MIGRATION.md](NEXUS_V2700_W08B_CLUSTER_MODE_MIGRATION.md).
