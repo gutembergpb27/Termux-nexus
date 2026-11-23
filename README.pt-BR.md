@@ -7,7 +7,18 @@
   <a href="https://github.com/gutembergpb27/Termux-nexus/releases"><img src="https://img.shields.io/github/v/release/gutembergpb27/Termux-nexus?include_prereleases&label=release" alt="Release (incluindo pré-releases)"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/gutembergpb27/Termux-nexus" alt="Licença"></a>
   <img src="https://img.shields.io/badge/python-3.14%20%7C%20CI-3776ab" alt="Python 3.14 na CI">
-  <a href="https://github.com/gutembergpb27/Termux-nexus/actions/runs/42006263229"><img src="https://img.shields.io/badge/tests-1093%20passed%20%C2%B7%201%20xfailed%20%40%209218889-16a34a" alt="Testes: 1093 aprovados, 1 xfailed em 9218889"></a>
+  <a href="https://github.com/gutembergpb27/Termux-nexus/actions/runs/45092228724"><img src="https://img.shields.io/badge/tests-1103%20passed%20%C2%B7%201%20xfailed%20%40%20d783a86-16a34a" alt="Testes: 1103 aprovados, 1 xfailed em d783a86"></a>
+</p>
+
+<p align="center">
+  <a href="#visão-geral">Visão geral</a> ·
+  <a href="#status-em-resumo">Status</a> ·
+  <a href="#capacidades-e-limitações">Capacidades</a> ·
+  <a href="#arquitetura">Arquitetura</a> ·
+  <a href="#linha-do-tempo-dos-marcos">Linha do tempo</a> ·
+  <a href="#validação-e-evidências">Evidências</a> ·
+  <a href="#instalação-uso-e-testes">Início rápido</a> ·
+  <a href="#documentação-e-próximos-objetivos">Documentação</a>
 </p>
 
 ---
@@ -17,29 +28,103 @@
 Nexus Runtime Platform é um **runtime distribuído experimental** para pesquisa
 e validação de infraestrutura computacional resiliente. Ele combina
 gerenciamento do ciclo de vida do runtime, mensagens de computação e liveness
-autenticadas por HMAC (o caminho de sincronização legado, sem autenticação, está desativado),
-persistência encadeada por hash, um pipeline de tarefas de computação,
-diagnóstico e observabilidade em uma base de código Python modular.
+autenticadas por HMAC (o caminho de sincronização legado, sem autenticação,
+está desativado), persistência encadeada por hash, um pipeline de tarefas de
+computação, diagnóstico e observabilidade em uma base de código Python
+modular.
 
 O projeto segue uma ideia: **From vision to engineering. From engineering
-to evidence.** — *Da visão à engenharia. Da engenharia à evidência.* Ele é
-desenvolvido com **evidência em primeiro lugar** — uma capacidade só é descrita
-como implementada quando código, testes e evidências registradas a sustentam, e
-toda lacuna conhecida é declarada explicitamente.
+to evidence.** (*Da visão à engenharia. Da engenharia à evidência.*) Ele é
+desenvolvido com **evidência em primeiro lugar**. Uma capacidade só é descrita
+como implementada quando código, testes e evidências registradas a sustentam,
+e toda lacuna conhecida é declarada explicitamente.
 
-> [!IMPORTANT]
-> **Status em resumo**
-> - Runtime experimental de pesquisa — não é software de produção.
-> - **Sem consenso distribuído**: não há termo de eleição, voto, fencing de líder nem commit por maioria.
-> - **Fail-closed por padrão** (W08-B, PR #104): escritas locais exigem `NEXUS_CLUSTER_MODE=single` explícito; sem modo de cluster, escritas, sincronização entre nós e promoção ficam bloqueadas; o modo distribuído nunca escreve; configuração inválida impede a inicialização. Veja o [guia de migração](docs/NEXUS_V2700_W08B_CLUSTER_MODE_MIGRATION.md).
-> - Pré-release mais recente: [`v2700.0.0-rc2`](https://github.com/gutembergpb27/Termux-nexus/releases/tag/v2700.0.0-rc2). A release "Latest" do GitHub ainda é a `v2500.0.0`; o trabalho pós-RC2 na `main` não possui tag.
+---
+
+## Status em resumo
+
+Estado da `main` em `d783a86` (23/11/2026).
+
+| Área | Estado atual |
+|---|---|
+| Natureza | Runtime experimental de pesquisa. **Não é software de produção.** |
+| Consenso | **Nenhum.** Não há termo de eleição, voto, fencing de líder nem commit por maioria. |
+| Modo de cluster | **Fail-closed por padrão** (W08-B, PR #104). Escritas locais exigem `NEXUS_CLUSTER_MODE=single` explícito. Sem modo de cluster, escritas, sincronização entre nós e promoção ficam bloqueadas. O modo distribuído nunca escreve, e uma configuração inválida impede a inicialização. Veja o [guia de migração](docs/NEXUS_V2700_W08B_CLUSTER_MODE_MIGRATION.md). |
+| CI na `main` | **1.103 aprovados, 1 xfailed** nos três checks obrigatórios ([execução 45092228724](https://github.com/gutembergpb27/Termux-nexus/actions/runs/45092228724)). |
+| Releases | Pré-release mais recente: [`v2700.0.0-rc2`](https://github.com/gutembergpb27/Termux-nexus/releases/tag/v2700.0.0-rc2). A release "Latest" do GitHub ainda é a `v2500.0.0`. O trabalho pós-RC2 (PR #101–#108) está na `main`, mas sem tag. |
+| Laboratórios entre dispositivos | Experimentos Multi-WAN entre Windows e Android estão em andamento. São **experimentais e ficam fora do runtime da `main`**; veja [Validação e evidências](#validação-e-evidências). |
+
+---
+
+## Capacidades e limitações
+
+### ✅ Implementado na `main`
+
+| Capacidade | Observações |
+|---|---|
+| Log de acréscimos encadeado por hash | Checkpoint e âncora externa opcional |
+| Envelopes de mensagem HMAC | TTL e proteção contra replay; um único segredo compartilhado por todo o cluster |
+| Modo de cluster fail-closed (QS-C01 + W08-B) | Escritas locais apenas com `NEXUS_CLUSTER_MODE=single` explícito. A sincronização legada está desativada em todos os modos. Sem configuração, escritas, sincronização e promoção ficam bloqueadas, e uma configuração inválida impede a inicialização. Ainda não revalidado fisicamente |
+| Sonda autenticada de liveness do MASTER | `MASTER_PROBE` / `MASTER_PROBE_ACK`. Ainda não revalidada fisicamente |
+| Pipeline de tarefas de computação | Fila de tarefas, worker e registro de conclusões |
+| CLI | `version`, `doctor`, `status`, `peers`, `cluster` |
+| Endpoints HTTP do runtime | `/liveness`, `/readiness`, `/health`, `/status`, `/cluster`, `/metrics` |
+
+### 🧪 Experimental (no repositório, não integrado ao runtime)
+
+| Componente | Status |
+|---|---|
+| Harness de validação S1–S5 | Ferramental de validação, ver [`validation/s1-s5-harness`](validation/s1-s5-harness/README.md) |
+| Protótipo de hub de rendezvous endurecido | Não integrado ao runtime, ver [`validation/hub-hardening`](validation/hub-hardening/README.md) |
+| Dispatcher de computação distribuída / executor de transporte | Não integrado ao runtime em execução |
+| Gerenciador de cluster / replicador em memória | `nexus/cluster/`, apenas em memória |
+
+### ⛔ Ainda não demonstrado
+
+| Propriedade | Status |
+|---|---|
+| Consenso distribuído | Ausente |
+| Termo de eleição e voto persistentes | Ausente |
+| Fencing de líder | Ausente |
+| Commit por maioria | Ausente |
+| Segurança sob partição | Não demonstrada |
+| Execução exatamente uma vez | Não demonstrada |
+| Identidade criptográfica por nó / TLS | Ausente |
+| Durabilidade dos dados na troca de líder | Não demonstrada |
+| Replicação segura para N > 1 | Não demonstrada. Escritas distribuídas bloqueadas em todos os modos |
+
+### Limitações conhecidas
+
+Os detalhes estão em [PROJECT_STATE](docs/PROJECT_STATE.md) e na
+[auditoria de segurança de consenso W08-A](docs/NEXUS_V2700_W08A_CONSENSUS_SAFETY_AUDIT.md).
+
+- **Sem consenso distribuído.** Não há termo de eleição, voto, fencing de
+  líder nem commit por maioria.
+- **O quórum é uma contagem visível no hub.** A promoção conta os peers
+  listados pelo `GET /peers` não autenticado do hub de rendezvous. Não é um
+  voto.
+- **MASTER duplo é possível** sob uma partição assimétrica, em que todos os nós
+  alcançam o hub, mas um follower não alcança o master. Ele é resolvido depois
+  pelo id em ordem lexicográfica.
+- **O modo `single` é uma declaração do operador, não um mecanismo de
+  segurança.** O runtime não consegue provar que não existe outro nó: a lista
+  de peers do hub não é autenticada e uma lista vazia não prova nada. Usar
+  `single` em mais de um nó cria escritores independentes e divergentes. (A
+  PR #104 removeu o padrão inseguro anterior `NEXUS_CLUSTER_SIZE=1`.)
+- **A rotação de log perde histórico.** Cada rotação apaga o arquivo
+  rotacionado anteriormente.
+- **Os Eixos 10/11 são anteriores ao QS-C01.** Veja o aviso em
+  [Validação e evidências](#validação-e-evidências).
+- **O endurecimento de rede está incompleto.** O servidor TCP do núcleo não tem
+  timeouts no lado do accept. O painel web não é autenticado e faz bind em
+  `0.0.0.0`.
 
 ---
 
 ## Arquitetura
 
 O diagrama mostra os componentes na `main` e como eles se conectam. Ligações
-contínuas estão integradas ao runtime; ligações tracejadas são componentes
+contínuas estão integradas ao runtime. Ligações tracejadas são componentes
 experimentais que existem no repositório, mas **não** estão integrados ao
 runtime em execução.
 
@@ -110,7 +195,7 @@ flowchart TB
     class HHUB,DISP,CMGR,HARN exp
 ```
 
-**Como a verificação de vida (liveness) e a promoção do MASTER funcionam hoje** — e por que isso não é consenso:
+**Como a verificação de vida (liveness) e a promoção do MASTER funcionam hoje, e por que isso não é consenso:**
 
 ```mermaid
 flowchart TB
@@ -134,102 +219,96 @@ O anúncio no hub é tratado como descoberta, não como prova de liveness. O
 
 ---
 
-## Matriz de capacidades
+## Linha do tempo dos marcos
 
-Estado da `main` em `9218889`.
+### Releases e integrações na `main`
 
-### ✅ Implementado
+Marcos selecionados a partir das tags do repositório e dos pull requests integrados.
 
-| Capacidade | Observações |
+| Data | Marco |
 |---|---|
-| Log de acréscimos encadeado por hash | Com checkpoint e âncora externa opcional |
-| Envelopes de mensagem HMAC | TTL e proteção contra replay; um único segredo compartilhado por todo o cluster |
-| Modo de cluster fail-closed (QS-C01 + W08-B) | Escritas locais apenas com `NEXUS_CLUSTER_MODE=single` explícito; sincronização legada desativada em todos os modos; sem configuração, escritas, sincronização e promoção ficam bloqueadas; configuração inválida impede a inicialização — ainda não revalidado fisicamente |
-| Sonda autenticada de liveness do MASTER | `MASTER_PROBE` / `MASTER_PROBE_ACK` — ainda não revalidada fisicamente |
-| Pipeline de tarefas de computação | Fila de tarefas, worker e registro de conclusões |
-| CLI | `version`, `doctor`, `status`, `peers`, `cluster` |
-| Endpoints HTTP do runtime | `/liveness`, `/readiness`, `/health`, `/status`, `/cluster`, `/metrics` |
+| 2026-07-07 | `v1900` |
+| 2026-07-08 | `v1950`, `v2000`, `v2100-catchup`, `v2100-failover` |
+| 2026-07-11 | `runtime-v1-beta`, `runtime-v1.1-rc1` |
+| 2026-07-16 | `v2300-alpha1` |
+| 2026-07-19 | `v2300.0.0a1` |
+| 2026-07-23 | `v2400.0.0` |
+| 2026-07-25 | `v2500.0.0-rc1` |
+| 2026-07-29 | `v2500.0.0-rc2` … `rc4`, `v2500.0.0` ("Latest" atual do GitHub) |
+| 2026-08-19 | `v2600.0.0-alpha.1` |
+| 2026-08-28 | `v2700.0.0-rc1` |
+| 2026-08-31 | `nirt-01-external-candidate` |
+| 2026-09-02 | `nirt-02-audited-integration` |
+| 2026-09-17 | `v2700.0.0-rc2` (pré-release) |
+| 2026-11-04 | PR #101: gate fail-closed QS-C01 e sonda de liveness do MASTER |
+| 2026-11-04 | PR #102: harness de validação W05–W07 e endurecimento experimental do hub |
+| 2026-11-05 | PR #103: auditoria de segurança de consenso W08-A e status pós-RC2 (documentação) |
+| 2026-11-05 | PR #104: modo de cluster fail-closed explícito W08-B |
+| 2026-11-05 | PR #105: apresentação bilíngue e identidade visual W09 |
+| 2026-11-05 | PR #106: documentação complementar da W08-B |
+| 2026-11-05 | PR #107: correção W11 do hub, que descarta corpos de requisição não lidos antes de fechar POSTs rejeitados |
+| 2026-11-23 | PR #108: documentação Multi-WAN 01–03 entre dispositivos |
 
-### 🧪 Experimental
+As PRs #101 a #108 estão na `main` e não têm tag.
 
-| Componente | Status |
-|---|---|
-| Harness de validação S1–S5 | Ferramental de validação, ver [`validation/s1-s5-harness`](validation/s1-s5-harness/README.md) |
-| Protótipo de hub de rendezvous endurecido | Não integrado ao runtime, ver [`validation/hub-hardening`](validation/hub-hardening/README.md) |
-| Dispatcher de computação distribuída / executor de transporte | Não integrado ao runtime em execução |
-| Gerenciador de cluster / replicador em memória | `nexus/cluster/` — apenas em memória |
+Foco das versões, conforme registrado no roadmap original:
 
-### ⛔ Ainda não demonstrado
+- versões iniciais: experimentos de persistência e runtime;
+- v2200: nós distribuídos e hub de rendezvous;
+- v2300: CLI operacional e diagnóstico;
+- v2400: integração do runtime e observabilidade;
+- v2500 RC1: arquitetura unificada de runtime e cluster;
+- v2600 Alpha 1: ciclo de vida de computação, estado durável e recuperação na inicialização;
+- v2700 RC1: execução durável, coordenação, prontidão e endurecimento do transporte.
 
-| Propriedade | Status |
-|---|---|
-| Consenso distribuído | Ausente |
-| Termo de eleição e voto persistentes | Ausente |
-| Fencing de líder | Ausente |
-| Commit por maioria | Ausente |
-| Segurança sob partição | Não demonstrada |
-| Identidade criptográfica por nó / TLS | Ausente |
-| Durabilidade dos dados na troca de líder | Não demonstrada |
-| Replicação segura para N > 1 | Não demonstrada — escritas distribuídas bloqueadas em todos os modos |
+### Marcos experimentais (laboratórios, fora do runtime da `main`)
+
+| Data | Marco | Status |
+|---|---|---|
+| 2026-11-22 | Multi-WAN 01–03: mensagens autenticadas, Windows ↔ Android | Documentado na `main` |
+| 2026-11-22 | Multi-WAN 04C: computação remota autenticada | Documentação em revisão na [PR #109](https://github.com/gutembergpb27/Termux-nexus/pull/109) |
+| 2026-11-23 | Multi-WAN 05E: piloto físico de computação remota | Documentação na PR em rascunho [#110](https://github.com/gutembergpb27/Termux-nexus/pull/110) |
+| 2026-11-23 | MW05F, MW05G, MW05J: auditoria privada das evidências | [Relatório consolidado](docs/NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) |
+| 2026-11-23 | MW05K-2: controles negativos locais com transporte simulado | [Relatório consolidado](docs/NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) |
+| Pendente | Piloto físico Windows–Motorola dos controles do MW05K-2 | Aguardando conectividade Starlink |
 
 ---
 
-### Multi-WAN 01–03 — Validação entre dispositivos (experimental)
+## Validação e evidências
 
-Foi avaliada a comunicação experimental entre
-Windows/fibra e Android/Starlink utilizando Tailscale.
+As evidências estão agrupadas conforme o quanto dizem sobre a `main` atual.
 
-O Multi-WAN 03 registrou:
-
-- 5/5 mensagens autenticadas aceitas;
-- 2/2 controles negativos rejeitados por dispositivo;
-- RTT mediano de 153,998 ms.
-
-Os resultados demonstram comunicação e autenticação
-experimentais, não consenso distribuído
-ou prontidão para produção.
-
-Documentação:
-
-- [Relatório técnico — Português](docs/NEXUS_V2700_MULTIWAN_01_03_PT.md)
-- [Technical report — English](docs/NEXUS_V2700_MULTIWAN_01_03_EN.md)
-
----
-
-## Resultados de validação
-
-### Integração contínua
+### 1 · Integração contínua na `main` (atual)
 
 Workflow **"Nexus Runtime CI"** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)),
-execução [42006263229](https://github.com/gutembergpb27/Termux-nexus/actions/runs/42006263229)
-na `main` no commit `9218889` — **sucesso**. Os três jobs são checks
+execução [45092228724](https://github.com/gutembergpb27/Termux-nexus/actions/runs/45092228724)
+na `main` no commit `d783a86`: **sucesso**. Os três jobs são checks
 obrigatórios no ruleset `main-protection-v2700`.
 
 | Check obrigatório | Resultado |
 |---|---|
 | `test-and-build` (`tests/`) | 926 aprovados, 1 xfailed |
 | `W05/W06 S1-S5 harness tests` | 107 aprovados (90 + 17) |
-| `W07 experimental hub hardening tests` | 60 aprovados |
-| **Total** | **1.093 aprovados, 1 xfailed** |
+| `W07 experimental hub hardening tests` | 70 aprovados |
+| **Total** | **1.103 aprovados, 1 xfailed** |
 
 > [!NOTE]
 > A CI roda apenas em `windows-latest` com Python 3.14. O `pyproject.toml`
 > declara `requires-python >= 3.10`, mas outras versões e Linux não são
 > exercitados na CI. A única falha esperada é `tests/test_integrity.py:411`
-> (o rollback coordenado de log e checkpoint requer uma âncora externa); ela
-> não tem relação com consenso.
+> (o rollback coordenado de log e checkpoint requer uma âncora externa). Ela
+> não tem relação com consenso. A contagem W07 passou de 60 para 70 com a
+> correção de drenagem W11 (PR #107).
 
 **Número histórico:** a linha de base de certificação V2700 RC2 concluiu a
-suíte de regressão do repositório com `810 passed, 1 xfailed`. As evidências de
-resiliência abaixo são mantidas separadamente da contagem de regressão.
+suíte de regressão do repositório com `810 passed, 1 xfailed`.
 
-### Evidências físicas de resiliência
+### 2 · Evidências físicas de resiliência registradas (anteriores ao QS-C01)
 
 A V2700 inclui uma campanha estatística controlada de perda do MASTER em três
-nós (Eixo 11). A população da campanha do Eixo 11 contém **29 amostras físicas
-(run011–run039)**: **29 válidas, 29 convergidas, 0 observações de split-brain
-operacional e 29 promoções do NODE-C** sob o contrato de experimento
-documentado.
+nós (Eixo 11). Sua população contém **29 amostras físicas (run011–run039)**:
+**29 válidas, 29 convergidas, 0 observações de split-brain operacional e 29
+promoções do NODE-C** sob o contrato de experimento documentado.
 
 | Métrica T0 -> T4 | Resultado |
 | --- | ---: |
@@ -248,49 +327,41 @@ Nenhum `run040` foi criado.
 > QS-C01 e da verificação de liveness `MASTER_PROBE` (PR #101). "0 observações
 > de split-brain operacional" é uma observação em um cenário controlado, **não
 > uma propriedade de segurança**. Esses resultados se aplicam apenas ao contrato
-> de experimento documentado; não constituem certificação de produção, uma
+> de experimento documentado. Não constituem certificação de produção, uma
 > alegação universal de tolerância a falhas nem uma comparação de desempenho com
 > etcd, Consul, implementações de Raft ou outros sistemas distribuídos.
 
-Metodologia, estatísticas de tempo e detalhes de reprodutibilidade:
+Metodologia e reprodutibilidade:
 [Estudo de caso de resiliência](docs/NEXUS_V2700_RESILIENCE_CASE_STUDY.md) ·
 [Eixo 11 — Resiliência estatística](docs/validation/NEXUS-V2700-AXIS-11-STATISTICAL-RESILIENCE.md) ·
 [Eixo 10 — Temporização de quórum](docs/validation/NEXUS-V2700-AXIS-10-QUORUM-TIMING.md) ·
 [Validação Windows + Android](docs/windows_android_validation.md).
 
----
+### 3 · Laboratórios Multi-WAN entre dispositivos (experimental)
 
-## Limitações conhecidas
+Estes experimentos conectam um computador Windows (fibra) e um dispositivo
+Android (Starlink) via Tailscale. Eles usam ferramentas de laboratório isoladas
+e, em alguns marcos, componentes reais do Nexus, mas **não** executam o
+runtime distribuído e não exercitam escritas distribuídas.
 
-Status em 2026-11-05 (`main` em `9218889`, após a PR #104). Os detalhes estão em
-[PROJECT_STATE](docs/PROJECT_STATE.md) e na
-[auditoria de segurança de consenso W08-A](docs/NEXUS_V2700_W08A_CONSENSUS_SAFETY_AUDIT.md) (PR #103).
+| Marco | Resultado principal | Classe de evidência | Relatório |
+|---|---|---|---|
+| Multi-WAN 01–03 | MW03: 5/5 mensagens autenticadas aceitas; 2/2 controles negativos rejeitados por dispositivo; RTT mediano de 153,998 ms | Publicado na `main` | [PT](docs/NEXUS_V2700_MULTIWAN_01_03_PT.md) · [EN](docs/NEXUS_V2700_MULTIWAN_01_03_EN.md) |
+| Multi-WAN 04C | Computação remota autenticada | Em revisão | [PR #109](https://github.com/gutembergpb27/Termux-nexus/pull/109) |
+| Multi-WAN 05E | Piloto físico de computação remota; 66 IDs de tarefas concluídas correlacionados entre dispositivos | Rascunho. Impressão digital do lado cliente reverificada de forma independente | [PR #110](https://github.com/gutembergpb27/Termux-nexus/pull/110) · [relatório da série](docs/NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) |
+| MW05F · MW05G · MW05J | 65/65 hashes de saídas retidas recalculados; 55 saídas `echo` vinculadas às entradas; 5/5 produtos matriciais e 5/5 somas recalculados; 1 saída não retida reconstruída; 20 rejeições históricas de autenticação | Reportado pelo operador | [Relatório da série](docs/NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) |
+| MW05K-2 | 20/20 controles negativos locais aprovados; 0 chamadas ao executor observadas | Reportado pelo operador, **local, transporte simulado** | [Relatório da série](docs/NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) |
+| Piloto físico K-2 | — | **Pendente**, aguardando Starlink | — |
 
-- **Sem consenso distribuído.** Não há termo de eleição, voto, fencing de
-  líder nem commit por maioria.
-- **O quórum é uma contagem visível no hub.** A promoção conta os peers
-  listados pelo `GET /peers` não autenticado do hub de rendezvous; não é um voto.
-- **MASTER duplo é possível** sob uma partição assimétrica (todos os nós
-  alcançam o hub, um follower não alcança o master). Ele é resolvido depois
-  pelo id em ordem lexicográfica.
-- **O modo `single` é uma declaração do operador, não um mecanismo de
-  segurança.** O runtime não consegue provar que não existe outro nó: a lista
-  de peers do hub não é autenticada e uma lista vazia não prova nada. Usar
-  `single` em mais de um nó cria escritores independentes e divergentes. (O
-  padrão inseguro anterior `NEXUS_CLUSTER_SIZE=1` foi removido pela PR #104.)
-- **A rotação de log perde histórico.** Cada rotação apaga o arquivo
-  rotacionado anteriormente.
-- **Os Eixos 10/11 são anteriores ao QS-C01.** Veja o aviso acima.
-- **O endurecimento de rede está incompleto.** O servidor TCP do núcleo não tem
-  timeouts no lado do accept; o painel web não é autenticado e faz bind em
-  `0.0.0.0`.
-- **Status de release.** A release "Latest" do GitHub ainda é a `v2500.0.0`;
-  `v2700.0.0-rc2` é uma pré-release. O trabalho pós-RC2 (PR #101, PR #102) está
-  na `main`, mas sem tag.
+> [!IMPORTANT]
+> Os resultados Multi-WAN mostram comunicação, autenticação e correlação de
+> computação experimentais entre dispositivos. Eles **não** mostram consenso
+> distribuído, execução exatamente uma vez certificada, tolerância universal a
+> partições nem prontidão para produção.
 
 ---
 
-## Início rápido
+## Instalação, uso e testes
 
 Estes passos instalam o pacote e executam a suíte de testes localmente. Eles
 **não** descrevem uma implantação multinó.
@@ -322,8 +393,8 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
-Instalação para desenvolvimento (o pacote não tem dependências de runtime; o
-`pytest` é instalado separadamente, como na CI):
+Instalação para desenvolvimento. O pacote não tem dependências de runtime; o
+`pytest` é instalado separadamente, como na CI:
 
 ```bash
 python -m pip install --upgrade pip pytest
@@ -343,18 +414,16 @@ nexus doctor
 - Não exponha o hub de rendezvous (porta 8500), o painel web nem a porta TCP do
   núcleo além de uma rede confiável. O painel web não é autenticado e os
   servidores fazem bind em `0.0.0.0`.
-- `NEXUS_SECRET_KEY` deve ser definida para o runtime e mantida privada; é um
+- `NEXUS_SECRET_KEY` deve ser definida para o runtime e mantida privada. É um
   único segredo compartilhado por todo o cluster.
 - Não execute implantações multinó esperando escritas replicadas seguras. Não
   há consenso, e as escritas distribuídas são bloqueadas em todos os modos.
-- Sem `NEXUS_CLUSTER_MODE`, o nó inicia em fail-closed (sem escritas, sem
-  sincronização entre nós, sem promoção). Defina `NEXUS_CLUSTER_MODE=single`
-  somente em um nó que esteja realmente sozinho; leia antes o
+- Sem `NEXUS_CLUSTER_MODE`, o nó inicia em fail-closed: sem escritas, sem
+  sincronização entre nós, sem promoção. Defina `NEXUS_CLUSTER_MODE=single`
+  somente em um nó que esteja realmente sozinho e leia antes o
   [guia de migração](docs/NEXUS_V2700_W08B_CLUSTER_MODE_MIGRATION.md).
 
----
-
-## Interface de linha de comando
+### Interface de linha de comando
 
 ```text
 usage: nexus [-h] {version,status,peers,cluster,doctor} ...
@@ -379,13 +448,11 @@ nexus doctor --url http://127.0.0.1:8081/status --watch --interval 2 --clear
 ```
 
 O `nexus doctor` informa as versões da CLI e do Python, o sistema operacional, o
-executável Python, as permissões do diretório de trabalho e — quando uma URL de
-runtime é fornecida — a conectividade com o runtime, a saúde, a integridade do
-armazenamento e a liderança e a composição do cluster.
+executável Python e as permissões do diretório de trabalho. Quando uma URL de
+runtime é fornecida, informa também a conectividade com o runtime, a saúde, a
+integridade do armazenamento e a liderança e a composição do cluster.
 
----
-
-## Endpoints do runtime
+### Endpoints do runtime
 
 Painel web servido por cada nó de runtime (`web_panel.py`, HTTP `GET`, JSON):
 
@@ -404,7 +471,7 @@ Hub de rendezvous (`nexus_rendezvous.py`, porta 8500):
 |---|---|
 | `POST /register` | Registro de peer autenticado por HMAC |
 | `POST /heartbeat` | Heartbeat de peer autenticado por HMAC |
-| `GET /peers` | Lista de peers ativos — **não autenticada**, apenas descoberta |
+| `GET /peers` | Lista de peers ativos: **não autenticada**, apenas descoberta |
 
 ```powershell
 nexus status  --url http://127.0.0.1:8081/status
@@ -412,9 +479,7 @@ nexus cluster --url http://127.0.0.1:8081/cluster
 nexus peers   --url http://127.0.0.1:8500/peers
 ```
 
----
-
-## Estrutura do pacote
+### Estrutura do pacote
 
 ```text
 nexus/                      # installable package (CLI entry: nexus = nexus.cli:main)
@@ -435,101 +500,44 @@ persistence.py              # hash-chained log and checkpoint
 web_panel.py                # runtime HTTP endpoints
 tests/                      # regression suite (test-and-build)
 validation/                 # S1–S5 harness, hub hardening and physical campaign evidence
-docs/                       # technical documentation
+docs/                       # technical documentation (index: docs/README.pt-BR.md)
 ```
 
 ---
 
-## Documentação
+## Documentação e próximos objetivos
 
-| Documento | Finalidade |
-| --- | --- |
-| [Executive Technical Brief](docs/NEXUS_V2700_EXECUTIVE_TECHNICAL_BRIEF.md) | Visão técnica geral para público externo |
-| [External Evaluation Guide](docs/NEXUS_V2700_EXTERNAL_EVALUATION_GUIDE.md) | Guia para avaliadores externos |
-| [External Reproduction Protocol](docs/NEXUS_V2700_EXTERNAL_REPRODUCTION_PROTOCOL.md) | Procedimento de reprodução |
-| [External Resilience Demonstration](docs/NEXUS_V2700_EXTERNAL_RESILIENCE_DEMO.md) | Ponto de entrada para as evidências de resiliência |
-| [Resilience Case Study](docs/NEXUS_V2700_RESILIENCE_CASE_STUDY.md) | Estudo de caso controlado de perda do MASTER |
-| [Technical Positioning](docs/NEXUS_V2700_TECHNICAL_POSITIONING.md) | Escopo e posicionamento tecnológico neutro |
-| [Security Trust Boundary](docs/NEXUS_V2700_SECURITY_TRUST_BOUNDARY.md) | Fronteiras de segurança e de confiança |
-| [Distributed Commit Contract](docs/NEXUS_V2700_DISTRIBUTED_COMMIT_CONTRACT.md) | Contrato de commit distribuído |
-| [V2700 Architecture Plan](docs/NEXUS_V2700_ARCHITECTURE_PLAN.md) | Arquitetura e eixos de desenvolvimento |
-| [Project State](docs/PROJECT_STATE.md) | Estado atual do projeto |
-| [Axis 10 Quorum Timing](docs/validation/NEXUS-V2700-AXIS-10-QUORUM-TIMING.md) | Validação da temporização de quórum |
-| [Axis 11 Statistical Resilience](docs/validation/NEXUS-V2700-AXIS-11-STATISTICAL-RESILIENCE.md) | Registro de resiliência estatística |
-| [Windows + Android validation](docs/windows_android_validation.md) | Validação física com múltiplos dispositivos |
-| [S1–S5 harness](validation/s1-s5-harness/README.md) | Harness de validação W05/W06 |
-| [Hub hardening](validation/hub-hardening/README.md) | Protótipo experimental de hub W07 |
-| [V2700 RC2 Release Notes](RELEASE_NOTES_v2700.0.0-rc2.md) | Registro da release candidate |
-| [v2500 architecture map](docs/NEXUS_V2500_ARCHITECTURE_MAP.md) | Referência histórica de arquitetura |
-| [W08-A Consensus Safety Audit](docs/NEXUS_V2700_W08A_CONSENSUS_SAFETY_AUDIT.md) | Auditoria somente leitura do código de autoridade, quorum e fencing (achados F1–F10, invariantes INV-01..INV-07) |
-| [W08-B Cluster Mode Migration](docs/NEXUS_V2700_W08B_CLUSTER_MODE_MIGRATION.md) | Comportamento de `NEXUS_CLUSTER_MODE`, limites do `single`, migração e scripts afetados |
+### Documentação
 
-### Roteiro de avaliação externa
+A lista completa e categorizada está no **[índice da documentação](docs/README.pt-BR.md)**.
+Ele separa o estado atual da `main`, as evidências de validação, os
+laboratórios experimentais e os registros históricos.
 
-1. [Executive Technical Brief](docs/NEXUS_V2700_EXECUTIVE_TECHNICAL_BRIEF.md) — arquitetura, capacidades, fronteiras e mapa de evidências.
-2. [Resilience Case Study](docs/NEXUS_V2700_RESILIENCE_CASE_STUDY.md) — cenário controlado de perda do MASTER em três nós.
-3. [Technical Positioning](docs/NEXUS_V2700_TECHNICAL_POSITIONING.md) — comparação neutra de escopo com tecnologias consolidadas de sistemas distribuídos.
-4. [External Resilience Demonstration](docs/NEXUS_V2700_EXTERNAL_RESILIENCE_DEMO.md) — camada de navegação sobre as evidências de resiliência.
-5. [Axis 11 Statistical Resilience](docs/validation/NEXUS-V2700-AXIS-11-STATISTICAL-RESILIENCE.md) — registro estatístico e metodologia.
-6. [Limitações conhecidas](#limitações-conhecidas) — leia antes de tirar conclusões.
-
----
-
-## Status de release
-
-A pré-release pública atual é a
-[**v2700.0.0-rc2**](https://github.com/gutembergpb27/Termux-nexus/releases/tag/v2700.0.0-rc2)
-([notas de release](RELEASE_NOTES_v2700.0.0-rc2.md)). A V2700 consolida
-semântica de execução durável, coordenação de computação, prontidão operacional
-e observabilidade, e transporte autenticado com proteção contra replay. A
-release "Latest" do GitHub continua sendo a `v2500.0.0`. O projeto permanece
-experimental; as evidências publicadas sustentam os contratos e cenários
-documentados e não constituem uma certificação de prontidão para produção.
-
----
-
-## Histórico de evolução
-
-Marcos selecionados a partir das tags do repositório e dos pull requests integrados.
-
-| Data | Marco |
+| Comece por | Finalidade |
 |---|---|
-| 2026-07-07 | `v1900` |
-| 2026-07-08 | `v1950`, `v2000`, `v2100-catchup`, `v2100-failover` |
-| 2026-07-11 | `runtime-v1-beta`, `runtime-v1.1-rc1` |
-| 2026-07-16 | `v2300-alpha1` |
-| 2026-07-19 | `v2300.0.0a1` |
-| 2026-07-23 | `v2400.0.0` |
-| 2026-07-25 | `v2500.0.0-rc1` |
-| 2026-07-29 | `v2500.0.0-rc2` … `rc4`, `v2500.0.0` ("Latest" atual do GitHub) |
-| 2026-08-19 | `v2600.0.0-alpha.1` |
-| 2026-08-28 | `v2700.0.0-rc1` |
-| 2026-08-31 | `nirt-01-external-candidate` |
-| 2026-09-02 | `nirt-02-audited-integration` |
-| 2026-09-17 | `v2700.0.0-rc2` (pré-release) |
-| 2026-11-04 | PR #101 — gate fail-closed QS-C01 e sonda de liveness do MASTER (na `main`, sem tag) |
-| 2026-11-04 | PR #102 — harness de validação W05–W07 e endurecimento experimental do hub (na `main`, sem tag) |
-| 2026-11-05 | PR #103 — auditoria de segurança de consenso W08-A e status pós-RC2 (documentação) |
-| 2026-11-05 | PR #104 — modo de cluster fail-closed explícito W08-B |
-| 2026-11-05 | PR #105 — apresentação bilíngue e identidade visual W09 |
+| [Project State](docs/PROJECT_STATE.md) | Estado atual detalhado e histórico de integração |
+| [Auditoria de segurança de consenso W08-A](docs/NEXUS_V2700_W08A_CONSENSUS_SAFETY_AUDIT.md) | Achados sobre autoridade, quórum e fencing (F1–F10, INV-01..INV-07) |
+| [Migração do modo de cluster W08-B](docs/NEXUS_V2700_W08B_CLUSTER_MODE_MIGRATION.md) | Comportamento de `NEXUS_CLUSTER_MODE` e limites do `single` |
+| [Security Trust Boundary](docs/NEXUS_V2700_SECURITY_TRUST_BOUNDARY.md) | Fronteiras de segurança e de confiança |
+| [Série Multi-WAN 05](docs/NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) | Relatório consolidado MW05E–MW05K-2 |
+| [Notas de release V2700 RC2](RELEASE_NOTES_v2700.0.0-rc2.md) | Registro da release candidate |
 
-Foco das versões, conforme registrado no roadmap original: versões iniciais —
-experimentos de persistência e runtime; v2200 — nós distribuídos e hub de
-rendezvous; v2300 — CLI operacional e diagnóstico; v2400 — integração do runtime
-e observabilidade; v2500 RC1 — arquitetura unificada de runtime e cluster; v2600
-Alpha 1 — ciclo de vida de computação, estado durável e recuperação na
-inicialização; v2700 RC1 — execução durável, coordenação, prontidão e
-endurecimento do transporte.
+**Roteiro de avaliação externa:**
 
----
+1. [Executive Technical Brief](docs/NEXUS_V2700_EXECUTIVE_TECHNICAL_BRIEF.md): arquitetura, capacidades, fronteiras e mapa de evidências. Foi escrito antes das PRs #101 e #104.
+2. [Resilience Case Study](docs/NEXUS_V2700_RESILIENCE_CASE_STUDY.md): cenário controlado de perda do MASTER em três nós.
+3. [Technical Positioning](docs/NEXUS_V2700_TECHNICAL_POSITIONING.md): comparação neutra de escopo com tecnologias consolidadas de sistemas distribuídos.
+4. [External Resilience Demonstration](docs/NEXUS_V2700_EXTERNAL_RESILIENCE_DEMO.md): camada de navegação sobre as evidências de resiliência.
+5. [Axis 11 Statistical Resilience](docs/validation/NEXUS-V2700-AXIS-11-STATISTICAL-RESILIENCE.md): registro estatístico e metodologia.
+6. [Limitações conhecidas](#limitações-conhecidas): leia antes de tirar conclusões.
 
-## Roadmap
+### Roadmap
 
 Sequência W08-B, em ordem, sem datas prometidas. **As escritas distribuídas
 permanecem bloqueadas até que os invariantes correspondentes sejam
 demonstrados.**
 
-- [x] Modo de cluster fail-closed explícito (`NEXUS_CLUSTER_MODE=single|distributed`) — PR #104
+- [x] Modo de cluster fail-closed explícito (`NEXUS_CLUSTER_MODE=single|distributed`), PR #104
 - [ ] Persistência de log sem perda de histórico
 - [ ] Quarentena de cópias obsoletas do runtime
 - [ ] Timeouts TCP e correções de concorrência
@@ -539,6 +547,12 @@ demonstrados.**
 - [ ] Termo nos blocos de log e rejeição de líder obsoleto
 - [ ] Mensagens assinadas entre nós; hub apenas para descoberta
 - [ ] Integração experimental atrás de uma flag desativada por padrão
+
+Laboratório Multi-WAN:
+
+- [ ] Piloto físico Windows–Motorola dos controles negativos do MW05K-2, quando o Starlink estiver disponível
+- [ ] Identificadores por requisição nos registros de rejeição do servidor, para correlacionar um a um os controles negativos
+- [ ] Resumos de auditoria publicáveis, com lista de hashes, para que os números reportados pelo operador possam ser verificados de forma independente
 
 Além da W08-B (sem cronograma): TLS e identidade por nó (a autenticação de
 envelopes por HMAC já existe), testes multinó e de falhas de rede ampliados,
