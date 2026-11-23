@@ -174,6 +174,28 @@ Estado da `main` em `9218889`.
 
 ---
 
+### Multi-WAN 01–03 — Validação entre dispositivos (experimental)
+
+Foi avaliada a comunicação experimental entre
+Windows/fibra e Android/Starlink utilizando Tailscale.
+
+O Multi-WAN 03 registrou:
+
+- 5/5 mensagens autenticadas aceitas;
+- 2/2 controles negativos rejeitados por dispositivo;
+- RTT mediano de 153,998 ms.
+
+Os resultados demonstram comunicação e autenticação
+experimentais, não consenso distribuído
+ou prontidão para produção.
+
+Documentação:
+
+- [Relatório técnico — Português](docs/NEXUS_V2700_MULTIWAN_01_03_PT.md)
+- [Technical report — English](docs/NEXUS_V2700_MULTIWAN_01_03_EN.md)
+
+---
+
 ## Resultados de validação
 
 ### Integração contínua
