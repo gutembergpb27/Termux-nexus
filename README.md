@@ -336,9 +336,9 @@ Methodology and reproducibility:
 
 ### 3 · Multi-WAN cross-device laboratories (experimental)
 
-These experiments connect a Windows computer (fiber) and an Android device
-(Starlink) over Tailscale. They use isolated laboratory tools and, in some
-milestones, real Nexus components, but they do **not** run the distributed
+These experiments connect a Windows computer and an Android device over
+Tailscale, on links declared by the operator as fiber and Starlink. They use
+isolated laboratory tools and, in some milestones, existing Nexus components, but they do **not** run the distributed
 runtime and do not exercise distributed writes.
 
 | Milestone | Headline result | Evidence class | Report |

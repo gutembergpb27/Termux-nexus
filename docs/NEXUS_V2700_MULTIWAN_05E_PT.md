@@ -96,3 +96,5 @@ Os números do servidor e do journal Android provêm da saída de terminal apres
 **Conclusão delimitada:** o Multi-WAN 05E produziu um fluxo experimental remoto concluído pelo cliente e **correlação 66/66 dos identificadores de tarefas concluídas entre o Windows, o servidor Android e seu journal**. O lado cliente foi reverificado de forma independente; o lado do servidor e do journal é reportado pelo operador. Isto não é certificação do runtime distribuído nem promessa de execução exatamente uma vez ou de segurança em nível de produção.
 
 **Privacidade:** nenhum endereço privado, segredo HMAC, identificador individual de tarefa ou arquivo JSONL bruto é publicado.
+
+Relacionados: [Multi-WAN 01–03](NEXUS_V2700_MULTIWAN_01_03_PT.md) · [Multi-WAN 04C](NEXUS_V2700_MULTIWAN_04C_PT.md) · [Série Multi-WAN 05](NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) · [Índice da documentação](README.pt-BR.md)

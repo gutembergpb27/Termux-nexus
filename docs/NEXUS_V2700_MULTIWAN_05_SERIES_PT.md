@@ -79,7 +79,7 @@ evidências do **lado cliente (Windows)**:
 | Registros JSONL do cliente | 96 | Verificado de forma independente |
 | Ocorrências `completed` / IDs únicos de tarefas concluídas | 67 / **66** | Verificado de forma independente |
 | Impressão digital SHA-256 dos IDs únicos ordenados | `dd2cb1d4672ec38fee4bfb279280757025a17497cd656c73c64cd6abfe797e5f` | Verificado de forma independente (igual ao valor reportado para os dois dispositivos) |
-| Tarefas concluídas por tipo (cliente) | 50 `echo_tiny`, 5 originais dos controles negativos, 5 `matrix_8x8`, 5 `data_transform`, 1 matriz grande | Verificado de forma independente |
+| Tarefas concluídas únicas por tipo (cliente) | 50 `echo_tiny`, 5 originais dos controles negativos, 5 `matrix_8x8`, 5 `data_transform`, 1 matriz grande (`matrix_150`: timeout seguido de conclusão por consulta de status `resolve`; corpo da saída não retido) | Verificado de forma independente |
 | Tentativas de controle negativo no cliente (assinatura alterada, segredo errado, expirada, reenvio idêntico) | 20, todas classificadas como `UNKNOWN` pelo cliente (nenhum resultado aceito) | Verificado de forma independente |
 | Registros do servidor e do journal Android; hashes das saídas | Ver seção 4 | Reportado pelo operador |
 

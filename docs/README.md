@@ -59,7 +59,7 @@ describes the current state of `main`.
 |---|---|---|
 | Multi-WAN 01–03: authenticated messaging, Windows ↔ Android | Documented, with erratum (section 8) | [EN](NEXUS_V2700_MULTIWAN_01_03_EN.md) · [PT](NEXUS_V2700_MULTIWAN_01_03_PT.md) |
 | Multi-WAN 04C: authenticated remote compute | Documented; operator-reported, Android side from an operator transcript | [EN](NEXUS_V2700_MULTIWAN_04C_EN.md) · [PT](NEXUS_V2700_MULTIWAN_04C_PT.md) |
-| Multi-WAN 05E: physical remote compute pilot | Documented; client side independently re-verified | [EN](NEXUS_V2700_MULTIWAN_05E_EN.md) · [PT](NEXUS_V2700_MULTIWAN_05E_PT.md) |
+| Multi-WAN 05E: physical remote compute pilot | Documented; client side independently re-verified; Android server/journal operator-reported | [EN](NEXUS_V2700_MULTIWAN_05E_EN.md) · [PT](NEXUS_V2700_MULTIWAN_05E_PT.md) |
 | MW05E–MW05K-2 consolidated series: audit and local negative controls | Consolidated report; figures largely operator-reported | [EN](NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) · [PT](NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) |
 | Physical Windows–Motorola pilot of the MW05K-2 controls | Pending Starlink connectivity | — |
 

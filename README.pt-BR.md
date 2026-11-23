@@ -340,9 +340,10 @@ Metodologia e reprodutibilidade:
 
 ### 3 · Laboratórios Multi-WAN entre dispositivos (experimental)
 
-Estes experimentos conectam um computador Windows (fibra) e um dispositivo
-Android (Starlink) via Tailscale. Eles usam ferramentas de laboratório isoladas
-e, em alguns marcos, componentes reais do Nexus, mas **não** executam o
+Estes experimentos conectam um computador Windows e um dispositivo Android via
+Tailscale, em conexões declaradas pelo operador como fibra e Starlink. Eles usam
+ferramentas de laboratório isoladas e, em alguns marcos, componentes existentes
+do Nexus, mas **não** executam o
 runtime distribuído e não exercitam escritas distribuídas.
 
 | Marco | Resultado principal | Classe de evidência | Relatório |

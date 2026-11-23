@@ -6,8 +6,10 @@
 
 **Classificação:** Validação experimental entre dispositivos.
 
-**Situação:** Evidências consolidadas. Ver a errata na seção 8. Não constitui
+**Situação:** Evidências consolidadas. Não constitui
 certificação de produção.
+
+**Errata:** ver a seção 8.
 
 ---
 
@@ -170,7 +172,7 @@ Os números acima foram mantidos sem alteração para rastreabilidade.
 
 - **Tentativas malsucedidas antes da execução publicada.** Os resultados
   publicados do MW03 vêm da quarta tentativa do cliente. Três tentativas
-  anteriores, na mesma noite, falharam: duas com `ProtocolError` e uma com
+  anteriores, nos quinze minutos que a precederam, falharam: duas com `ProtocolError` e uma com
   `ConnectionRefusedError`. O cliente registrou apenas o tipo da exceção,
   portanto as causas são desconhecidas.
 - **Sem causa de rejeição no servidor.** O servidor Android não registrou o

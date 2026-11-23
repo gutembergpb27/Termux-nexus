@@ -78,7 +78,7 @@ and is not repeated here. This series adds one independent check of the
 | Client JSONL records | 96 | Independently verified |
 | `completed` occurrences / unique completed task IDs | 67 / **66** | Independently verified |
 | SHA-256 fingerprint of the sorted unique completed IDs | `dd2cb1d4672ec38fee4bfb279280757025a17497cd656c73c64cd6abfe797e5f` | Independently verified (matches the value reported for both devices) |
-| Completed tasks by kind (client) | 50 `echo_tiny`, 5 negative-control originals, 5 `matrix_8x8`, 5 `data_transform`, 1 large matrix | Independently verified |
+| Unique completed tasks by kind (client) | 50 `echo_tiny`, 5 negative-control originals, 5 `matrix_8x8`, 5 `data_transform`, 1 large matrix (`matrix_150`: timed out, then completed through a `resolve` status query; output body not retained) | Independently verified |
 | Client negative-control attempts (tampered, wrong secret, expired, identical resend) | 20, all classified `UNKNOWN` by the client (no result accepted) | Independently verified |
 | Android server and journal records; output hashes | See section 4 | Operator-reported |
 

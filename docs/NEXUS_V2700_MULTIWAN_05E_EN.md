@@ -104,3 +104,5 @@ The Android server and journal figures derive from operator-presented terminal o
 **Bounded conclusion:** Multi-WAN 05E produced a completed experimental remote client flow and **66/66 correlation of completed-task identifiers across Windows, the Android server and its journal**. The client side was independently re-verified; the server and journal side is operator-reported. This is not certification of the distributed runtime, nor a claim of production-grade exactly-once execution or safety.
 
 **Privacy:** no private addresses, HMAC secrets, individual task identifiers or raw JSONL files are published.
+
+Related: [Multi-WAN 01–03](NEXUS_V2700_MULTIWAN_01_03_EN.md) · [Multi-WAN 04C](NEXUS_V2700_MULTIWAN_04C_EN.md) · [Multi-WAN 05 series](NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) · [Documentation index](README.md)

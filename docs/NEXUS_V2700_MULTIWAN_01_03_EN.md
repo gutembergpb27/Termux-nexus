@@ -6,8 +6,10 @@
 
 **Classification:** Experimental cross-device validation.
 
-**Status:** Evidence consolidated. See the erratum in section 8.
+**Status:** Evidence consolidated.
 This does not constitute production certification.
+
+**Erratum:** see section 8.
 
 ---
 
@@ -168,8 +170,8 @@ A later audit of the laboratory files corrected the following points. The
 figures above are kept unchanged for traceability.
 
 - **Failed attempts before the published run.** The published MW03 results
-  come from the fourth client attempt. Three earlier attempts on the same
-  evening failed: two with `ProtocolError` and one with
+  come from the fourth client attempt. Three earlier attempts, in the
+  fifteen minutes before it, failed: two with `ProtocolError` and one with
   `ConnectionRefusedError`. The client recorded only the exception type, so
   the root causes are unknown.
 - **No rejection causes on the server.** The Android server recorded neither
