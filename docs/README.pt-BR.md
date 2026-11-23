@@ -10,7 +10,7 @@ descreve o estado atual da `main`.
 |---|---|
 | **A · Estado atual da `main`** | Descreve o código, os testes e a CI da `main` hoje. |
 | **B · Evidências de validação** | Experimentos registrados com escopo e data fixos. Os números valem apenas para aquele experimento. |
-| **C · Laboratórios experimentais** | Ferramentas e resultados fora do runtime da `main`, incluindo trabalho em revisão em pull requests abertos. |
+| **C · Laboratórios experimentais** | Ferramentas e resultados fora do runtime da `main`. |
 | **D · Registros históricos e de release** | Preservados para rastreabilidade. Não os use como afirmações sobre o projeto atual. |
 
 ---
@@ -57,9 +57,9 @@ descreve o estado atual da `main`.
 
 | Marco | Status | Relatório |
 |---|---|---|
-| Multi-WAN 01–03: mensagens autenticadas, Windows ↔ Android | Na `main` | [PT](NEXUS_V2700_MULTIWAN_01_03_PT.md) · [EN](NEXUS_V2700_MULTIWAN_01_03_EN.md) |
-| Multi-WAN 04C: computação remota autenticada | Em revisão, [PR #109](https://github.com/gutembergpb27/Termux-nexus/pull/109) | Na PR |
-| Multi-WAN 05E: piloto físico de computação remota | Rascunho, [PR #110](https://github.com/gutembergpb27/Termux-nexus/pull/110) | Na PR |
+| Multi-WAN 01–03: mensagens autenticadas, Windows ↔ Android | Documentado, com errata (seção 8) | [PT](NEXUS_V2700_MULTIWAN_01_03_PT.md) · [EN](NEXUS_V2700_MULTIWAN_01_03_EN.md) |
+| Multi-WAN 04C: computação remota autenticada | Documentado; reportado pelo operador, lado Android a partir de transcrição do operador | [PT](NEXUS_V2700_MULTIWAN_04C_PT.md) · [EN](NEXUS_V2700_MULTIWAN_04C_EN.md) |
+| Multi-WAN 05E: piloto físico de computação remota | Documentado; lado cliente reverificado de forma independente | [PT](NEXUS_V2700_MULTIWAN_05E_PT.md) · [EN](NEXUS_V2700_MULTIWAN_05E_EN.md) |
 | Série consolidada MW05E–MW05K-2: auditoria e controles negativos locais | Relatório consolidado; números em grande parte reportados pelo operador | [PT](NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) · [EN](NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) |
 | Piloto físico Windows–Motorola dos controles do MW05K-2 | Aguardando conectividade Starlink | — |
 

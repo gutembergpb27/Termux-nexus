@@ -332,6 +332,7 @@ Subsequent merges (all untagged):
 - PR #106 — W08-B follow-up documentation.
 - PR #107 — W11 hub fix: drain unread request body before closing rejected POSTs (merge `cb5e471`).
 - PR #108 — Multi-WAN 01–03 cross-device experiment documentation (merge `d783a86`).
+- PR #109, #110, #111 — Multi-WAN 04C and 05E reports, MW05 series report, MW03 erratum and the W12 documentation refresh, integrated together (documentation only).
 
 None of these PRs is tagged. The latest tag remains `v2700.0.0-rc2`
 (pre-release). The GitHub "Latest" release is still `v2500.0.0`.

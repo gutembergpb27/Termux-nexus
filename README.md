@@ -49,7 +49,7 @@ State of `main` at `d783a86` (2026-11-23).
 | Consensus | **None.** No election term, vote, leader fencing or majority commit. |
 | Cluster mode | **Fail-closed by default** (W08-B, PR #104). Local writes require an explicit `NEXUS_CLUSTER_MODE=single`. Without a cluster mode, writes, peer sync and promotion are blocked. Distributed mode never writes, and an invalid configuration refuses to start. See the [migration guide](docs/NEXUS_V2700_W08B_CLUSTER_MODE_MIGRATION.md). |
 | CI on `main` | **1,103 passed, 1 xfailed** across three required checks ([run 45092228724](https://github.com/gutembergpb27/Termux-nexus/actions/runs/45092228724)). |
-| Releases | Latest pre-release [`v2700.0.0-rc2`](https://github.com/gutembergpb27/Termux-nexus/releases/tag/v2700.0.0-rc2). The GitHub "Latest" release is still `v2500.0.0`. Post-RC2 work (PR #101–#108) is on `main` but untagged. Published evidence supports the documented contracts and scenarios; it is not a production-readiness certification. |
+| Releases | Latest pre-release [`v2700.0.0-rc2`](https://github.com/gutembergpb27/Termux-nexus/releases/tag/v2700.0.0-rc2). The GitHub "Latest" release is still `v2500.0.0`. Post-RC2 work (PR #101 and later) is on `main` but untagged. Published evidence supports the documented contracts and scenarios; it is not a production-readiness certification. |
 | Cross-device labs | Multi-WAN experiments between Windows and Android are under way. They are **experimental and outside the runtime on `main`**; see [Validation and evidence](#validation-and-evidence). |
 
 ---
@@ -244,7 +244,7 @@ Selected milestones from the repository tags and merged pull requests.
 | 2026-11-05 | PR #107: W11 hub fix, drains unread request bodies before closing rejected POSTs |
 | 2026-11-23 | PR #108: Multi-WAN 01–03 cross-device documentation |
 
-PR #101 to #108 are on `main` and untagged.
+PR #101 to #108 are on `main` and untagged. The Multi-WAN 04C/05E reports (PR #109, #110) are integrated together with this documentation refresh.
 
 Release focus, as recorded in the original roadmap:
 
@@ -260,9 +260,9 @@ Release focus, as recorded in the original roadmap:
 
 | Date | Milestone | Status |
 |---|---|---|
-| 2026-11-22 | Multi-WAN 01–03: authenticated messaging, Windows ↔ Android | Documented on `main` |
-| 2026-11-22 | Multi-WAN 04C: authenticated remote compute | Documentation under review in [PR #109](https://github.com/gutembergpb27/Termux-nexus/pull/109) |
-| 2026-11-23 | Multi-WAN 05E: physical remote compute pilot | Documentation in draft [PR #110](https://github.com/gutembergpb27/Termux-nexus/pull/110) |
+| 2026-11-22 | Multi-WAN 01–03: authenticated messaging, Windows ↔ Android | Documented on `main`, with erratum ([EN](docs/NEXUS_V2700_MULTIWAN_01_03_EN.md#8-erratum-2026-11-23)) |
+| 2026-11-22 | Multi-WAN 04C: authenticated remote compute | Documented ([EN](docs/NEXUS_V2700_MULTIWAN_04C_EN.md) · [PT](docs/NEXUS_V2700_MULTIWAN_04C_PT.md)); Android-side figures from an operator transcript |
+| 2026-11-23 | Multi-WAN 05E: physical remote compute pilot | Documented ([EN](docs/NEXUS_V2700_MULTIWAN_05E_EN.md) · [PT](docs/NEXUS_V2700_MULTIWAN_05E_PT.md)) |
 | 2026-11-23 | MW05F, MW05G, MW05J: private evidence audit | [Consolidated report](docs/NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) |
 | 2026-11-23 | MW05K-2: local negative controls with simulated transport | [Consolidated report](docs/NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) |
 | Pending | Physical Windows–Motorola pilot of the MW05K-2 controls | Waiting for Starlink connectivity |
@@ -343,9 +343,9 @@ runtime and do not exercise distributed writes.
 
 | Milestone | Headline result | Evidence class | Report |
 |---|---|---|---|
-| Multi-WAN 01–03 | MW03: 5/5 authenticated messages accepted; 2/2 negative controls rejected per device; median RTT 153.998 ms | Published on `main` | [EN](docs/NEXUS_V2700_MULTIWAN_01_03_EN.md) · [PT](docs/NEXUS_V2700_MULTIWAN_01_03_PT.md) |
-| Multi-WAN 04C | Authenticated remote compute | Under review | [PR #109](https://github.com/gutembergpb27/Termux-nexus/pull/109) |
-| Multi-WAN 05E | Physical remote compute pilot; 66 completed-task IDs correlated across devices | Draft. Client-side fingerprint independently re-verified; server-side match operator-reported | [PR #110](https://github.com/gutembergpb27/Termux-nexus/pull/110) · [series report](docs/NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) |
+| Multi-WAN 01–03 | MW03: 5/5 authenticated messages accepted; 2/2 negative controls rejected per device; median RTT 153.998 ms. The published run is the 4th attempt; 3 earlier attempts failed (see erratum) | Published; lab files re-checked by a later audit | [EN](docs/NEXUS_V2700_MULTIWAN_01_03_EN.md) · [PT](docs/NEXUS_V2700_MULTIWAN_01_03_PT.md) |
+| Multi-WAN 04C | Authenticated remote compute: 4/4 results and 2/2 negative controls (client); median RTT 165.659 ms (n=4) | Operator-reported. Android side: **operator transcript**, no raw device log | [EN](docs/NEXUS_V2700_MULTIWAN_04C_EN.md) · [PT](docs/NEXUS_V2700_MULTIWAN_04C_PT.md) |
+| Multi-WAN 05E | Physical remote compute pilot; 66 completed-task IDs correlated across devices | Client side independently re-verified; server-side match operator-reported | [EN](docs/NEXUS_V2700_MULTIWAN_05E_EN.md) · [PT](docs/NEXUS_V2700_MULTIWAN_05E_PT.md) · [series report](docs/NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) |
 | MW05F · MW05G · MW05J | 65/65 retained output hashes recomputed; 55 `echo` outputs bound to inputs; 5/5 matrix products and 5/5 sums recomputed; 1 non-retained output reconstructed; 20 historical authentication rejections | Operator-reported | [Series report](docs/NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) |
 | MW05K-2 | 20/20 local negative controls passed; 0 executor calls observed | Operator-reported, **local, simulated transport** | [Series report](docs/NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) |
 | Physical K-2 pilot | — | **Pending**, waiting for Starlink | — |

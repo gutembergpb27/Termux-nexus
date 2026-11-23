@@ -55,7 +55,7 @@ flowchart LR
 
 | Marco | O que é | Ambiente | Status |
 |---|---|---|---|
-| MW05E | Piloto físico de computação remota | Cliente Windows ↔ servidor Android/Termux via Tailscale | Executado; relatório completo na PR em rascunho [#110](https://github.com/gutembergpb27/Termux-nexus/pull/110) |
+| MW05E | Piloto físico de computação remota | Cliente Windows ↔ servidor Android/Termux via Tailscale | Executado; [relatório completo](NEXUS_V2700_MULTIWAN_05E_PT.md) |
 | MW05F · MW05G · MW05J | Auditoria pós-piloto, somente leitura, das evidências privadas do MW05E (saídas, vínculo com entradas, rejeições de autenticação, verificações estáticas do código) | Offline, sobre as evidências privadas | Reportada como aprovada, com limitações declaradas |
 | MW05K-2 | Suíte local de controles negativos | Máquina única, transporte simulado | Reportada como aprovada |
 | Piloto físico K-2 | Nova execução dos controles K-2 entre dispositivos | Windows ↔ Motorola (Android) | **Pendente** — aguardando conectividade Starlink |
@@ -69,7 +69,7 @@ relatório as apresenta em conjunto.
 
 ### 3. MW05E — linha de base usada pela auditoria
 
-O relatório completo do MW05E está na [PR #110](https://github.com/gutembergpb27/Termux-nexus/pull/110)
+O relatório completo do MW05E é o [Multi-WAN 05E](NEXUS_V2700_MULTIWAN_05E_PT.md)
 e não é repetido aqui. Esta série acrescenta uma verificação independente das
 evidências do **lado cliente (Windows)**:
 
@@ -205,4 +205,6 @@ individual de tarefa, caminho de dispositivo ou arquivo JSONL bruto é
 publicado.
 
 Relacionados: [Relatório Multi-WAN 01–03](NEXUS_V2700_MULTIWAN_01_03_PT.md) ·
+[Relatório Multi-WAN 04C](NEXUS_V2700_MULTIWAN_04C_PT.md) ·
+[Relatório Multi-WAN 05E](NEXUS_V2700_MULTIWAN_05E_PT.md) ·
 [Índice da documentação](README.pt-BR.md)

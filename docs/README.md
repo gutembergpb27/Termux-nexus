@@ -10,7 +10,7 @@ describes the current state of `main`.
 |---|---|
 | **A · Current state of `main`** | Describes code, tests and CI on `main` today. |
 | **B · Validation evidence** | Recorded experiments with a fixed scope and date. Figures apply to that experiment only. |
-| **C · Experimental laboratories** | Tools and results outside the runtime on `main`, including work under review in open pull requests. |
+| **C · Experimental laboratories** | Tools and results outside the runtime on `main`. |
 | **D · Historical and release records** | Preserved for traceability. Do not use them as statements about the current project. |
 
 ---
@@ -57,9 +57,9 @@ describes the current state of `main`.
 
 | Milestone | Status | Report |
 |---|---|---|
-| Multi-WAN 01–03: authenticated messaging, Windows ↔ Android | On `main` | [EN](NEXUS_V2700_MULTIWAN_01_03_EN.md) · [PT](NEXUS_V2700_MULTIWAN_01_03_PT.md) |
-| Multi-WAN 04C: authenticated remote compute | Under review, [PR #109](https://github.com/gutembergpb27/Termux-nexus/pull/109) | In the PR |
-| Multi-WAN 05E: physical remote compute pilot | Draft, [PR #110](https://github.com/gutembergpb27/Termux-nexus/pull/110) | In the PR |
+| Multi-WAN 01–03: authenticated messaging, Windows ↔ Android | Documented, with erratum (section 8) | [EN](NEXUS_V2700_MULTIWAN_01_03_EN.md) · [PT](NEXUS_V2700_MULTIWAN_01_03_PT.md) |
+| Multi-WAN 04C: authenticated remote compute | Documented; operator-reported, Android side from an operator transcript | [EN](NEXUS_V2700_MULTIWAN_04C_EN.md) · [PT](NEXUS_V2700_MULTIWAN_04C_PT.md) |
+| Multi-WAN 05E: physical remote compute pilot | Documented; client side independently re-verified | [EN](NEXUS_V2700_MULTIWAN_05E_EN.md) · [PT](NEXUS_V2700_MULTIWAN_05E_PT.md) |
 | MW05E–MW05K-2 consolidated series: audit and local negative controls | Consolidated report; figures largely operator-reported | [EN](NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) · [PT](NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) |
 | Physical Windows–Motorola pilot of the MW05K-2 controls | Pending Starlink connectivity | — |
 

@@ -53,7 +53,7 @@ The client evidence, independently re-verified, contains 20 negative-control att
 
 **The individual negative-control attempts have not been matched to those server rejections.** The server's rejection records carry no request or task identifier. This report does not attest that each attempted invalid operation caused no execution.
 
-The journal records an `output_sha` for all 66 completed tasks. The output body of one task was not retained in the journal. The later audit reconstructed that output and found that its hash matched (operator-reported). See the consolidated Multi-WAN 05 series report (`docs/NEXUS_V2700_MULTIWAN_05_SERIES_EN.md`, added by PR #111).
+The journal records an `output_sha` for all 66 completed tasks. The output body of one task was not retained in the journal. The later audit reconstructed that output and found that its hash matched (operator-reported). See the consolidated [Multi-WAN 05 series report](NEXUS_V2700_MULTIWAN_05_SERIES_EN.md).
 
 ### 3. Task identifier correlation
 

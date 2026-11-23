@@ -50,4 +50,4 @@ Trata-se de evidência de **execução Compute remota autenticada entre dois dis
 
 **Privacidade:** logs brutos do terminal, endereços Tailscale privados e credenciais temporárias não fazem parte deste relatório público.
 
-Relacionados: [Multi-WAN 01–03](NEXUS_V2700_MULTIWAN_01_03_PT.md)
+Relacionados: [Multi-WAN 01–03](NEXUS_V2700_MULTIWAN_01_03_PT.md) · [Multi-WAN 05E](NEXUS_V2700_MULTIWAN_05E_PT.md) · [Série Multi-WAN 05](NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) · [Índice da documentação](README.pt-BR.md)

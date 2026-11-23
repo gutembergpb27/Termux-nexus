@@ -55,7 +55,7 @@ flowchart LR
 
 | Milestone | What it is | Environment | Status |
 |---|---|---|---|
-| MW05E | Physical remote compute pilot | Windows client ↔ Android/Termux server over Tailscale | Executed; full report in draft [PR #110](https://github.com/gutembergpb27/Termux-nexus/pull/110) |
+| MW05E | Physical remote compute pilot | Windows client ↔ Android/Termux server over Tailscale | Executed; [full report](NEXUS_V2700_MULTIWAN_05E_EN.md) |
 | MW05F · MW05G · MW05J | Post-pilot read-only audit of the MW05E private evidence (outputs, input binding, authentication rejections, static source checks) | Offline, on the private evidence | Reported as passing with stated limitations |
 | MW05K-2 | Local negative-control suite | Single machine, simulated transport | Reported as passing |
 | Physical K-2 pilot | Re-run of the K-2 controls across devices | Windows ↔ Motorola (Android) | **Pending** — waiting for Starlink connectivity |
@@ -68,7 +68,7 @@ separate breakdown per stage. This report therefore presents them together.
 
 ### 3. MW05E — baseline used by the audit
 
-The full MW05E report is in [PR #110](https://github.com/gutembergpb27/Termux-nexus/pull/110)
+The full MW05E report is [Multi-WAN 05E](NEXUS_V2700_MULTIWAN_05E_EN.md)
 and is not repeated here. This series adds one independent check of the
 **Windows client-side** evidence:
 
@@ -197,4 +197,6 @@ where each invalid request can be tracked individually.
 device paths or raw JSONL files are published.
 
 Related: [Multi-WAN 01–03 report](NEXUS_V2700_MULTIWAN_01_03_EN.md) ·
+[Multi-WAN 04C report](NEXUS_V2700_MULTIWAN_04C_EN.md) ·
+[Multi-WAN 05E report](NEXUS_V2700_MULTIWAN_05E_EN.md) ·
 [Documentation index](README.md)

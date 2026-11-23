@@ -49,7 +49,7 @@ O resumo do cliente relatou resultados confirmados nas categorias warmup, consec
 
 As evidências do cliente, reverificadas de forma independente, contêm 20 tentativas de controle negativo (assinatura alterada, segredo errado, expirada, reenvio idêntico), todas classificadas como `UNKNOWN`: nenhum resultado foi aceito. O servidor registrou 20 rejeições não autenticadas (reportado pelo operador). **As tentativas individuais de controle negativo não foram associadas a essas rejeições do servidor.** Os registros de rejeição do servidor não trazem identificador de requisição nem de tarefa. Este relatório não atesta que cada operação inválida tentada deixou de causar execução.
 
-O journal registra um `output_sha` para as 66 tarefas concluídas. O corpo da saída de uma tarefa não foi retido no journal. A auditoria posterior reconstruiu essa saída e constatou que seu hash coincidia (reportado pelo operador). Ver o relatório consolidado da série Multi-WAN 05 (`docs/NEXUS_V2700_MULTIWAN_05_SERIES_PT.md`, adicionado pela PR #111).
+O journal registra um `output_sha` para as 66 tarefas concluídas. O corpo da saída de uma tarefa não foi retido no journal. A auditoria posterior reconstruiu essa saída e constatou que seu hash coincidia (reportado pelo operador). Ver o [relatório consolidado da série Multi-WAN 05](NEXUS_V2700_MULTIWAN_05_SERIES_PT.md).
 
 ### 3. Correlação dos identificadores de tarefas
 

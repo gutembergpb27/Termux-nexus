@@ -6,7 +6,7 @@
 
 **Classificação:** Validação experimental entre dispositivos.
 
-**Situação:** Evidências consolidadas. Não constitui
+**Situação:** Evidências consolidadas. Ver a errata na seção 8. Não constitui
 certificação de produção.
 
 ---
@@ -90,6 +90,9 @@ A auditoria cruzada foi classificada como:
 
 **CROSS-DEVICE EVIDENCE PASS**
 
+> **Errata (23/11/2026):** esta classificação se aplica à quarta tentativa
+> do cliente. Três tentativas anteriores falharam. Ver a seção 8.
+
 A validação demonstra o comportamento observado
 no experimento específico, sem comprovar a integração
 completa do runtime distribuído.
@@ -127,6 +130,8 @@ SHA-256:
 `9016f3a629726884bb7343412e8b9d04b40102b685a3592d1afdd797ea9a5cd4`
 
 Os pacotes foram validados localmente.
+Os arquivos `SHA256SUMS` dentro das evidências MW01/02 e MW03 usam finais
+de linha CRLF; remova os caracteres CR antes de executar `sha256sum -c`.
 
 Os arquivos brutos de evidência não são incluídos
 nesta atualização do GitHub.
@@ -157,3 +162,29 @@ de evidências permanecem fora do escopo desta alteração.
 
 Nenhuma chave, token ou endereço privado
 é publicado neste relatório.
+
+## 8. Errata (23/11/2026)
+
+Uma auditoria posterior dos arquivos do laboratório corrigiu os pontos abaixo.
+Os números acima foram mantidos sem alteração para rastreabilidade.
+
+- **Tentativas malsucedidas antes da execução publicada.** Os resultados
+  publicados do MW03 vêm da quarta tentativa do cliente. Três tentativas
+  anteriores, na mesma noite, falharam: duas com `ProtocolError` e uma com
+  `ConnectionRefusedError`. O cliente registrou apenas o tipo da exceção,
+  portanto as causas são desconhecidas.
+- **Sem causa de rejeição no servidor.** O servidor Android não registrou o
+  motivo de cada rejeição nem o tempo de cada conexão.
+- **Os hashes dos módulos são constantes, não medições.** Os hashes de módulos
+  nos arquivos de evidência do MW03 são valores esperados fixados no código do
+  script do experimento, e não hashes medidos durante a execução. No aparelho,
+  a verificação imprimiu apenas uma linha de aprovação ou falha. Os valores
+  correspondem a arquivos da worktree do Windows com finais de linha CRLF que
+  foram copiados para o Android. A igualdade de hashes mostra, portanto, cópias
+  idênticas byte a byte, e não um checkout independente em cada dispositivo.
+- **Atribuição de WAN.** As identificações fibra e Starlink são declaradas pelo
+  operador; não foram medidas.
+
+Nenhum desses pontos altera o escopo declarado na seção 6: o experimento é
+comunicação autenticada em laboratório, e não consenso distribuído nem
+prontidão para produção.
