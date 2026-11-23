@@ -50,4 +50,4 @@ This is evidence of **authenticated remote Compute between two physical devices*
 
 **Privacy:** raw terminal logs, private Tailscale addresses and temporary credentials are not included in this public report.
 
-Related: [Multi-WAN 01–03](NEXUS_V2700_MULTIWAN_01_03_EN.md)
+Related: [Multi-WAN 01–03](NEXUS_V2700_MULTIWAN_01_03_EN.md) · [Multi-WAN 05E](NEXUS_V2700_MULTIWAN_05E_EN.md) · [Multi-WAN 05 series](NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) · [Documentation index](README.md)

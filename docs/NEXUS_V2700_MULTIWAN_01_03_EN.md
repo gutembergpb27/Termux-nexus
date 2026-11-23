@@ -9,6 +9,8 @@
 **Status:** Evidence consolidated.
 This does not constitute production certification.
 
+**Erratum:** see section 8.
+
 ---
 
 ## 1. Objective
@@ -90,6 +92,9 @@ Cross-device audit classification:
 
 **CROSS-DEVICE EVIDENCE PASS**
 
+> **Erratum (2026-11-23):** this classification applies to the fourth client
+> attempt. Three earlier attempts failed. See section 8.
+
 These results describe the specific experiment.
 They do not establish complete integration
 with the distributed runtime.
@@ -127,6 +132,8 @@ SHA-256:
 `9016f3a629726884bb7343412e8b9d04b40102b685a3592d1afdd797ea9a5cd4`
 
 The archives were validated locally.
+The `SHA256SUMS` files inside the MW01/02 and MW03 evidence use CRLF
+line endings; strip the CR characters before running `sha256sum -c`.
 
 Raw evidence files are not included
 in this GitHub documentation update.
@@ -156,3 +163,28 @@ remain outside the scope of these changes.
 
 No private network addresses, authentication tokens
 or secret keys are published in this report.
+
+## 8. Erratum (2026-11-23)
+
+A later audit of the laboratory files corrected the following points. The
+figures above are kept unchanged for traceability.
+
+- **Failed attempts before the published run.** The published MW03 results
+  come from the fourth client attempt. Three earlier attempts, in the
+  fifteen minutes before it, failed: two with `ProtocolError` and one with
+  `ConnectionRefusedError`. The client recorded only the exception type, so
+  the root causes are unknown.
+- **No rejection causes on the server.** The Android server recorded neither
+  the reason for each rejection nor per-connection timing.
+- **Module hashes are constants, not measurements.** The module hashes in the
+  MW03 evidence files are expected values hard-coded in the experiment
+  script, not hashes measured during the run. On the device, the check printed
+  only a pass/fail line. The values correspond to Windows working-tree files
+  with CRLF line endings that were copied to Android. Hash parity therefore
+  shows byte-identical copies, not an independent checkout on each device.
+- **WAN attribution.** The fiber and Starlink labels are declared by the
+  operator; they were not measured.
+
+None of these points changes the scope stated in section 6: the experiment is
+authenticated laboratory communication, not distributed consensus or
+production readiness.

@@ -54,7 +54,7 @@ The CLI exposes `version`, `status`, `peers`, `cluster` and `doctor`. Diagnostic
 python -m pytest -q
 ```
 
-The V2700 certification baseline recorded `810 passed, 1 xfailed`. A later execution should be treated as a new local verification result rather than silently substituted for that recorded baseline.
+The V2700 certification baseline recorded `810 passed, 1 xfailed`. For reference, CI on `main` at `d783a86` (run 45092228724, 2026-11-23) reported `926 passed, 1 xfailed` for `tests/`, plus 107 S1–S5 harness and 70 experimental hub tests in separate jobs. A later execution should be treated as a new local verification result rather than silently substituted for that recorded baseline.
 
 ## 6. Inspect distributed-runtime interfaces
 
@@ -83,7 +83,6 @@ The certified Axis 11 population contains 29 physical samples (`run011` through 
 
 
 `run010` is preserved as incomplete and is not counted as a physical sample. No `run040` was created.
-un040 was created.
 
 ## 8. Reproduction boundary
 

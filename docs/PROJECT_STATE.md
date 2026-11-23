@@ -77,7 +77,10 @@ exactly the integer `1`, the runtime refuses:
 - persisting intake writes (`shell_intake_loop`), with an explicit
   terminal message stating that the payload was not persisted.
 
-`NEXUS_CLUSTER_SIZE=1` keeps the legacy single-member behavior.
+`NEXUS_CLUSTER_SIZE=1` kept the legacy single-member behavior at the time.
+*Superseded by PR #104 (W08-B):* `NEXUS_CLUSTER_SIZE` no longer selects the
+mode; `NEXUS_CLUSTER_MODE` must be explicit and legacy sync is disabled in
+every mode (see the W08-B section below).
 
 ### P1 regression and fix
 
@@ -108,13 +111,17 @@ The fix separates liveness from replication:
 - Full suite (versioned tests only): 858 passed, 1 xfailed, as in CI
   run 41560608327. An earlier local figure of 870 included 12 tests
   from a file that is not under version control.
-- Current CI on `main` (updated 2026-11-04): workflow "Nexus Runtime
-  CI", run 41912549086, SUCCESS. Required checks (ruleset
+- Current CI on `main` (updated 2026-11-23): workflow "Nexus Runtime
+  CI", run 45092228724 at `d783a86`, SUCCESS. Required checks (ruleset
   `main-protection-v2700`):
-  - `test-and-build` (`tests/`): 858 passed, 1 xfailed;
+  - `test-and-build` (`tests/`): 926 passed, 1 xfailed;
   - `W05/W06 S1-S5 harness tests`: 90 + 17 = 107 passed;
-  - `W07 experimental hub hardening tests`: 60 passed;
-  - total: 1,025 passed, 1 xfailed.
+  - `W07 experimental hub hardening tests`: 70 passed (60 before the
+    W11 drain fix, PR #107);
+  - total: 1,103 passed, 1 xfailed.
+
+  At the time of PR #101 the figures were 858 / 107 / 60 (1,025 passed,
+  run 41912549086).
 
   CI runs only on `windows-latest` with Python 3.14. The xfail is
   `tests/test_integrity.py:411` (coordinated log + checkpoint rollback
@@ -149,8 +156,9 @@ The fix separates liveness from replication:
   secret can sign an ACK. There is no per-node identity and no TLS.
 - The Axis 10/11 timing results were measured before this change and do
   not characterize it. A new three-node physical validation is required.
-- With `NEXUS_CLUSTER_SIZE=1`, `SYNC_BATCH` and `STATE_SUMMARY` remain
-  unauthenticated (pre-existing, tracked separately).
+- With `NEXUS_CLUSTER_SIZE=1`, `SYNC_BATCH` and `STATE_SUMMARY` remained
+  unauthenticated at the time. *Superseded by PR #104:* legacy sync is now
+  refused in every mode.
 
 This work is not a production-readiness certification.
 
@@ -177,7 +185,7 @@ Status (2026-11-04): merged to `main` via PR #102 (2026-11-04, merge
 
 ## Capability Status
 
-Status as of `main` at `dc180e4` (2026-11-04).
+Status as of `main` at `d783a86` (2026-11-23; capability rows last changed by PR #104).
 
 | Capability | Status |
 |---|---|
@@ -316,7 +324,17 @@ The W05–W07 validation harness and experimental hub hardening were
 integrated through PR #102 (2026-11-04, merge
 `dc180e49aa418cac4cf97d104a4749201bc08325`).
 
-Neither PR is tagged. The latest tag remains `v2700.0.0-rc2`
+Subsequent merges (all untagged):
+
+- PR #103 — W08-A consensus safety audit and post-RC2 status (documentation).
+- PR #104 — W08-B explicit fail-closed cluster mode (merge `9218889`).
+- PR #105 — W09 bilingual presentation and brand identity.
+- PR #106 — W08-B follow-up documentation.
+- PR #107 — W11 hub fix: drain unread request body before closing rejected POSTs (merge `cb5e471`).
+- PR #108 — Multi-WAN 01–03 cross-device experiment documentation (merge `d783a86`).
+- PR #109, #110, #111 — Multi-WAN 04C and 05E reports, MW05 series report, MW03 erratum and the W12 documentation refresh, integrated together (documentation only).
+
+None of these PRs is tagged. The latest tag remains `v2700.0.0-rc2`
 (pre-release). The GitHub "Latest" release is still `v2500.0.0`.
 
 ## Public Technical Evidence

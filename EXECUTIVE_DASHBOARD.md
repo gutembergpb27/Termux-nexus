@@ -1,3 +1,8 @@
+> [!CAUTION]
+> **Historical document (v500/v600 period), kept unchanged for traceability.** It contains statements that current evidence does not support. For the current state, capabilities and limitations see the [project README](README.md) and the [documentation index](docs/README.md).
+>
+> **Documento histórico (período v500/v600), mantido sem alterações para rastreabilidade.** Contém afirmações que as evidências atuais não sustentam. Para o estado atual, as capacidades e as limitações, veja o [README do projeto](README.pt-BR.md) e o [índice da documentação](docs/README.pt-BR.md).
+
 # Dashboard Executivo – Nexus Runtime v500
 
 ## 1. Status Operacional
