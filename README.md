@@ -192,6 +192,15 @@ Documentation:
 - [Technical report — English](docs/NEXUS_V2700_MULTIWAN_01_03_EN.md)
 - [Relatório técnico — Português](docs/NEXUS_V2700_MULTIWAN_01_03_PT.md)
 
+### Multi-WAN 05E — Physical remote compute pilot (experimental)
+
+A Windows client and an Android/Termux server communicated over Tailscale in an isolated laboratory, on links described by the operator as fiber and Starlink. The client exited with code `0`. Both devices recorded **66 identical unique completed-task IDs** (matching canonical SHA-256 fingerprint), and all 66 were present in the Android server journal. Windows and Android evidence manifests passed integrity verification.
+
+These results support **completed-task identifier correlation**, not full independent output verification, distributed consensus, or production readiness. Negative-control and recovery semantics still require event-by-event audit.
+
+- [Multi-WAN 05E technical report — English](docs/NEXUS_V2700_MULTIWAN_05E_EN.md)
+- [Multi-WAN 05E relatório técnico — Português](docs/NEXUS_V2700_MULTIWAN_05E_PT.md)
+
 ---
 
 ## Validation results
