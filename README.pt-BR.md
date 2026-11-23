@@ -196,6 +196,27 @@ Documentação:
 
 ---
 
+### Multi-WAN 04C — Execução Compute remota autenticada (experimental)
+
+Em 22 de novembro de 2026, um experimento controlado entre Windows e Android
+utilizou componentes reais `TransportNodeExecutor`, `NexusProtocol`,
+`NexusDistributedCore.handle_compute_task` e `TaskWorker` via TCP/Tailscale
+(base Git `d783a863`). O cliente validou **4/4** resultados autenticados de
+Compute remoto e **2/2** controles negativos (assinatura alterada e replay).
+O servidor Android registrou quatro solicitações aceitas, duas rejeitadas,
+zero erros e encerramento normal. Mediana dos tempos de ida e volta observada
+no cliente: **165,659 ms** (`n=4`).
+
+É evidência experimental de Compute entre dispositivos, **não** de consenso
+por quórum, fencing, replicação persistente, proteção contra split-brain ou
+prontidão para produção. O runtime distribuído completo não foi inicializado
+e não houve escritas distribuídas. A rota direta ou DERP não foi medida.
+
+- [Relatório técnico — Português](docs/NEXUS_V2700_MULTIWAN_04C_PT.md)
+- [Technical report — English](docs/NEXUS_V2700_MULTIWAN_04C_EN.md)
+
+---
+
 ## Resultados de validação
 
 ### Integração contínua
