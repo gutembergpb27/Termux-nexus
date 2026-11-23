@@ -51,7 +51,7 @@ Estado da `main` em `d783a86` (23/11/2026).
 | Consenso | **Nenhum.** Não há termo de eleição, voto, fencing de líder nem commit por maioria. |
 | Modo de cluster | **Fail-closed por padrão** (W08-B, PR #104). Escritas locais exigem `NEXUS_CLUSTER_MODE=single` explícito. Sem modo de cluster, escritas, sincronização entre nós e promoção ficam bloqueadas. O modo distribuído nunca escreve, e uma configuração inválida impede a inicialização. Veja o [guia de migração](docs/NEXUS_V2700_W08B_CLUSTER_MODE_MIGRATION.md). |
 | CI na `main` | **1.103 aprovados, 1 xfailed** nos três checks obrigatórios ([execução 45092228724](https://github.com/gutembergpb27/Termux-nexus/actions/runs/45092228724)). |
-| Releases | Pré-release mais recente: [`v2700.0.0-rc2`](https://github.com/gutembergpb27/Termux-nexus/releases/tag/v2700.0.0-rc2). A release "Latest" do GitHub ainda é a `v2500.0.0`. O trabalho pós-RC2 (PR #101–#108) está na `main`, mas sem tag. |
+| Releases | Pré-release mais recente: [`v2700.0.0-rc2`](https://github.com/gutembergpb27/Termux-nexus/releases/tag/v2700.0.0-rc2). A release "Latest" do GitHub ainda é a `v2500.0.0`. O trabalho pós-RC2 (PR #101–#108) está na `main`, mas sem tag. As evidências publicadas sustentam os contratos e cenários documentados; não constituem certificação de prontidão para produção. |
 | Laboratórios entre dispositivos | Experimentos Multi-WAN entre Windows e Android estão em andamento. São **experimentais e ficam fora do runtime da `main`**; veja [Validação e evidências](#validação-e-evidências). |
 
 ---
@@ -301,7 +301,8 @@ obrigatórios no ruleset `main-protection-v2700`.
 > correção de drenagem W11 (PR #107).
 
 **Número histórico:** a linha de base de certificação V2700 RC2 concluiu a
-suíte de regressão do repositório com `810 passed, 1 xfailed`.
+suíte de regressão do repositório com `810 passed, 1 xfailed`. As evidências
+de resiliência abaixo são mantidas separadamente da contagem de regressão.
 
 ### 2 · Evidências físicas de resiliência registradas (anteriores ao QS-C01)
 
@@ -348,7 +349,7 @@ runtime distribuído e não exercitam escritas distribuídas.
 |---|---|---|---|
 | Multi-WAN 01–03 | MW03: 5/5 mensagens autenticadas aceitas; 2/2 controles negativos rejeitados por dispositivo; RTT mediano de 153,998 ms | Publicado na `main` | [PT](docs/NEXUS_V2700_MULTIWAN_01_03_PT.md) · [EN](docs/NEXUS_V2700_MULTIWAN_01_03_EN.md) |
 | Multi-WAN 04C | Computação remota autenticada | Em revisão | [PR #109](https://github.com/gutembergpb27/Termux-nexus/pull/109) |
-| Multi-WAN 05E | Piloto físico de computação remota; 66 IDs de tarefas concluídas correlacionados entre dispositivos | Rascunho. Impressão digital do lado cliente reverificada de forma independente | [PR #110](https://github.com/gutembergpb27/Termux-nexus/pull/110) · [relatório da série](docs/NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) |
+| Multi-WAN 05E | Piloto físico de computação remota; 66 IDs de tarefas concluídas correlacionados entre dispositivos | Rascunho. Impressão digital do lado cliente reverificada de forma independente; coincidência no servidor reportada pelo operador | [PR #110](https://github.com/gutembergpb27/Termux-nexus/pull/110) · [relatório da série](docs/NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) |
 | MW05F · MW05G · MW05J | 65/65 hashes de saídas retidas recalculados; 55 saídas `echo` vinculadas às entradas; 5/5 produtos matriciais e 5/5 somas recalculados; 1 saída não retida reconstruída; 20 rejeições históricas de autenticação | Reportado pelo operador | [Relatório da série](docs/NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) |
 | MW05K-2 | 20/20 controles negativos locais aprovados; 0 chamadas ao executor observadas | Reportado pelo operador, **local, transporte simulado** | [Relatório da série](docs/NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) |
 | Piloto físico K-2 | — | **Pendente**, aguardando Starlink | — |

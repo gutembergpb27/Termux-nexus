@@ -41,8 +41,12 @@ See the [documentation index](docs/README.md) for the project structure.
 
 ## Contribuindo — Português (Brasil)
 
+[English](#contributing-to-nexus-runtime-platform) · **Português (Brasil)**
+
 O Nexus é um projeto experimental orientado por evidências. Contribuições são
 bem-vindas por meio de issues e pull requests no GitHub.
+
+## Regras
 
 1. **Somente via pull request.** A `main` é protegida. Toda alteração passa
    por um pull request e precisa ser aprovada nos três checks obrigatórios da
@@ -66,7 +70,7 @@ bem-vindas por meio de issues e pull requests no GitHub.
    `README.pt-BR.md` e os documentos em português de `docs/` devem permanecer
    equivalentes às versões em inglês.
 
-### Verificações locais
+## Verificações locais
 
 ```bash
 python -m pip install --upgrade pip pytest

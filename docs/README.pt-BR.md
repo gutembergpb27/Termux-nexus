@@ -60,7 +60,7 @@ descreve o estado atual da `main`.
 | Multi-WAN 01–03: mensagens autenticadas, Windows ↔ Android | Na `main` | [PT](NEXUS_V2700_MULTIWAN_01_03_PT.md) · [EN](NEXUS_V2700_MULTIWAN_01_03_EN.md) |
 | Multi-WAN 04C: computação remota autenticada | Em revisão, [PR #109](https://github.com/gutembergpb27/Termux-nexus/pull/109) | Na PR |
 | Multi-WAN 05E: piloto físico de computação remota | Rascunho, [PR #110](https://github.com/gutembergpb27/Termux-nexus/pull/110) | Na PR |
-| Série consolidada MW05E–MW05K-2: auditoria e controles negativos locais | Este índice | [PT](NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) · [EN](NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) |
+| Série consolidada MW05E–MW05K-2: auditoria e controles negativos locais | Relatório consolidado; números em grande parte reportados pelo operador | [PT](NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) · [EN](NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) |
 | Piloto físico Windows–Motorola dos controles do MW05K-2 | Aguardando conectividade Starlink | — |
 
 ### Ferramental de validação não integrado ao runtime

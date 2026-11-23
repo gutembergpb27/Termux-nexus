@@ -60,7 +60,7 @@ describes the current state of `main`.
 | Multi-WAN 01–03: authenticated messaging, Windows ↔ Android | On `main` | [EN](NEXUS_V2700_MULTIWAN_01_03_EN.md) · [PT](NEXUS_V2700_MULTIWAN_01_03_PT.md) |
 | Multi-WAN 04C: authenticated remote compute | Under review, [PR #109](https://github.com/gutembergpb27/Termux-nexus/pull/109) | In the PR |
 | Multi-WAN 05E: physical remote compute pilot | Draft, [PR #110](https://github.com/gutembergpb27/Termux-nexus/pull/110) | In the PR |
-| MW05E–MW05K-2 consolidated series: audit and local negative controls | This index | [EN](NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) · [PT](NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) |
+| MW05E–MW05K-2 consolidated series: audit and local negative controls | Consolidated report; figures largely operator-reported | [EN](NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) · [PT](NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) |
 | Physical Windows–Motorola pilot of the MW05K-2 controls | Pending Starlink connectivity | — |
 
 ### Validation tooling not wired into the runtime

@@ -49,7 +49,7 @@ State of `main` at `d783a86` (2026-11-23).
 | Consensus | **None.** No election term, vote, leader fencing or majority commit. |
 | Cluster mode | **Fail-closed by default** (W08-B, PR #104). Local writes require an explicit `NEXUS_CLUSTER_MODE=single`. Without a cluster mode, writes, peer sync and promotion are blocked. Distributed mode never writes, and an invalid configuration refuses to start. See the [migration guide](docs/NEXUS_V2700_W08B_CLUSTER_MODE_MIGRATION.md). |
 | CI on `main` | **1,103 passed, 1 xfailed** across three required checks ([run 45092228724](https://github.com/gutembergpb27/Termux-nexus/actions/runs/45092228724)). |
-| Releases | Latest pre-release [`v2700.0.0-rc2`](https://github.com/gutembergpb27/Termux-nexus/releases/tag/v2700.0.0-rc2). The GitHub "Latest" release is still `v2500.0.0`. Post-RC2 work (PR #101–#108) is on `main` but untagged. |
+| Releases | Latest pre-release [`v2700.0.0-rc2`](https://github.com/gutembergpb27/Termux-nexus/releases/tag/v2700.0.0-rc2). The GitHub "Latest" release is still `v2500.0.0`. Post-RC2 work (PR #101–#108) is on `main` but untagged. Published evidence supports the documented contracts and scenarios; it is not a production-readiness certification. |
 | Cross-device labs | Multi-WAN experiments between Windows and Android are under way. They are **experimental and outside the runtime on `main`**; see [Validation and evidence](#validation-and-evidence). |
 
 ---
@@ -296,7 +296,8 @@ checks in the `main-protection-v2700` ruleset.
 > fix (PR #107).
 
 **Historical figure:** the V2700 RC2 certification baseline completed the
-repository regression suite with `810 passed, 1 xfailed`.
+repository regression suite with `810 passed, 1 xfailed`. The resilience
+evidence below is maintained separately from the regression count.
 
 ### 2 · Recorded physical resilience evidence (pre-QS-C01)
 
@@ -344,7 +345,7 @@ runtime and do not exercise distributed writes.
 |---|---|---|---|
 | Multi-WAN 01–03 | MW03: 5/5 authenticated messages accepted; 2/2 negative controls rejected per device; median RTT 153.998 ms | Published on `main` | [EN](docs/NEXUS_V2700_MULTIWAN_01_03_EN.md) · [PT](docs/NEXUS_V2700_MULTIWAN_01_03_PT.md) |
 | Multi-WAN 04C | Authenticated remote compute | Under review | [PR #109](https://github.com/gutembergpb27/Termux-nexus/pull/109) |
-| Multi-WAN 05E | Physical remote compute pilot; 66 completed-task IDs correlated across devices | Draft. Client-side fingerprint independently re-verified | [PR #110](https://github.com/gutembergpb27/Termux-nexus/pull/110) · [series report](docs/NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) |
+| Multi-WAN 05E | Physical remote compute pilot; 66 completed-task IDs correlated across devices | Draft. Client-side fingerprint independently re-verified; server-side match operator-reported | [PR #110](https://github.com/gutembergpb27/Termux-nexus/pull/110) · [series report](docs/NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) |
 | MW05F · MW05G · MW05J | 65/65 retained output hashes recomputed; 55 `echo` outputs bound to inputs; 5/5 matrix products and 5/5 sums recomputed; 1 non-retained output reconstructed; 20 historical authentication rejections | Operator-reported | [Series report](docs/NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) |
 | MW05K-2 | 20/20 local negative controls passed; 0 executor calls observed | Operator-reported, **local, simulated transport** | [Series report](docs/NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) |
 | Physical K-2 pilot | — | **Pending**, waiting for Starlink | — |

@@ -55,7 +55,7 @@ flowchart LR
 
 | Marco | O que é | Ambiente | Status |
 |---|---|---|---|
-| MW05E | Piloto físico de computação remota | Cliente Windows ↔ servidor Android/Termux via Tailscale | Executado; relatório completo em revisão na [PR #110](https://github.com/gutembergpb27/Termux-nexus/pull/110) |
+| MW05E | Piloto físico de computação remota | Cliente Windows ↔ servidor Android/Termux via Tailscale | Executado; relatório completo na PR em rascunho [#110](https://github.com/gutembergpb27/Termux-nexus/pull/110) |
 | MW05F · MW05G · MW05J | Auditoria pós-piloto, somente leitura, das evidências privadas do MW05E (saídas, vínculo com entradas, rejeições de autenticação, verificações estáticas do código) | Offline, sobre as evidências privadas | Reportada como aprovada, com limitações declaradas |
 | MW05K-2 | Suíte local de controles negativos | Máquina única, transporte simulado | Reportada como aprovada |
 | Piloto físico K-2 | Nova execução dos controles K-2 entre dispositivos | Windows ↔ Motorola (Android) | **Pendente** — aguardando conectividade Starlink |
@@ -168,7 +168,8 @@ qual cada requisição inválida pode ser acompanhada individualmente.
 
 - 66 tarefas de computação remota concluídas cujos identificadores coincidem
   entre o cliente Windows, o servidor Android e seu journal (impressão digital
-  verificada no lado cliente).
+  verificada de forma independente no lado cliente; coincidência no servidor e
+  no journal reportada pelo operador).
 - Saídas retidas coerentes com os hashes registrados e, para tarefas `echo`,
   matriciais e de soma, coerentes com o recálculo a partir das entradas
   (reportado pelo operador).

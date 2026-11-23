@@ -55,7 +55,7 @@ flowchart LR
 
 | Milestone | What it is | Environment | Status |
 |---|---|---|---|
-| MW05E | Physical remote compute pilot | Windows client ↔ Android/Termux server over Tailscale | Executed; full report under review in [PR #110](https://github.com/gutembergpb27/Termux-nexus/pull/110) |
+| MW05E | Physical remote compute pilot | Windows client ↔ Android/Termux server over Tailscale | Executed; full report in draft [PR #110](https://github.com/gutembergpb27/Termux-nexus/pull/110) |
 | MW05F · MW05G · MW05J | Post-pilot read-only audit of the MW05E private evidence (outputs, input binding, authentication rejections, static source checks) | Offline, on the private evidence | Reported as passing with stated limitations |
 | MW05K-2 | Local negative-control suite | Single machine, simulated transport | Reported as passing |
 | Physical K-2 pilot | Re-run of the K-2 controls across devices | Windows ↔ Motorola (Android) | **Pending** — waiting for Starlink connectivity |
@@ -163,8 +163,8 @@ where each invalid request can be tracked individually.
 **Supported, within the documented lab scope:**
 
 - 66 completed remote compute tasks whose identifiers agree across the Windows
-  client, the Android server and its journal (fingerprint verified on the
-  client side).
+  client, the Android server and its journal (fingerprint independently
+  verified on the client side; server and journal agreement operator-reported).
 - Retained outputs consistent with their recorded hashes and, for `echo`,
   matrix and sum tasks, consistent with recomputation from their inputs
   (operator-reported).
