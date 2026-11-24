@@ -265,7 +265,7 @@ Release focus, as recorded in the original roadmap:
 | 2026-11-23 | Multi-WAN 05E: physical remote compute pilot | Documented ([EN](docs/NEXUS_V2700_MULTIWAN_05E_EN.md) · [PT](docs/NEXUS_V2700_MULTIWAN_05E_PT.md)) |
 | 2026-11-23 | MW05F, MW05G, MW05J: private evidence audit | [Consolidated report](docs/NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) |
 | 2026-11-23 | MW05K-2: local negative controls with simulated transport | [Consolidated report](docs/NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) |
-| Pending | Physical Windows–Motorola pilot of the MW05K-2 controls | Waiting for Starlink connectivity |
+| 2026-11-23 | MW05K-2: physical Windows–Motorola pilot of the negative controls | Executed; passed within the defined experimental limits ([EN](docs/NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_EN.md) · [PT](docs/NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_PT.md)) |
 
 ---
 
@@ -348,11 +348,13 @@ runtime and do not exercise distributed writes.
 | Multi-WAN 05E | Physical remote compute pilot; 66 completed-task IDs correlated across devices | Client side independently re-verified; server-side match operator-reported | [EN](docs/NEXUS_V2700_MULTIWAN_05E_EN.md) · [PT](docs/NEXUS_V2700_MULTIWAN_05E_PT.md) · [series report](docs/NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) |
 | MW05F · MW05G · MW05J | 65/65 retained output hashes recomputed; 55 `echo` outputs bound to inputs; 5/5 matrix products and 5/5 sums recomputed; 1 non-retained output reconstructed; 20 historical authentication rejections | Operator-reported | [Series report](docs/NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) |
 | MW05K-2 | 20/20 local negative controls passed; 0 executor calls observed | Operator-reported, **local, simulated transport** | [Series report](docs/NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) |
-| Physical K-2 pilot | — | **Pending**, waiting for Starlink | — |
+| MW05K-2 physical pilot | 20/20 invalid requests (10 invalid signature, 5 replay, 5 expired) each matched one-to-one to a server rejection; 0 responses; 0 negative tasks submitted or completed | Verifier-reported; client side independently re-checked. Executed and passed **within the defined experimental limits** | [EN](docs/NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_EN.md) · [PT](docs/NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_PT.md) |
 
 > [!IMPORTANT]
 > The Multi-WAN results show experimental cross-device communication,
-> authentication and compute correlation. They do **not** show distributed
+> authentication and compute correlation. Per-request correlation of
+> rejections is shown only for the MW05K-2 physical pilot; the 20 historical
+> MW05E rejections remain matched by count only. They do **not** show distributed
 > consensus, certified exactly-once execution, universal partition tolerance
 > or production readiness.
 
@@ -516,6 +518,7 @@ laboratories and historical records.
 | [W08-B Cluster Mode Migration](docs/NEXUS_V2700_W08B_CLUSTER_MODE_MIGRATION.md) | `NEXUS_CLUSTER_MODE` behavior and the limits of `single` |
 | [Security Trust Boundary](docs/NEXUS_V2700_SECURITY_TRUST_BOUNDARY.md) | Security and trust boundaries |
 | [Multi-WAN 05 series](docs/NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) | MW05E–MW05K-2 consolidated report |
+| [MW05K-2 physical pilot](docs/NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_EN.md) | Per-request correlation of 20 rejected requests, Windows ↔ Motorola |
 | [V2700 RC2 Release Notes](RELEASE_NOTES_v2700.0.0-rc2.md) | Release-candidate record |
 
 **External evaluation path:**
@@ -545,8 +548,8 @@ blocked until the corresponding invariants are demonstrated.**
 
 Multi-WAN laboratory:
 
-- [ ] Physical Windows–Motorola pilot of the MW05K-2 negative controls, once Starlink is available
-- [ ] Per-request identifiers in server rejection records, for one-to-one negative-control correlation
+- [x] Physical Windows–Motorola pilot of the MW05K-2 negative controls ([report](docs/NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_EN.md))
+- [ ] Per-request identifiers in server rejection records, for one-to-one negative-control correlation (so far only as a pre-authentication trace hash in the isolated MW05K-2 lab copy)
 - [ ] Publishable, hash-listed audit summaries so that operator-reported figures can be checked independently
 
 Beyond W08-B (unscheduled): TLS and per-node identity (HMAC envelope

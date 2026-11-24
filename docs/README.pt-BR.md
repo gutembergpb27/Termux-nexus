@@ -61,7 +61,7 @@ descreve o estado atual da `main`.
 | Multi-WAN 04C: computação remota autenticada | Documentado; reportado pelo operador, lado Android a partir de transcrição do operador | [PT](NEXUS_V2700_MULTIWAN_04C_PT.md) · [EN](NEXUS_V2700_MULTIWAN_04C_EN.md) |
 | Multi-WAN 05E: piloto físico de computação remota | Documentado; lado cliente reverificado de forma independente; servidor/journal Android reportados pelo operador | [PT](NEXUS_V2700_MULTIWAN_05E_PT.md) · [EN](NEXUS_V2700_MULTIWAN_05E_EN.md) |
 | Série consolidada MW05E–MW05K-2: auditoria e controles negativos locais | Relatório consolidado; números em grande parte reportados pelo operador | [PT](NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) · [EN](NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) |
-| Piloto físico Windows–Motorola dos controles do MW05K-2 | Aguardando conectividade Starlink | — |
+| Piloto físico Windows–Motorola do MW05K-2: correlação por requisição de 20 requisições rejeitadas | Executado; aprovado dentro dos limites experimentais definidos (reportado pelo verificador) | [PT](NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_PT.md) · [EN](NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_EN.md) |
 
 ### Ferramental de validação não integrado ao runtime
 

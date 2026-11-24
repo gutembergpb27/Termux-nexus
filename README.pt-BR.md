@@ -270,7 +270,7 @@ Foco das versões, conforme registrado no roadmap original:
 | 2026-11-23 | Multi-WAN 05E: piloto físico de computação remota | Documentado ([PT](docs/NEXUS_V2700_MULTIWAN_05E_PT.md) · [EN](docs/NEXUS_V2700_MULTIWAN_05E_EN.md)) |
 | 2026-11-23 | MW05F, MW05G, MW05J: auditoria privada das evidências | [Relatório consolidado](docs/NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) |
 | 2026-11-23 | MW05K-2: controles negativos locais com transporte simulado | [Relatório consolidado](docs/NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) |
-| Pendente | Piloto físico Windows–Motorola dos controles do MW05K-2 | Aguardando conectividade Starlink |
+| 2026-11-23 | MW05K-2: piloto físico Windows–Motorola dos controles negativos | Executado; aprovado dentro dos limites experimentais definidos ([PT](docs/NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_PT.md) · [EN](docs/NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_EN.md)) |
 
 ---
 
@@ -353,11 +353,13 @@ runtime distribuído e não exercitam escritas distribuídas.
 | Multi-WAN 05E | Piloto físico de computação remota; 66 IDs de tarefas concluídas correlacionados entre dispositivos | Lado cliente reverificado de forma independente; coincidência no servidor reportada pelo operador | [PT](docs/NEXUS_V2700_MULTIWAN_05E_PT.md) · [EN](docs/NEXUS_V2700_MULTIWAN_05E_EN.md) · [relatório da série](docs/NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) |
 | MW05F · MW05G · MW05J | 65/65 hashes de saídas retidas recalculados; 55 saídas `echo` vinculadas às entradas; 5/5 produtos matriciais e 5/5 somas recalculados; 1 saída não retida reconstruída; 20 rejeições históricas de autenticação | Reportado pelo operador | [Relatório da série](docs/NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) |
 | MW05K-2 | 20/20 controles negativos locais aprovados; 0 chamadas ao executor observadas | Reportado pelo operador, **local, transporte simulado** | [Relatório da série](docs/NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) |
-| Piloto físico K-2 | — | **Pendente**, aguardando Starlink | — |
+| Piloto físico MW05K-2 | 20/20 requisições inválidas (10 assinaturas inválidas, 5 replays, 5 expiradas) associadas uma a uma a rejeições do servidor; 0 respostas; 0 tarefas negativas submetidas ou concluídas | Reportado pelo verificador; lado cliente reconferido de forma independente. Executado e aprovado **dentro dos limites experimentais definidos** | [PT](docs/NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_PT.md) · [EN](docs/NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_EN.md) |
 
 > [!IMPORTANT]
 > Os resultados Multi-WAN mostram comunicação, autenticação e correlação de
-> computação experimentais entre dispositivos. Eles **não** mostram consenso
+> computação experimentais entre dispositivos. A correlação individual de
+> rejeições aparece somente no piloto físico do MW05K-2; as 20 rejeições
+> históricas do MW05E continuam associadas apenas por contagem. Eles **não** mostram consenso
 > distribuído, execução exatamente uma vez certificada, tolerância universal a
 > partições nem prontidão para produção.
 
@@ -522,6 +524,7 @@ laboratórios experimentais e os registros históricos.
 | [Migração do modo de cluster W08-B](docs/NEXUS_V2700_W08B_CLUSTER_MODE_MIGRATION.md) | Comportamento de `NEXUS_CLUSTER_MODE` e limites do `single` |
 | [Security Trust Boundary](docs/NEXUS_V2700_SECURITY_TRUST_BOUNDARY.md) | Fronteiras de segurança e de confiança |
 | [Série Multi-WAN 05](docs/NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) | Relatório consolidado MW05E–MW05K-2 |
+| [Piloto físico MW05K-2](docs/NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_PT.md) | Correlação por requisição de 20 requisições rejeitadas, Windows ↔ Motorola |
 | [Notas de release V2700 RC2](RELEASE_NOTES_v2700.0.0-rc2.md) | Registro da release candidate |
 
 **Roteiro de avaliação externa:**
@@ -552,8 +555,8 @@ demonstrados.**
 
 Laboratório Multi-WAN:
 
-- [ ] Piloto físico Windows–Motorola dos controles negativos do MW05K-2, quando o Starlink estiver disponível
-- [ ] Identificadores por requisição nos registros de rejeição do servidor, para correlacionar um a um os controles negativos
+- [x] Piloto físico Windows–Motorola dos controles negativos do MW05K-2 ([relatório](docs/NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_PT.md))
+- [ ] Identificadores por requisição nos registros de rejeição do servidor, para correlacionar um a um os controles negativos (por enquanto, apenas como hash de rastro pré-autenticação na cópia isolada do laboratório MW05K-2)
 - [ ] Resumos de auditoria publicáveis, com lista de hashes, para que os números reportados pelo operador possam ser verificados de forma independente
 
 Além da W08-B (sem cronograma): TLS e identidade por nó (a autenticação de
