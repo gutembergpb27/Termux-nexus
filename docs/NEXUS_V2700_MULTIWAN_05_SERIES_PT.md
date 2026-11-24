@@ -11,8 +11,10 @@
 **Status:** piloto físico de computação remota executado (MW05E); auditoria
 privada pós-piloto das evidências reportada (MW05F, MW05G, MW05J); suíte local
 de controles negativos com transporte simulado reportada como aprovada
-(MW05K-2). **Um novo piloto físico Windows–Motorola dos controles do MW05K-2
-está pendente** até que a conexão Starlink esteja disponível.
+(MW05K-2). **O piloto físico Windows–Motorola dos controles do MW05K-2 foi
+executado e aprovado dentro dos limites experimentais definidos** em 23 de
+novembro de 2026, com correlação por requisição de 20/20 rejeições
+([relatório do piloto físico](NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_PT.md)).
 
 > [!IMPORTANT]
 > **Escopo.** Estes marcos se referem a ferramentas de laboratório isoladas em
@@ -29,7 +31,7 @@ está pendente** até que a conexão Starlink esteja disponível.
 |---|---|
 | **Verificado de forma independente** | Recalculado para este relatório a partir de arquivos de evidência disponíveis ao autor da documentação. |
 | **Reportado pelo operador** | Extraído da saída de terminal apresentada pelo operador. Os arquivos privados subjacentes (log e journal do servidor Android) **não** estavam disponíveis para reprocessamento independente quando este relatório foi escrito. |
-| **Pendente** | Planejado, mas não executado. |
+| **Reportado pelo verificador** | Saída do verificador experimental do MW05K-2, executado pelo operador no laboratório Android; ver o [relatório do piloto físico](NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_PT.md#1-classes-de-evidência). |
 
 Cada número abaixo traz uma dessas classificações.
 
@@ -42,15 +44,13 @@ flowchart LR
     E["MW05E · piloto físico · Windows ↔ Android via Tailscale"]
     FGJ["MW05F · MW05G · MW05J · auditoria privada somente leitura das evidências"]
     K2["MW05K-2 · controles negativos locais · transporte simulado"]
-    P["Piloto físico dos controles K-2 · Windows ↔ Motorola · aguardando Starlink"]
-    E --> FGJ --> K2 -.-> P
+    P["Piloto físico dos controles K-2 · Windows ↔ Motorola · 20/20 correlacionadas"]
+    E --> FGJ --> K2 --> P
 
     classDef done fill:#111827,stroke:#3B82F6,color:#E5E7EB
     classDef local fill:#0B1220,stroke:#22D3EE,color:#E5E7EB
-    classDef pending fill:#0B1220,stroke:#94A3B8,color:#94A3B8,stroke-dasharray:4 3
-    class E,FGJ done
+    class E,FGJ,P done
     class K2 local
-    class P pending
 ```
 
 | Marco | O que é | Ambiente | Status |
@@ -58,7 +58,7 @@ flowchart LR
 | MW05E | Piloto físico de computação remota | Cliente Windows ↔ servidor Android/Termux via Tailscale | Executado; [relatório completo](NEXUS_V2700_MULTIWAN_05E_PT.md) |
 | MW05F · MW05G · MW05J | Auditoria pós-piloto, somente leitura, das evidências privadas do MW05E (saídas, vínculo com entradas, rejeições de autenticação, verificações estáticas do código) | Offline, sobre as evidências privadas | Reportada como aprovada, com limitações declaradas |
 | MW05K-2 | Suíte local de controles negativos | Máquina única, transporte simulado | Reportada como aprovada |
-| Piloto físico K-2 | Nova execução dos controles K-2 entre dispositivos | Windows ↔ Motorola (Android) | **Pendente** — aguardando conectividade Starlink |
+| Piloto físico K-2 | Nova execução dos controles K-2 entre dispositivos, com correlação de rastro por requisição | Windows (fibra) ↔ Motorola/Android (Starlink) via Tailscale | **Executado; aprovado dentro dos limites definidos** — [relatório](NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_PT.md) |
 
 Os materiais disponíveis documentam o resultado combinado das etapas de
 auditoria MW05F, MW05G e MW05J (uma auditoria de passagem única que cobre do
@@ -155,10 +155,31 @@ qual cada requisição inválida pode ser acompanhada individualmente.
 | Chamadas ao executor causadas por um controle negativo | **0** observadas | Reportado pelo operador |
 
 > [!WARNING]
-> O MW05K-2 foi executado **localmente, com transporte simulado**. Ele não
-> mostra o mesmo comportamento entre dispositivos ou redes reais. O piloto
-> físico Windows–Motorola que repetiria esses controles via Tailscale está
-> **pendente** até que a conexão Starlink esteja disponível.
+> A suíte acima foi executada **localmente, com transporte simulado**. Sozinha,
+> ela não mostra o mesmo comportamento entre dispositivos ou redes reais; isso
+> é coberto pelo piloto físico da seção 5.1.
+
+#### 5.1 MW05K-2 — piloto físico Windows–Motorola
+
+Uma rodada dos mesmos 20 controles (10 assinaturas inválidas, 5 replays, 5
+expiradas) foi enviada do Windows a uma cópia isolada e instrumentada do
+servidor de laboratório no Android, via Tailscale. O servidor registrou um
+rastro SHA-256 de cada envelope antes da autenticação, de modo que cada
+rejeição pudesse ser associada a uma requisição do cliente. Método e
+limitações completos: [relatório do piloto físico](NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_PT.md).
+
+| Verificação | Resultado | Classe |
+|---|---:|---|
+| Tentativas negativas enviadas / sementes de replay verificadas | 20 / 5 | Verificado de forma independente (lado cliente) |
+| Tentativas negativas com bytes de resposta | **0** | Verificado de forma independente (lado cliente) |
+| Rejeições do servidor associadas uma a uma às requisições do cliente | **20** / 20 | Reportado pelo verificador |
+| Rejeições ausentes ou inesperadas | 0 / 0 | Reportado pelo verificador |
+| IDs de tarefas negativas submetidos / concluídos; linhas `task`/`done` no journal | 0 / 0; 0 / 0 | Reportado pelo verificador |
+| Veredito | `CORRELATION=PASS` | Reportado pelo verificador |
+
+Essa correlação individual vale **somente para o novo piloto físico**. As 20
+rejeições históricas do MW05E (seção 4) continuam sem identificador de
+requisição e permanecem associadas apenas por contagem.
 
 ---
 
@@ -176,6 +197,9 @@ qual cada requisição inválida pode ser acompanhada individualmente.
 - Em uma suíte local com transporte simulado, 20 requisições inválidas
   rejeitadas sem nenhuma chamada ao executor observada (reportado pelo
   operador).
+- No piloto físico Windows–Motorola, 20 requisições inválidas associadas uma a
+  uma a rejeições do servidor, sem resposta, tarefa no journal ou conclusão
+  (reportado pelo verificador; lado cliente verificado de forma independente).
 
 **Não demonstrado:**
 
@@ -191,9 +215,10 @@ qual cada requisição inválida pode ser acompanhada individualmente.
 
 ### 7. Próximos passos
 
-1. Executar os controles negativos do MW05K-2 na configuração física
-   Windows–Motorola quando o Starlink estiver disponível, com identificadores
-   por requisição nos registros de rejeição do servidor.
+1. ~~Executar os controles negativos do MW05K-2 na configuração física
+   Windows–Motorola, com identificadores por requisição nos registros de
+   rejeição do servidor.~~ Concluído em 23 de novembro de 2026
+   ([relatório](NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_PT.md)).
 2. Publicar um resumo sanitizado, com lista de hashes, da saída da auditoria,
    para que os números reportados pelo operador possam ser verificados por
    terceiros.
@@ -204,7 +229,8 @@ qual cada requisição inválida pode ser acompanhada individualmente.
 individual de tarefa, caminho de dispositivo ou arquivo JSONL bruto é
 publicado.
 
-Relacionados: [Relatório Multi-WAN 01–03](NEXUS_V2700_MULTIWAN_01_03_PT.md) ·
+Relacionados: [Relatório do piloto físico MW05K-2](NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_PT.md) ·
+[Relatório Multi-WAN 01–03](NEXUS_V2700_MULTIWAN_01_03_PT.md) ·
 [Relatório Multi-WAN 04C](NEXUS_V2700_MULTIWAN_04C_PT.md) ·
 [Relatório Multi-WAN 05E](NEXUS_V2700_MULTIWAN_05E_PT.md) ·
 [Índice da documentação](README.pt-BR.md)

@@ -10,9 +10,10 @@
 
 **Status:** physical remote compute pilot executed (MW05E); private post-pilot
 evidence audit reported (MW05F, MW05G, MW05J); local negative-control suite
-with simulated transport reported as passing (MW05K-2). **A new physical
-Windows–Motorola pilot of the MW05K-2 controls is pending** until the Starlink
-connection is available.
+with simulated transport reported as passing (MW05K-2). **The physical
+Windows–Motorola pilot of the MW05K-2 controls was executed and passed within
+the defined experimental limits** on November 23, 2026, with per-request
+correlation of 20/20 rejections ([physical pilot report](NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_EN.md)).
 
 > [!IMPORTANT]
 > **Scope.** These milestones concern isolated laboratory tools around the
@@ -29,7 +30,7 @@ connection is available.
 |---|---|
 | **Independently verified** | Recomputed for this report from evidence files available to the documentation author. |
 | **Operator-reported** | Taken from terminal output presented by the operator. The underlying private files (Android server log and journal) were **not** available for independent re-processing when this report was written. |
-| **Pending** | Planned but not executed. |
+| **Verifier-reported** | Output of the experimental MW05K-2 verifier, run by the operator on the Android lab; see the [physical pilot report](NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_EN.md#1-evidence-classes). |
 
 Every figure below carries one of these labels.
 
@@ -42,15 +43,13 @@ flowchart LR
     E["MW05E · physical pilot · Windows ↔ Android over Tailscale"]
     FGJ["MW05F · MW05G · MW05J · private read-only evidence audit"]
     K2["MW05K-2 · local negative controls · simulated transport"]
-    P["Physical pilot of K-2 controls · Windows ↔ Motorola · pending Starlink"]
-    E --> FGJ --> K2 -.-> P
+    P["Physical pilot of K-2 controls · Windows ↔ Motorola · 20/20 correlated"]
+    E --> FGJ --> K2 --> P
 
     classDef done fill:#111827,stroke:#3B82F6,color:#E5E7EB
     classDef local fill:#0B1220,stroke:#22D3EE,color:#E5E7EB
-    classDef pending fill:#0B1220,stroke:#94A3B8,color:#94A3B8,stroke-dasharray:4 3
-    class E,FGJ done
+    class E,FGJ,P done
     class K2 local
-    class P pending
 ```
 
 | Milestone | What it is | Environment | Status |
@@ -58,7 +57,7 @@ flowchart LR
 | MW05E | Physical remote compute pilot | Windows client ↔ Android/Termux server over Tailscale | Executed; [full report](NEXUS_V2700_MULTIWAN_05E_EN.md) |
 | MW05F · MW05G · MW05J | Post-pilot read-only audit of the MW05E private evidence (outputs, input binding, authentication rejections, static source checks) | Offline, on the private evidence | Reported as passing with stated limitations |
 | MW05K-2 | Local negative-control suite | Single machine, simulated transport | Reported as passing |
-| Physical K-2 pilot | Re-run of the K-2 controls across devices | Windows ↔ Motorola (Android) | **Pending** — waiting for Starlink connectivity |
+| Physical K-2 pilot | Re-run of the K-2 controls across devices, with per-request trace correlation | Windows (fiber) ↔ Motorola/Android (Starlink) over Tailscale | **Executed; passed within defined limits** — [report](NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_EN.md) |
 
 The available materials document the combined result of the MW05F, MW05G and
 MW05J audit stages (a single-pass audit that covers MW05E through MW05J), not a
@@ -151,10 +150,30 @@ where each invalid request can be tracked individually.
 | Calls to the executor caused by a negative control | **0** observed | Operator-reported |
 
 > [!WARNING]
-> MW05K-2 ran **locally with a simulated transport**. It does not show the same
-> behavior across real devices or networks. The physical Windows–Motorola pilot
-> that would repeat these controls over Tailscale is **pending** until the
-> Starlink connection is available.
+> The suite above ran **locally with a simulated transport**. On its own, it
+> does not show the same behavior across real devices or networks; that is
+> covered by the physical pilot in section 5.1.
+
+#### 5.1 MW05K-2 — physical Windows–Motorola pilot
+
+One round of the same 20 controls (10 invalid signature, 5 replay, 5 expired)
+was sent from Windows to an isolated, instrumented copy of the lab server on
+Android over Tailscale. The server recorded a SHA-256 trace of each envelope
+before authentication, so each rejection could be matched to one client
+request. Full method and limitations: [physical pilot report](NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_EN.md).
+
+| Check | Result | Class |
+|---|---:|---|
+| Negative attempts sent / replay seeds verified | 20 / 5 | Independently verified (client side) |
+| Negative attempts with response bytes | **0** | Independently verified (client side) |
+| Server rejections matched one-to-one to client requests | **20** / 20 | Verifier-reported |
+| Missing or unexpected rejections | 0 / 0 | Verifier-reported |
+| Negative task IDs submitted / completed; journal `task`/`done` rows | 0 / 0; 0 / 0 | Verifier-reported |
+| Verdict | `CORRELATION=PASS` | Verifier-reported |
+
+This individual correlation applies **only to the new physical pilot**. The 20
+historical MW05E rejections (section 4) still carry no request identifier and
+remain matched by count only.
 
 ---
 
@@ -170,6 +189,9 @@ where each invalid request can be tracked individually.
   (operator-reported).
 - In a local simulated-transport suite, 20 invalid requests rejected with no
   executor call observed (operator-reported).
+- In the physical Windows–Motorola pilot, 20 invalid requests each matched
+  one-to-one to a server rejection, with no response, journal task or
+  completion (verifier-reported; client side independently verified).
 
 **Not shown:**
 
@@ -185,9 +207,9 @@ where each invalid request can be tracked individually.
 
 ### 7. Next steps
 
-1. Run the MW05K-2 negative controls on the physical Windows–Motorola setup
-   once Starlink is available, with per-request identifiers in the server's
-   rejection records.
+1. ~~Run the MW05K-2 negative controls on the physical Windows–Motorola
+   setup, with per-request identifiers in the server's rejection records.~~
+   Done on November 23, 2026 ([report](NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_EN.md)).
 2. Publish a sanitized, hash-listed summary of the audit output so that the
    operator-reported figures can be checked by a third party.
 3. Instrument the path of workload traffic (direct versus relay) instead of
@@ -196,7 +218,8 @@ where each invalid request can be tracked individually.
 **Privacy:** no private addresses, HMAC secrets, individual task identifiers,
 device paths or raw JSONL files are published.
 
-Related: [Multi-WAN 01–03 report](NEXUS_V2700_MULTIWAN_01_03_EN.md) ·
+Related: [MW05K-2 physical pilot report](NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_EN.md) ·
+[Multi-WAN 01–03 report](NEXUS_V2700_MULTIWAN_01_03_EN.md) ·
 [Multi-WAN 04C report](NEXUS_V2700_MULTIWAN_04C_EN.md) ·
 [Multi-WAN 05E report](NEXUS_V2700_MULTIWAN_05E_EN.md) ·
 [Documentation index](README.md)
