@@ -63,6 +63,17 @@ describes the current state of `main`.
 | MW05E–MW05K-2 consolidated series: audit and local negative controls | Consolidated report; figures largely operator-reported | [EN](NEXUS_V2700_MULTIWAN_05_SERIES_EN.md) · [PT](NEXUS_V2700_MULTIWAN_05_SERIES_PT.md) |
 | MW05K-2 physical Windows–Motorola pilot: per-request correlation of 20 rejected requests | Executed; passed within the defined experimental limits (verifier-reported) | [EN](NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_EN.md) · [PT](NEXUS_V2700_MULTIWAN_05K2_PHYSICAL_PT.md) |
 
+### Recovery experiments
+
+Experimental laboratories, not operational capabilities of the distributed
+runtime on `main`. They do not demonstrate automatic failover, consensus or
+exactly-once execution.
+
+| Milestone | Status | Report |
+|---|---|---|
+| Recovery R2: forced process kill and recovery of persisted `ComputeRuntime` state, single Windows machine | Executed; 15/15 checks passed within the defined experimental limits (lab-measured) | [EN](NEXUS_V2700_RECOVERY_R2_R3_EN.md) · [PT](NEXUS_V2700_RECOVERY_R2_R3_PT.md) |
+| Recovery R3: SIGKILL on Motorola/Termux, verified manual transfer of the store, recovery on Windows | Executed; 15/15 checks passed within the defined experimental limits; figures independently re-verified | [EN](NEXUS_V2700_RECOVERY_R2_R3_EN.md#4-recovery-r3--cross-device-motorolatermux--windows) · [PT](NEXUS_V2700_RECOVERY_R2_R3_PT.md#4-recovery-r3--entre-dispositivos-motorolatermux--windows) |
+
 ### Validation tooling not wired into the runtime
 
 | Document | Purpose |
