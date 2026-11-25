@@ -93,8 +93,8 @@ progress`) and of both recovered tasks (`task interrupted by runtime restart`).
 The ledger shows each really executed task once.
 
 **Timing (lab-measured, n = 1):** store load → `health()` **0.57 ms**; process
-spawn → runtime ready **312 ms**; downtime between kill and restart 5.0 s (set
-by the harness).
+spawn → runtime ready **312 ms**; downtime between kill and restart 5.0 s set
+by the harness (5.013 s measured from kill to the new spawn).
 
 Evidence hashes: R2 report `2869b7c9…5f4d6f`; R2 manifest `dc543184…779908`
 (15/15 entries verified again for this document).
@@ -191,8 +191,9 @@ clock sampling, a 0.5 s receiver polling window and initialization.
 
 #### 4.7 Independent audit
 
-A separate read-only agent re-verified: the R3 manifest (27/27) and R2 manifest
-(15/15); the bundle → store → handoff hash chain; task states at origin and
+A separate read-only agent re-verified: the R3 manifest (26/26 at audit time;
+one post-run capture was added afterwards, and the current 27-entry manifest
+also verifies 27/27) and the R2 manifest (15/15); the bundle → store → handoff hash chain; task states at origin and
 destination; ledgers and PIDs; all timing figures (total 2.9509 s); the absence
 of tokens in every lab file; the nine bundle members; and that the repository
 was unchanged. Items 1–11 were confirmed. It also found four **documentation**

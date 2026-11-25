@@ -98,7 +98,8 @@ runtime restart`). O ledger mostra cada tarefa realmente executada uma única ve
 
 **Tempos (medidos no laboratório, n = 1):** carga do store → `health()`
 **0,57 ms**; spawn do processo → runtime pronto **312 ms**; intervalo entre a
-interrupção e o reinício de 5,0 s (definido pelo harness).
+interrupção e o reinício de 5,0 s definido pelo harness (5,013 s medidos da
+interrupção até o novo spawn).
 
 Hashes das evidências: relatório R2 `2869b7c9…5f4d6f`; manifesto R2
 `dc543184…779908` (15/15 entradas verificadas novamente para este documento).
@@ -200,7 +201,9 @@ receptor e a inicialização.
 #### 4.7 Auditoria independente
 
 Um agente separado, somente leitura, verificou novamente: o manifesto R3
-(27/27) e o manifesto R2 (15/15); a cadeia de hashes pacote → store → marcador
+(26/26 no momento da auditoria; depois foi acrescentada uma captura pós-execução,
+e o manifesto atual, com 27 entradas, também confere 27/27) e o manifesto R2
+(15/15); a cadeia de hashes pacote → store → marcador
 de entrega; os estados das tarefas na origem e no destino; ledgers e PIDs; todos
 os tempos (total 2,9509 s); a ausência dos tokens em todos os arquivos dos
 laboratórios; os nove membros do pacote; e que o repositório não foi alterado.
